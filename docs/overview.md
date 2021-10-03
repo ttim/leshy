@@ -4,7 +4,11 @@
 ## Simple
 - Orthogonal
 - Coherent
-	- Size isn't priority
+    - Size isn't priority
+- Don't over generialize, it's targeting only AMD64 & ARM64 (& maybe RISC-V) in reality
+  - So start from learning their assembly
+  - And esp how simple c code gets compiled to it
+
 ## Specializable
 ## Dynamic (-friendly)
 - Partial code reload
@@ -13,8 +17,59 @@
 # Concepts
 ## Stack machine
 ## Memory
-## Operators
-## Const bytes
+
+## Model
+- Heap addresses are 8 bytes, stack addresses are 4 bytes
+- Length when passed as address is 8 bytes
+- Little Endian
+- Negative numbers == Positive numbers by modulo of 2^N
+- 
+
+## Operands
+- Constants (`c`)
+  - `1`, `2`, `10`, `1_4`, `1_8`, `-1_8`, `1_8`
+- Addresses (`a`)
+  - Direct stack address
+    - `#0` - beginning of stack
+    - `#-4` - 4 bytes before the end of stack
+  - Indirect constant stack position
+    - `##0` - position in stack indicated by positions `[0, 4)` in stack
+    - `##-4` - position in stack indicated by positions `[end of stack - 4, end of stack)` in stack
+    - Bytes at indicated position should be constant
+  - Indirect non constant stack position
+    - `##[0, 4, 8]`, same as before for `##0` but there is no requirement on being constant
+    - But bytes at `[4..8)` and `[8..12)` should be constant and bytes at `##0` should be between them
+    - Means `##[address, low address, high address]`
+  - Constant heap address (don't expect to be used)
+    - `*0`
+  - Regular heap address
+    - `*` + stack address
+    - `*#0`, or `*##0`, or `*##[0, 4, 8]`
+
+## Operations
+- Stack operations
+  - TBD
+- Branch operations
+  - TBD
+- Call operations
+  - TBD
+- Constant operations
+  - TBD
+- Memory operations. If `length` passed as address it's treated as 8 (?) bytes
+  - `copy length_ac src_ac dst_a`
+  - `set bytes_ac length_ac dst_a`
+- Integer operations. `length_c` can be anything
+  - `sum length_c src1_ac src2_ac dst_a`
+  - `mult length_c src1_ac src2_ac dst_a`
+  - `xor length_c src1_ac src2_ac dst_a`
+  - `div length_c src1_ac src2_ac dst_a`
+  - `mod length_c src1_ac src2_ac dst_a`
+- Float operations. `length_c` can be either 4 or 8.
+  - `sum_f length_c src1_ac src2_ac dst_a`
+  - `mult_f length_c src1_ac src2_ac dst_a`
+
+# Constant evaluation rules
+- For most operations if all operands are constant result considered constant too
 
 # Example
 0, 1, ... - 32 bits numbers
@@ -76,6 +131,12 @@ def _fib_rec:
 - How do you implement generic function which adds something to the end of stack? If you have size manipulations only in `size 8` way then there is no way to put size being current size + something. Seems like there should be something like `extend 4` and `shrink 4` instead? Or maybe just `add #size #size 4`, don't think it's really needed tho
 - Makes me think we need relative addresses. I.e. #{size-4}. Seems useful, but also kinda duplicating in a way? But otherwise it's really hard do not create a thing for everything...
 - How do you model 32bit vs 64bit (or even vs 16bit?) architectures? What's pointer size?
+- How to implement variable number arguments functions in C?
+- Do we need to supply length constants in all arithmetic instructions? maybe better to have long and not long versions of them and that's it?
+  - It's simpler, esp given only 64bit platforms are targeted
+  - But it might be easier for SSE and similar instructions?
+  - Overall it does feel like not worth doing and having AVX etc instructions separately
+  - But also there are variants with other byte sizes in regular languages, so maybe it's better to make it customizable. At least to some extent?
 
 # Links
 - Risc-V intros
@@ -86,4 +147,3 @@ def _fib_rec:
 - Cwerg https://github.com/robertmuth/Cwerg
 - Mir https://github.com/vnmakarov/mir
 - Risc-V https://medium.com/swlh/risc-v-assembly-for-beginners-387c6cd02c49
-
