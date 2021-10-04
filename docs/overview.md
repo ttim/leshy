@@ -27,37 +27,46 @@
 
 ## Operands
 - Constants (`c`)
-  - `1`, `2`, `10`, `1_4`, `1_8`, `-1_8`, `1_8`
+  - Literals: `1`, `2`, `10`, `1_4`, `1_8`, `-1_8`, `1_8`
+  - On stack: `$0`, `$0_8`, `$-4`
+    - Can be repeated, i.e. `$$0` or `$$-4`
 - Addresses (`a`)
-  - Direct stack address
-    - `#0` - beginning of stack
-    - `#-4` - 4 bytes before the end of stack
-  - Indirect constant stack position
-    - `##0` - position in stack indicated by positions `[0, 4)` in stack
-    - `##-4` - position in stack indicated by positions `[end of stack - 4, end of stack)` in stack
-    - Bytes at indicated position should be constant
-  - Indirect non constant stack position
-    - `##[0, 4, 8]`, same as before for `##0` but there is no requirement on being constant
-    - But bytes at `[4..8)` and `[8..12)` should be constant and bytes at `##0` should be between them
-    - Means `##[address, low address, high address]`
-  - Constant heap address (don't expect to be used)
-    - `*0`
-  - Regular heap address
-    - `*` + stack address
-    - `*#0`, or `*##0`, or `*##[0, 4, 8]`
+  - Stack address
+    - Direct: `#constant`
+      - `#0` - beginning of stack
+      - `#-4` - 4 bytes before the end of stack
+      - `#$0` - position in stack indicated by positions `[0, 4)` in stack
+    - Indirect: `##[constant, constant, constant]`
+      - `##[stack address offset, low limit inclusive, high limit exclusive]`
+      - `##[0, $4, $8]`
+  - Heap address
+    - Direct: `*constant` (don't expect to be used)
+      - `*0` - beginning of heap
+    - Indirect: `*#[constant]`
+      - `*#[stack address offset]`
+      - `*#0`
 
 ## Operations
 - Stack operations
-  - TBD
+  - `extend length_c`
+  - `shrink length_c`
+  - `check_size length_c`
 - Branch operations
-  - TBD
+  - Modifier
+    - Equality: `eq`, `neq`
+    - Less: `l`, `l_u`
+    - More: `m`, `m_u`
+    - Less or equal: `le`, `le_u`
+    - More or equal: `me`, `me_u`
+  - Instruction
+    - `branch modifier_c length_c addr1_ac addr2_ac dest_name_c`
 - Call operations
-  - TBD
+  - `call offset_c dest_name_c`
 - Constant operations
   - TBD
 - Memory operations. If `length` passed as address it's treated as 8 (?) bytes
   - `copy length_ac src_ac dst_a`
-  - `set bytes_ac length_ac dst_a`
+  - `set length_ac bytes_ac dst_a`
 - Integer operations. `length_c` can be anything
   - `sum length_c src1_ac src2_ac dst_a`
   - `mult length_c src1_ac src2_ac dst_a`
@@ -137,6 +146,7 @@ def _fib_rec:
   - But it might be easier for SSE and similar instructions?
   - Overall it does feel like not worth doing and having AVX etc instructions separately
   - But also there are variants with other byte sizes in regular languages, so maybe it's better to make it customizable. At least to some extent?
+- Make all operations to work only against stack memory addresses? Apart from one which copies data from memory? Or it goes again of unified memory approach?
 
 # Links
 - Risc-V intros
