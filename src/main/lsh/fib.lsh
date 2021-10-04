@@ -1,18 +1,20 @@
 def fib
-  {I don't like this approach with call_eql & call_more, would be better to have condition stored somewhere}
-  call_eql {size} 4 {src} #0 {compare to} 1 {call} _fib_ret_1 {with offset} 0
-  call_more {size} 4 {src} #0 {compare to} 1 {call} _fib_rec {with offset} 0
+  check_size 4 ;input
+  branch eq 4 #0 1 _fib_ret_1
+  branch neq 4 #0 1 _fib_rec
+  check_size 4 ;output
 
 def _fib_ret_1
-  set {size} 4 {dst offset} 0 {value} 1
-  size 4
+  copy 4 1 #0
 
 def _fib_rec
-  size 8
-  add {size} 4 {dst offset} 4 {operand 1} #0 {operand 2} -1
-  call fib {with offset} 4
-  size 12
-  add {size} 4 {dst offset} 8 {operand 1} #0 {operand 2} -2
-  call fib {with offset} 8
-  add {size} 4 {dst offset} 0 {operand 1} #4 {operand 2} #8
-  size 4
+  extend 4
+  add 8 #0 -1 #4
+  call 4 fib
+
+  extend 4
+  add 8 #0 -2 #8
+  call 8 fib
+
+  add 8 #4 #8 #0
+  shrink 8
