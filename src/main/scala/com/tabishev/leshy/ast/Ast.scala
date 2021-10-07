@@ -24,6 +24,9 @@ enum Operation {
   case Extend(length: Const)
   case Shrink(length: Const)
   case CheckSize(length: Const)
+  // appends 4 constant bytes at the end equal to current length
+  case AppendSize()
+  case Append(bytes: Const)
 
   // Branch operations
   case Branch(modifier: Const, length: Const, op1: Const | Address, op2: Const | Address, target: Const)
@@ -43,4 +46,13 @@ enum Operation {
 
   // Float arithmetic operations, length can be either 4 or 8
   case SumF(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
+
+  // "Syscalls" operations
+  // If `length` passed as address it's treated as 8 (?) bytes
+  case Print(length: Const | Address, src: Const | Address)
+  // TODO: Should be reimplemented in stdlib through Convertion & Print
+  // Good exercise
+  case PrintInt(length: Const, src: Address)
 }
+
+case class Subroutine(name: String, ops: Seq[Operation])
