@@ -1,3 +1,8 @@
+def main
+  append 10
+  call 0 fib
+  print_int 4 #0
+
 def fib
   check_size 4 ;input
   branch eq 4 #0 1 _fib_ret_1
