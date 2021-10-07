@@ -30,6 +30,7 @@
   - Literals: `1`, `2`, `10`, `1_4`, `1_8`, `-1_8`, `1_8`
   - On stack: `$0`, `$0_8`, `$-4`
     - Can be repeated, i.e. `$$0` or `$$-4`
+    - Default size is 4
 - Addresses (`a`)
   - Stack address
     - Direct: `#constant`
