@@ -7,15 +7,19 @@ enum Const {
 
 enum Address {
   // Address in stack corresponding to `address`
+  // #const
   case DirectStack(address: Const)
 
   // Address in stack corresponding to 4 bytes in stack starting from `stackOffset`, must be between `low` and `high`
+  // ##[const, const, const]
   case IndirectStack(stackOffset: Const, low: Const, high: Const)
 
   // Address in heap corresponding to `address`
+  // *const
   case DirectHeap(address: Const)
 
   // Address in heap corresponding to 8 bytes in stack starting from `stackOffset`
+  // *#const
   case IndirectHeap(stackOffset: Const)
 }
 
@@ -42,10 +46,10 @@ enum Operation {
   case Set(length: Const | Address, bytes: Const | Address, dst: Address)
 
   // Integer arithmetic operations
-  case Sum(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
+  case Add(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
 
   // Float arithmetic operations, length can be either 4 or 8
-  case SumF(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
+  case AddF(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
 
   // "Syscalls" operations
   // If `length` passed as address it's treated as 8 (?) bytes
