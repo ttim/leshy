@@ -54,7 +54,7 @@
   - `check_size length_c`
 - Branch operations
   - Modifier
-    - Equality: `eq`, `neq`
+    - Equality: `eq`, `ne`
     - Less: `l`, `l_u`
     - More: `m`, `m_u`
     - Less or equal: `le`, `le_u`

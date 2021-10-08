@@ -1,12 +1,13 @@
 def main
+  ; create `fib length` version which passes length as constant
   append 10
   call 0 'fib'
   print_int 4 #0
 
 def fib
   check_size 4 ;input
-  branch 'eq' 4 #0 1 '_fib_ret_1'
-  branch 'neq' 4 #0 1 '_fib_rec'
+  branch 'le' 4 #0 1 '_fib_ret_1'
+  branch 'm' 4 #0 1 '_fib_rec'
   check_size 4 ;output
 
 def _fib_ret_1
@@ -14,12 +15,12 @@ def _fib_ret_1
 
 def _fib_rec
   extend 4
-  add 8 #0 -1 #4
+  add 4 #0 -1 #4
   call 4 'fib'
 
   extend 4
-  add 8 #0 -2 #8
+  add 4 #0 -2 #8
   call 8 'fib'
 
-  add 8 #4 #8 #0
+  add 4 #4 #8 #0
   shrink 8
