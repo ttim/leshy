@@ -27,17 +27,17 @@ private class InterpreterSession(loader: RoutineLoader) {
   }
 
   private def run(op: Operation): Unit = op match {
-    case Operation.Extend(length) => state.extend(evalConstAsInt(length))
-    case Operation.Shrink(length) => state.shrink(evalConstAsInt(length))
-    case Operation.Append(bytes) => state.append(evalConst(bytes))
+    case Operation.Extend(length) => state.stack.extend(evalConstAsInt(length))
+    case Operation.Shrink(length) => state.stack.shrink(evalConstAsInt(length))
+    case Operation.Append(bytes) => state.stack.append(evalConst(bytes))
     case Operation.Call(offsetConst, targetConst) => {
       val offsetChange = evalConstAsInt(offsetConst)
       val target = evalConst(targetConst)
-      state.advance(offsetChange)
+      state.stack.advance(offsetChange)
       run(new String(target))
-      state.retreat(offsetChange)
+      state.stack.retreat(offsetChange)
     }
-    case Operation.CheckSize(length) => state.checkSize(evalConstAsInt(length))
+    case Operation.CheckSize(length) => state.stack.checkSize(evalConstAsInt(length))
     case Operation.Branch(modifier, length, op1, op2, target) => {
       val lengthE = evalConstAsInt(length)
       val op1E = evalConstOrAddress(lengthE, op1)
