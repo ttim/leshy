@@ -46,8 +46,8 @@ private class InterpreterSession(loader: RoutineLoader) {
       val flag = modifierE match {
         case "eq" => util.Arrays.equals(op1E, op2E)
         case "neq" => !util.Arrays.equals(op1E, op2E)
-        case "le" => InterpreterUtils.arraysLessOrEqual(op1E, op2E)
-        case "m" => !InterpreterUtils.arraysLessOrEqual(op1E, op2E)
+        case "le" => InterpreterUtils.arraysLess(op1E, op2E, orEqual = true)
+        case "m" => !InterpreterUtils.arraysLess(op1E, op2E, orEqual = true)
         case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
       }
       if (flag) run(new String(evalConst(target)))
