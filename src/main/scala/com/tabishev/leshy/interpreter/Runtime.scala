@@ -1,8 +1,10 @@
 package com.tabishev.leshy.interpreter
 
-import java.nio.ByteBuffer
+import java.nio.{ByteBuffer, ByteOrder}
 
 class MemoryRef(val buffer: ByteBuffer, val index: Int) {
+  buffer.order(ByteOrder.LITTLE_ENDIAN)
+
   def putInt(value: Int): Unit = buffer.putInt(index, value)
   def putLong(value: Long): Unit = buffer.putLong(index, value)
   def put(value: Array[Byte]): Unit = buffer.put(index, value)
