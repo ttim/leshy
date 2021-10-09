@@ -57,20 +57,45 @@ object TextParser {
     noComment.trim
   }
 
-  private def parseConst(arg: String): Const = {
-    if (arg.toIntOption.isDefined) {
+  private def parseConst(arg: String): Const =
+    parseConstInt(arg)
+      .orElse(parseConstIntWithLength(arg))
+      .orElse(parseConstString(arg))
+      .getOrElse(throw new IllegalArgumentException(s"can't parse const '$arg'"))
+
+  private def parseConstInt(arg: String): Option[Const] =
+    arg.toIntOption.map { value =>
       val buffer = Array.fill[Byte](4)(0)
       val bb = ByteBuffer.wrap(buffer)
       bb.order(ByteOrder.LITTLE_ENDIAN)
-      bb.putInt(arg.toInt)
-      return Const.Literal(buffer)
+      bb.putInt(value)
+      Const.Literal(buffer)
     }
+
+  private def parseConstIntWithLength(arg: String): Option[Const] = {
+    val es = arg.split("_")
+    if (es.length == 2) {
+      es(0).toLongOption.flatMap { value =>
+        es(1).toIntOption.map { length =>
+          assert(length <= 8)
+          val buffer = Array.fill[Byte](8)(0)
+          val bb = ByteBuffer.wrap(buffer)
+          bb.order(ByteOrder.LITTLE_ENDIAN)
+          bb.putLong(value)
+          val bytes = Array.fill[Byte](length)(0)
+          System.arraycopy(buffer, 0, bytes, 0, length)
+          Const.Literal(bytes)
+        }
+      }
+    } else None
+  }
+
+  private def parseConstString(arg: String): Option[Const] =
     if (arg.startsWith("'") && arg.endsWith("'")) {
       // todo: remove this after I cover other cases
-      return Const.Literal(new String(arg.substring(1, arg.length - 1)).getBytes(Charset.forName("UTF-8")))
-    }
-    throw new IllegalArgumentException(s"can't parse const '$arg'")
-  }
+      val bytes = new String(arg.substring(1, arg.length - 1)).getBytes(Charset.forName("UTF-8"))
+      Some(Const.Literal(bytes))
+    } else None
 
   private def parseAddress(arg: String): Address =
     if (arg.startsWith("*#")) {
