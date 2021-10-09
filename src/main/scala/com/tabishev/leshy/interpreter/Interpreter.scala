@@ -101,20 +101,14 @@ private class InterpreterSession(loader: RoutineLoader) {
   private def evalAddressAsLong(address: Address): Long =
     ByteBuffer.wrap(evalAddress(8, address)).getLong
 
-  private def putInt(address: Address, value: Int): Unit = address match {
-    case Address.DirectStack(address) => state.putStackInt(evalConstAsInt(address), value)
+  private def resolveAddress(address: Address): MemoryRef = address match {
+    case Address.DirectStack(address) => state.stack.getRef(evalConstAsInt(address))
     case _ => throw new IllegalArgumentException(s"unsupported put int address: $address")
   }
 
-  private def putLong(address: Address, value: Long): Unit = address match {
-    case Address.DirectStack(address) => state.putStackLong(evalConstAsInt(address), value)
-    case _ => throw new IllegalArgumentException(s"unsupported put int address: $address")
-  }
-
-  private def put(address: Address, value: Array[Byte]): Unit = address match {
-    case Address.DirectStack(address) => state.putStack(evalConstAsInt(address), value)
-    case _ => throw new IllegalArgumentException(s"unsupported put int address: $address")
-  }
+  private def putInt(address: Address, value: Int): Unit = resolveAddress(address).putInt(value)
+  private def putLong(address: Address, value: Long): Unit = resolveAddress(address).putLong(value)
+  private def put(address: Address, value: Array[Byte]): Unit = resolveAddress(address).put(value)
 
   private def evalConst(const: Const): Array[Byte] = const match {
     case Const.Literal(bytes) => bytes
