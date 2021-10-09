@@ -64,8 +64,8 @@ private class InterpreterSession(loader: RoutineLoader) {
     }
     case Operation.Copy(length, src, dst) => {
       // todo: should be getLong
-      val lengthE = constOrAddressRef(length, 4).getInt()
-      Runtime.copy(lengthE, constOrAddressRef(src, lengthE), constOrAddressRef(dst, lengthE))
+      val lengthE = constOrAddressRef(length, 8).getLong()
+      Runtime.copy(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
     }
     case _ =>
       throw new IllegalArgumentException(s"unsupported operation '$op''")

@@ -2,7 +2,7 @@ package com.tabishev.leshy.parser
 
 import com.tabishev.leshy.ast.{Address, Const, Operation, Subroutine}
 
-import java.nio.ByteBuffer
+import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.charset.Charset
 
 object TextParser {
@@ -60,7 +60,9 @@ object TextParser {
   private def parseConst(arg: String): Const = {
     if (arg.toIntOption.isDefined) {
       val buffer = Array.fill[Byte](4)(0)
-      ByteBuffer.wrap(buffer).putInt(arg.toInt)
+      val bb = ByteBuffer.wrap(buffer)
+      bb.order(ByteOrder.LITTLE_ENDIAN)
+      bb.putInt(arg.toInt)
       return Const.Literal(buffer)
     }
     if (arg.startsWith("'") && arg.endsWith("'")) {
