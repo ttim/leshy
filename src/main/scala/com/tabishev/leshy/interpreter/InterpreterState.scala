@@ -2,12 +2,6 @@ package com.tabishev.leshy.interpreter
 
 import java.nio.ByteBuffer
 
-class MemoryRef(buffer: ByteBuffer, index: Int) {
-  def putInt(value: Int): Unit = buffer.putInt(index, value)
-  def putLong(value: Long): Unit = buffer.putLong(index, value)
-  def put(value: Array[Byte]): Unit = buffer.put(index, value)
-}
-
 // don't use byte buffers, and all these asInt etc. Just treat everything as byte arrays for real
 // create BytesRef type which is reference, and expose stackRef, heapRef, literalRef
 class InterpreterState {

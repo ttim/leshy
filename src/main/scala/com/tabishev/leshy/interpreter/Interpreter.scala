@@ -27,109 +27,73 @@ private class InterpreterSession(loader: RoutineLoader) {
   }
 
   private def run(op: Operation): Unit = op match {
-    case Operation.Extend(length) => state.stack.extend(evalConstAsInt(length))
-    case Operation.Shrink(length) => state.stack.shrink(evalConstAsInt(length))
-    case Operation.Append(bytes) => state.stack.append(evalConst(bytes))
+    case Operation.Extend(length) =>
+      state.stack.extend(constRef(length, 4).getInt())
+    case Operation.Shrink(length) =>
+      state.stack.shrink(constRef(length, 4).getInt())
+    case Operation.Append(bytes) =>
+      state.stack.append(evalConst(bytes))
     case Operation.Call(offsetConst, targetConst) => {
-      val offsetChange = evalConstAsInt(offsetConst)
+      val offsetChange = constRef(offsetConst, 4).getInt()
       val target = evalConst(targetConst)
       state.stack.advance(offsetChange)
       run(new String(target))
       state.stack.retreat(offsetChange)
     }
-    case Operation.CheckSize(length) => state.stack.checkSize(evalConstAsInt(length))
+    case Operation.CheckSize(length) =>
+      state.stack.checkSize(constRef(length, 4).getInt())
     case Operation.Branch(modifier, length, op1, op2, target) => {
-      val lengthE = evalConstAsInt(length)
-      val op1E = evalConstOrAddress(lengthE, op1)
-      val op2E = evalConstOrAddress(lengthE, op2)
+      val lengthE = constRef(length, 4).getInt()
       val modifierE = new String(evalConst(modifier))
+      val op1Ref = constOrAddressRef(op1, lengthE)
+      val op2Ref = constOrAddressRef(op2, lengthE)
       val flag = modifierE match {
-        case "eq" => util.Arrays.equals(op1E, op2E)
-        case "neq" => !util.Arrays.equals(op1E, op2E)
-        case "le" => InterpreterUtils.arraysLess(op1E, op2E, orEqual = true)
-        case "m" => !InterpreterUtils.arraysLess(op1E, op2E, orEqual = true)
+        case "eq" => Runtime.equals(op1Ref, op2Ref)
+        case "neq" => !Runtime.equals(op1Ref, op2Ref)
+        case "le" => Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
+        case "m" => !Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
         case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
       }
       if (flag) run(new String(evalConst(target)))
     }
-    case Operation.PrintInt(length, src) => {
-      evalConstAsInt(length) match {
-        case 4 => println(evalAddressAsInt(src))
-        case 8 => println(evalAddressAsLong(src))
-        case other => throw new IllegalArgumentException(s"unsupported int width for printing: $other")
-      }
-    }
+    case Operation.PrintInt(length, src) =>
+      Runtime.printInt(constRef(length, 4).getInt(), addressRef(src))
     case Operation.Add(length, op1, op2, dst) => {
-      evalConstAsInt(length) match {
-        case 4 => putInt(dst, evalConstOrAddressAsInt(op1) + evalConstOrAddressAsInt(op2))
-        case 8 => putLong(dst, evalConstOrAddressAsLong(op1) + evalConstOrAddressAsLong(op2))
-        case other => throw new IllegalArgumentException(s"unsupported add length '$other'")
-      }
+      val lengthE = constRef(length, 4).getInt()
+      Runtime.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
     }
     case Operation.Copy(length, src, dst) => {
-      // todo: to int seems wrong
-      val lengthE = evalConstOrAddressAsLong(length).toInt
-      val bytes = evalConstOrAddress(lengthE, src)
-      put(dst, bytes)
+      // todo: should be getLong
+      val lengthE = constOrAddressRef(length, 4).getInt()
+      Runtime.copy(lengthE, constOrAddressRef(src, lengthE), constOrAddressRef(dst, lengthE))
     }
-    case _ => throw new IllegalArgumentException(s"unsupported operation '$op''")
+    case _ =>
+      throw new IllegalArgumentException(s"unsupported operation '$op''")
   }
 
-  private def evalConstOrAddress(length: Int, constOrAddress: Const | Address): Array[Byte] = constOrAddress match {
-    case const: Const => evalConst(const)
-    case address: Address => evalAddress(length, address)
+  // refs
+  private def constOrAddressRef(constOrAddress: Const | Address, constExpectedLength: Int): MemoryRef = constOrAddress match {
+    case const: Const => constRef(const, constExpectedLength)
+    case address: Address => addressRef(address)
   }
 
-  private def evalConstOrAddressAsInt(constOrAddress: Const | Address): Int = constOrAddress match {
-    case const: Const => evalConstAsInt(const)
-    case address: Address => evalAddressAsInt(address)
+  private def addressRef(address: Address): MemoryRef = address match {
+    case Address.DirectStack(address) => state.stack.getRef(constRef(address, 4).getInt())
+    case _ => throw new UnsupportedOperationException(s"unsupported address: $address")
   }
 
-  private def evalConstOrAddressAsLong(constOrAddress: Const | Address): Long = constOrAddress match {
-    case const: Const => evalConstAsLong(const)
-    case address: Address => evalAddressAsLong(address)
-  }
-
-  private def evalAddress(length: Int, address: Address): Array[Byte] = address match {
-    case Address.DirectStack(address) => state.getStack(length, evalConstAsInt(address))
-    case _ => throw new IllegalArgumentException(s"unsupported address: $address")
-  }
-
-  private def evalAddressAsInt(address: Address): Int =
-    ByteBuffer.wrap(evalAddress(4, address)).getInt
-
-  private def evalAddressAsLong(address: Address): Long =
-    ByteBuffer.wrap(evalAddress(8, address)).getLong
-
-  private def resolveAddress(address: Address): MemoryRef = address match {
-    case Address.DirectStack(address) => state.stack.getRef(evalConstAsInt(address))
-    case _ => throw new IllegalArgumentException(s"unsupported put int address: $address")
-  }
-
-  private def putInt(address: Address, value: Int): Unit = resolveAddress(address).putInt(value)
-  private def putLong(address: Address, value: Long): Unit = resolveAddress(address).putLong(value)
-  private def put(address: Address, value: Array[Byte]): Unit = resolveAddress(address).put(value)
-
+  // const evaluation
   private def evalConst(const: Const): Array[Byte] = const match {
     case Const.Literal(bytes) => bytes
     case Const.Stack(from, length) => ???
   }
 
-  private def evalConstAsInt(const: Const): Int = {
-    val bytes = evalConst(const)
-    assert(bytes.length == 4)
-    ByteBuffer.wrap(bytes).getInt
-  }
-
-  private def evalConstAsLong(const: Const): Long = {
-    val bytes = evalConst(const)
-    if (bytes.length == 8) {
-      ByteBuffer.wrap(bytes).getLong
-    } else if (bytes.length < 8) {
-      val toConvert = Array.fill[Byte](8)(0)
-      System.arraycopy(bytes, 0, toConvert, 0, bytes.length)
-      // todo: not correct I think when < 0?
-      ByteBuffer.wrap(toConvert).getLong
-    } else throw new IllegalArgumentException("const has more than 8 bytes")
-  }
+  private def constRef(const: Const, expectedLength: Int): MemoryRef =
+    new MemoryRef(ByteBuffer.wrap(expandedBytes(evalConst(const), expectedLength)), 0)
+  private def expandedBytes(bytes: Array[Byte], expectedLength: Int): Array[Byte] =
+    if (bytes.length == expectedLength) bytes else {
+      val result = Array.fill[Byte](expectedLength)(0)
+      System.arraycopy(bytes, 0, result, 0, bytes.length)
+      result
+    }
 }
