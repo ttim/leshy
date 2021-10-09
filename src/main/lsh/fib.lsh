@@ -1,26 +1,54 @@
 def main
-  ; create `fib length` version which passes length as constant
-  append 10
-  call 0 'fib'
-  print_int 4 #0
+  ; create `fibx length` version which passes length as constant
+  append 30
+  call 0 'fib8'
+  print_int 8 #0
+  shrink 8
 
-def fib
+  append 30
+  call 0 'fib4'
+  print_int 4 #0
+  shrink 4
+
+def fib4
   check_size 4 ;input
-  branch 'le' 4 #0 1 '_fib_ret_1'
-  branch 'm' 4 #0 1 '_fib_rec'
+  branch 'le' 4 #0 1 '_fib4_ret_1'
+  branch 'm' 4 #0 1 '_fib4_rec'
   check_size 4 ;output
 
-def _fib_ret_1
+def _fib4_ret_1
   copy 4 1 #0
 
-def _fib_rec
+def _fib4_rec
   extend 4
   add 4 #0 -1 #4
-  call 4 'fib'
+  call 4 'fib4'
 
   extend 4
   add 4 #0 -2 #8
-  call 8 'fib'
+  call 8 'fib4'
 
   add 4 #4 #8 #0
   shrink 8
+
+def fib8
+  check_size 4 ;input
+  branch 'le' 4 #0 1 '_fib8_ret_1'
+  branch 'm' 4 #0 1 '_fib8_rec'
+  check_size 8 ;output
+
+def _fib8_ret_1
+  extend 4
+  copy 8 1 #0
+
+def _fib8_rec
+  extend 4
+  add 4 #0 -1 #4
+  call 4 'fib8'
+
+  extend 4
+  add 4 #0 -2 #12
+  call 12 'fib8'
+
+  add 8 #4 #12 #0
+  shrink 12

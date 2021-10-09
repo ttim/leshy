@@ -2,8 +2,6 @@ package com.tabishev.leshy.interpreter
 
 import java.nio.ByteBuffer
 
-// don't use byte buffers, and all these asInt etc. Just treat everything as byte arrays for real
-// create BytesRef type which is reference, and expose stackRef, heapRef, literalRef
 class InterpreterState {
   val stack = new StackMemory()
 
@@ -43,7 +41,7 @@ class StackMemory {
     System.arraycopy(bytes, 0, stack, size - bytes.length, bytes.length)
   }
 
-  def checkSize(size: Int): Unit = size == this.size - this.offset
+  def checkSize(size: Int): Unit = assert(size == this.size - this.offset)
 
   def advance(offset: Int): Unit = this.offset += offset
   def retreat(offset: Int): Unit = this.offset -= offset
