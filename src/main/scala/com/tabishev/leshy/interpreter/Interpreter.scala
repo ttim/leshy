@@ -36,9 +36,12 @@ private class InterpreterSession(loader: RoutineLoader) {
     case Operation.Call(offsetConst, targetConst) => {
       val offsetChange = constRef(offsetConst, 4).getInt()
       val target = evalConst(targetConst)
-      state.stack.advance(offsetChange)
+
+      val prevOffset = state.stack.offset
+      val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
+      state.stack.offset(newOffset)
       run(new String(target))
-      state.stack.retreat(offsetChange)
+      state.stack.offset(prevOffset)
     }
     case Operation.CheckSize(length) =>
       state.stack.checkSize(constRef(length, 4).getInt())
