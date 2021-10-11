@@ -48,6 +48,10 @@
       - `*#0`
 
 ## Operations
+All operations split into 2 categories:
+- no `_d` for ones which access const length of bytes from memory, and 
+- with `_d` access variable amount of bytes, this ones usually don't accept stack addresses, only native ones
+
 - Stack operations
   - `extend length_c`
   - `shrink length_c`
@@ -66,8 +70,10 @@
 - Constant operations
   - TBD
 - Memory operations. If `length` passed as address it's treated as 8 (?) bytes
-  - `copy length_ac src_ac dst_a`
-  - `set length_ac bytes_ac dst_a`
+  - `copy length_c src_ac dst_a`
+  - `set length_c bytes_ac dst_a`
+  - `copy_d length_a src_ac dst_a`, for `src_ac` and `dst_a` only native addresses are permitted
+  - `set_d length_a bytes_ac dst_a`, for `src_ac` and `dst_a` only native addresses are permitted
 - Integer operations. `length_c` can be anything
   - `sum length_c src1_ac src2_ac dst_a`
   - `mult length_c src1_ac src2_ac dst_a`
