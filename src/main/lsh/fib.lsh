@@ -1,14 +1,13 @@
 def main
-  ; create `fibx length` version which passes length as constant
-  append 30
-  call 0 'fib8'
-  print_int 8 #0
-  shrink 8
-
   append 30
   call 0 'fib4'
   print_int 4 #0
   shrink 4
+
+  append 30
+  call 0 'fib8'
+  print_int 8 #0
+  shrink 8
 
 def fib4
   check_size 4 ;input
@@ -21,12 +20,12 @@ def _fib4_ret_1
 
 def _fib4_rec
   extend 4
-  add 4 #0 -1 #4
-  call 4 'fib4'
+  add 4 #0 -1 #-4
+  call -4 'fib4'
 
   extend 4
-  add 4 #0 -2 #8
-  call 8 'fib4'
+  add 4 #0 -2 #-4
+  call -4 'fib4'
 
   add 4 #4 #8 #0
   shrink 8
@@ -43,12 +42,12 @@ def _fib8_ret_1
 
 def _fib8_rec
   extend 4
-  add 4 #0 -1 #4
-  call 4 'fib8'
+  add 4 #0 -1 #-4
+  call -4 'fib8'
 
   extend 4
-  add 4 #0 -2 #12
-  call 12 'fib8'
+  add 4 #0 -2 #-4
+  call -4 'fib8'
 
   add 8 #4 #12 #0
   shrink 12

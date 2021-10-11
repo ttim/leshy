@@ -15,10 +15,17 @@ class InterpreterState {
 class StackMemory {
   var stack: Array[Byte] = Array.fill(10)(0)
   var mirror: ByteBuffer = ByteBuffer.wrap(stack)
-  private var size: Int = 0
+  var size: Int = 0
   var offset: Int = 0
 
-  def getRef(index: Int): MemoryRef = new MemoryRef(mirror, offset + index)
+  def getRef(index: Int): MemoryRef =
+    if (index >= 0) {
+      assert(index < (size - offset))
+      new MemoryRef(mirror, offset + index)
+    } else {
+      assert((-index) < (size - offset))
+      new MemoryRef(mirror, size + index)
+    }
 
   def extend(extendSize: Int): Unit = {
     if (size + extendSize <= stack.length) size += extendSize else {
@@ -43,6 +50,8 @@ class StackMemory {
 
   def checkSize(size: Int): Unit = assert(size == this.size - this.offset)
 
-  def advance(offset: Int): Unit = this.offset += offset
-  def retreat(offset: Int): Unit = this.offset -= offset
+  def offset(newOffset: Int): Unit = {
+    assert(offset >= 0)
+    this.offset = newOffset
+  }
 }
