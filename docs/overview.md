@@ -50,6 +50,8 @@
   - `extend length_c`
   - `shrink length_c`
   - `check_size length_c`
+  - `native_address id_c from_offset_c length_c dst_a`
+  - `release_native_address id_c`
 - Branch operations
   - Modifier
     - Equality: `eq`, `ne`
