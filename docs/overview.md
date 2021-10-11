@@ -19,7 +19,7 @@
 ## Memory
 
 ## Model
-- Heap addresses are 8 bytes, stack addresses are 4 bytes
+- Native addresses are 8 bytes, stack addresses are 4 bytes
 - Length when passed as address is 8 bytes
 - Little Endian
 - Negative numbers == Positive numbers by modulo of 2^N
@@ -40,12 +40,9 @@
     - Indirect: `##[constant, constant, constant]`
       - `##[stack address offset, low limit inclusive, high limit exclusive]`
       - `##[0, $4, $8]`
-  - Heap address
-    - Direct: `*constant` (don't expect to be used)
-      - `*0` - beginning of heap
-    - Indirect: `*#[constant]`
-      - `*#[stack address offset]`
-      - `*#0`
+  - Native address
+    - `*constant`, where constant represents stack address offset
+      - `*0` - native address represented by first 8 bytes on stack
 
 ## Operations
 All operations split into 2 categories:

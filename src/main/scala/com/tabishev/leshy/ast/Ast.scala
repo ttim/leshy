@@ -14,13 +14,9 @@ enum Address {
   // ##[const, const, const]
   case IndirectStack(stackOffset: Const, low: Const, high: Const)
 
-  // Address in heap corresponding to `address`
+  // Address in native memory corresponding to 8 bytes in stack starting from `stackOffset`
   // *const
-  case DirectHeap(address: Const)
-
-  // Address in heap corresponding to 8 bytes in stack starting from `stackOffset`
-  // *#const
-  case IndirectHeap(stackOffset: Const)
+  case Native(stackOffset: Const)
 }
 
 enum Operation {
