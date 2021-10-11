@@ -33,22 +33,19 @@
     - Default size is 4
 - Addresses (`a`)
   - Stack address
-    - Direct: `#constant`
-      - `#0` - beginning of stack
-      - `#-4` - 4 bytes before the end of stack
-      - `#$0` - position in stack indicated by positions `[0, 4)` in stack
-    - Indirect: `##[constant, constant, constant]`
-      - `##[stack address offset, low limit inclusive, high limit exclusive]`
-      - `##[0, $4, $8]`
+    - Always limited, so it's easy to analyse when and how stack memory can be offloaded to registers
+    - Simple: `#[constant, constant]`, meaning `#[base, length]`
+      - `#[0, 8]` - beginning of stack, only 8 bytes are reachable after
+      - `#[-4, 4]` - 4 bytes before the end of stack, only 4 bytes are reachable after
+      - `#[$0, 4]` - position in stack indicated by positions `[0, 4)` in stack
+    - With offset: `#[constant, constant, constant]`, meaning `#[base ,length, offset address]`
+      - `#[$0, $4, 8]`
+    - Inferred: `#constant` means same as `#[constant, length]`, where length inferred from context 
   - Native address
     - `*constant`, where constant represents stack address offset
       - `*0` - native address represented by first 8 bytes on stack
 
 ## Operations
-All operations split into 2 categories:
-- no `_d` for ones which access const length of bytes from memory, and 
-- with `_d` access variable amount of bytes, this ones usually don't accept stack addresses, only native ones
-
 - Stack operations
   - `extend length_c`
   - `shrink length_c`
@@ -67,10 +64,8 @@ All operations split into 2 categories:
 - Constant operations
   - TBD
 - Memory operations. If `length` passed as address it's treated as 8 (?) bytes
-  - `copy length_c src_ac dst_a`
-  - `set length_c bytes_ac dst_a`
-  - `copy_d length_a src_ac dst_a`, for `src_ac` and `dst_a` only native addresses are permitted
-  - `set_d length_a bytes_ac dst_a`, for `src_ac` and `dst_a` only native addresses are permitted
+  - `copy length_ac src_ac dst_a`
+  - `set length_ac bytes_ac dst_a`
 - Integer operations. `length_c` can be anything
   - `sum length_c src1_ac src2_ac dst_a`
   - `mult length_c src1_ac src2_ac dst_a`

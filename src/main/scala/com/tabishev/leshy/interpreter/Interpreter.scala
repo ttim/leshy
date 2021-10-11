@@ -78,7 +78,10 @@ private class InterpreterSession(loader: RoutineLoader) {
   }
 
   private def addressRef(address: Address): MemoryRef = address match {
-    case Address.DirectStack(address) => state.stack.getRef(constRef(address, 4).getInt())
+    case Address.Stack(address, limit) => {
+      // todo: do not ignore limit
+      state.stack.getRef(constRef(address, 4).getInt())
+    }
     case _ => throw new UnsupportedOperationException(s"unsupported address: $address")
   }
 
