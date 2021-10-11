@@ -27,24 +27,27 @@ object TextParser {
         Some(Operation.Append(parseConst(bytes)))
 
       // branch
-      case Seq("branch", modifier, length, op1, op2, dest) =>
-        Some(Operation.Branch(parseConst(modifier), parseConst(length), parseConstOrAddress(op1), parseConstOrAddress(op2), parseConst(dest)))
+      case Seq("branch", modifier, lengthS, op1, op2, dest) =>
+        val length = parseConst(lengthS)
+        Some(Operation.Branch(parseConst(modifier), length, parseConstOrAddress(op1, Some(length)), parseConstOrAddress(op2, Some(length)), parseConst(dest)))
 
       // call
       case Seq("call", offset, target) =>
         Some(Operation.Call(parseConst(offset), parseConst(target)))
 
       // memory
-      case Seq("copy", length, src, dst) =>
-        Some(Operation.Copy(parseConst(length), parseConstOrAddress(src), parseAddress(dst)))
+      case Seq("copy", lengthS, src, dst) =>
+        val length = parseConst(lengthS)
+        Some(Operation.Copy(length, parseConstOrAddress(src, Some(length)), parseAddress(dst, Some(length))))
 
       // arithmetic
-      case Seq("add", length, op1, op2, dst) =>
-        Some(Operation.Add(parseConst(length), parseConstOrAddress(op1), parseConstOrAddress(op2), parseAddress(dst)))
+      case Seq("add", lengthS, op1, op2, dst) =>
+        val length = parseConst(lengthS)
+        Some(Operation.Add(length, parseConstOrAddress(op1, Some(length)), parseConstOrAddress(op2, Some(length)), parseAddress(dst, Some(length))))
 
       // "syscalls"
       case Seq("print_int", length, src) =>
-        Some(Operation.PrintInt(parseConst(length), parseAddress(src)))
+        Some(Operation.PrintInt(parseConst(length), parseAddress(src, Some(parseConst(length)))))
 
       case Seq("") =>
         None
@@ -97,19 +100,15 @@ object TextParser {
       Some(Const.Literal(bytes))
     } else None
 
-  private def parseAddress(arg: String): Address =
-    if (arg.startsWith("*#")) {
-      Address.IndirectHeap(parseConst(arg.substring(2)))
-    } else if (arg.startsWith("*")) {
-      Address.DirectHeap(parseConst(arg.substring(1)))
-    } else if (arg.startsWith("##")) {
-      ???
+  private def parseAddress(arg: String, inferredLimit: Option[Const]): Address =
+    if (arg.startsWith("*")) {
+      Address.Native(parseConst(arg.substring(1)))
     } else if (arg.startsWith("#")) {
-      Address.DirectStack(parseConst(arg.substring(1)))
+      Address.Stack(parseConst(arg.substring(1)), inferredLimit.get)
     } else {
       throw new IllegalArgumentException(s"can't parse address '$arg'")
     }
 
-  private def parseConstOrAddress(arg: String): Const | Address =
-    if (arg.startsWith("*") || arg.startsWith("#")) parseAddress(arg) else parseConst(arg)
+  private def parseConstOrAddress(arg: String, inferredLimit: Option[Const]): Const | Address =
+    if (arg.startsWith("*") || arg.startsWith("#")) parseAddress(arg, inferredLimit) else parseConst(arg)
 }

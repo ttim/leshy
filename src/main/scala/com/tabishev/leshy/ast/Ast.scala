@@ -7,12 +7,15 @@ enum Const {
 
 enum Address {
   // Address in stack corresponding to `address`
-  // #const
-  case DirectStack(address: Const)
+  // #[const, const]
+  // #const is syntatic sugar in which limit is being inferred from the context
+  case Stack(address: Const, limit: Const)
 
-  // Address in stack corresponding to 4 bytes in stack starting from `stackOffset`, must be between `low` and `high`
-  // ##[const, const, const]
-  case IndirectStack(stackOffset: Const, low: Const, high: Const)
+  // Address in stack corresponding to 4 bytes in stack starting from `offset` after `base`, and must be less than `limit`
+  // #[const, const, const]
+  // while `base` and `limit` correspond to actual addresses on stack,
+  // `offset` is correspond to stack position, where 4 bytes describe offset
+  case StackOffset(address: Const, limit: Const, offset: Const)
 
   // Address in native memory corresponding to 8 bytes in stack starting from `stackOffset`
   // *const
