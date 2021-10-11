@@ -52,3 +52,43 @@ def _fib8_rec
 
   add 8 #4 #12 #0
   shrink 12
+
+def fibx
+  check_size 8 ;input
+  branch 'le' 4 #4 1 '_fibx_ret_1'
+  branch 'm' 4 #4 1 '_fibx_rec'
+
+  ; this all can be just `check_size [$0+4]`, should it be?
+  extend 4 ;input length
+  add 4 #0 8 #-4 ;input length + output length + 4 additional bytes for checker
+  check_size $-4
+  shrink 4
+
+def _fibx_ret_1
+  ; size is 4 + 4 = 8, result is of size 4+$0, so we need to extend on $0 - 4
+  extend 4
+  add 4 #0 -4 #-4
+  extend $-4
+  shrink 4
+
+  copy $0 1 #4
+
+def _fibx_rec
+  extend 8
+  copy 4 #0 #-8
+  add 4 #4 -1 #-4
+  call -8 'fibx'
+
+  extend 8
+  copy 4 #0 #-8
+  add 4 #4 -2 #-4
+  call -8 'fibx'
+
+  extend 4
+  add 4 #0 12 #-4 ;second result offset, x x res1 x res2
+
+  add $0 #8 #$-4 #4
+
+  add 4 #0 8 #-4 ; x res1 x
+  shrink $-4
+  shrink 4

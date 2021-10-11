@@ -64,16 +64,24 @@ object TextParser {
     parseConstInt(arg)
       .orElse(parseConstIntWithLength(arg))
       .orElse(parseConstString(arg))
+      .orElse(parseStackConst(arg))
       .getOrElse(throw new IllegalArgumentException(s"can't parse const '$arg'"))
 
   private def parseConstInt(arg: String): Option[Const] =
-    arg.toIntOption.map { value =>
-      val buffer = Array.fill[Byte](4)(0)
-      val bb = ByteBuffer.wrap(buffer)
-      bb.order(ByteOrder.LITTLE_ENDIAN)
-      bb.putInt(value)
-      Const.Literal(buffer)
-    }
+    arg.toIntOption.map(constFromInt)
+
+  private def constFromInt(value: Int): Const = {
+    val buffer = Array.fill[Byte](4)(0)
+    val bb = ByteBuffer.wrap(buffer)
+    bb.order(ByteOrder.LITTLE_ENDIAN)
+    bb.putInt(value)
+    Const.Literal(buffer)
+  }
+
+  private def parseStackConst(arg: String): Option[Const] =
+    if (arg.startsWith("$")) {
+      Some(Const.Stack(parseConst(arg.substring(1)), constFromInt(4)))
+    } else None
 
   private def parseConstIntWithLength(arg: String): Option[Const] = {
     val es = arg.split("_")

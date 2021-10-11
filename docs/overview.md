@@ -148,6 +148,9 @@ def _fib_rec:
   - Overall it does feel like not worth doing and having AVX etc instructions separately
   - But also there are variants with other byte sizes in regular languages, so maybe it's better to make it customizable. At least to some extent?
 - Make all operations to work only against stack memory addresses? Apart from one which copies data from memory? Or it goes again of unified memory approach?
+- Simple arithmetic language for constants? otherwise it's really hard to describe computations on size...
+  - But maybe not needed since it's very hand written use case?
+- Maybe replace `extend` & `shrink` with signed `resize`?
 
 # Links
 - Risc-V intros
