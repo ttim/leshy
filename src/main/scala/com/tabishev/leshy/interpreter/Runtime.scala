@@ -32,7 +32,7 @@ object Runtime {
     orEqual
   }
 
-  def arraysEqual(length: Int, arg1: MemoryRef, arg2: MemoryRef): Boolean = {
+  def arraysEquals(length: Int, arg1: MemoryRef, arg2: MemoryRef): Boolean = {
     var i = 0
     while (i < length) {
       if (arg1.getByte(i) != arg2.getByte(i)) return false
@@ -45,6 +45,18 @@ object Runtime {
     case 4 => dst.putInt(arg1.getInt() + arg2.getInt())
     case 8 => dst.putLong(arg1.getLong() + arg2.getLong())
     case other => throw new IllegalArgumentException(s"unsupported add length '$other'")
+  }
+
+  def mult(length: Int, arg1: MemoryRef, arg2: MemoryRef, dst: MemoryRef): Unit = length match {
+    case 4 => dst.putInt(arg1.getInt() * arg2.getInt())
+    case 8 => dst.putLong(arg1.getLong() * arg2.getLong())
+    case other => throw new IllegalArgumentException(s"unsupported mult length '$other'")
+  }
+
+  def neg(length: Int, arg: MemoryRef, dst: MemoryRef): Unit = length match {
+    case 4 => dst.putInt(-arg.getInt())
+    case 8 => dst.putLong(-arg.getLong())
+    case other => throw new IllegalArgumentException(s"unsupported neg length '$other'")
   }
 
   def copy(length: Long, src: MemoryRef, dest: MemoryRef): Unit = {

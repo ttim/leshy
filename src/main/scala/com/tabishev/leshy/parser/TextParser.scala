@@ -44,6 +44,12 @@ object TextParser {
       case Seq("add", lengthS, op1, op2, dst) =>
         val length = parseConst(lengthS)
         Some(Operation.Add(length, parseConstOrAddress(op1, Some(length)), parseConstOrAddress(op2, Some(length)), parseAddress(dst, Some(length))))
+      case Seq("mult", lengthS, op1, op2, dst) =>
+        val length = parseConst(lengthS)
+        Some(Operation.Mult(length, parseConstOrAddress(op1, Some(length)), parseConstOrAddress(op2, Some(length)), parseAddress(dst, Some(length))))
+      case Seq("neg", lengthS, op, dst) =>
+        val length = parseConst(lengthS)
+        Some(Operation.Neg(length, parseConstOrAddress(op, Some(length)), parseAddress(dst, Some(length))))
 
       // "syscalls"
       case Seq("print_int", length, src) =>

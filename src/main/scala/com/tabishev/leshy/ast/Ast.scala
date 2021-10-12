@@ -41,6 +41,8 @@ enum Operation {
 
   // Integer arithmetic operations
   case Add(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
+  case Mult(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
+  case Neg(length: Const, op: Const | Address, dst: Address)
 
   // Float arithmetic operations, length can be either 4 or 8
   case AddF(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
