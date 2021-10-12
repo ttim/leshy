@@ -20,21 +20,32 @@ class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
     run(name, 0)
   }
 
-  private def run(name: String, depth: Int): Unit =
-    run(loader.load(name).get, depth)
+  private def run(name: String, depth: Int): Unit = {
+    var subroutine = loader.load(name).get
+    var i = 0
+    while (i < subroutine.ops.length) {
+      run(subroutine.ops(i), depth) match {
+        case Some(toJump) =>
+          subroutine = loader.load(toJump).get
+          i = 0
+        case None =>
+          i += 1
+      }
+    }
+  }
 
-  private def run(subroutine: Fn, depth: Int): Unit =
-    subroutine.ops.foreach { op => run(op, depth) }
-
-  private def run(op: Operation, depth: Int): Unit = {
+  private def run(op: Operation, depth: Int): Option[String] = {
     if (debug) println("\t".repeat(depth) + s"$op with ${state.stack}")
     op match {
       case Operation.Extend(length) =>
         state.stack.extend(constRef(length, 4).getInt())
+        None
       case Operation.Shrink(length) =>
         state.stack.shrink(constRef(length, 4).getInt())
+        None
       case Operation.Append(bytes) =>
         state.stack.append(evalConst(bytes))
+        None
       case Operation.Call(offsetConst, targetConst) => {
         val offsetChange = constRef(offsetConst, 4).getInt()
         val target = evalConst(targetConst)
@@ -45,9 +56,11 @@ class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
         // todo: that's where we increase stack depth even if it's regular for loop
         run(new String(target), depth + 1)
         state.stack.offset(prevOffset)
+        None
       }
       case Operation.CheckSize(length) =>
         state.stack.checkSize(constRef(length, 4).getInt())
+        None
       case Operation.Branch(modifier, length, op1, op2, target) => {
         val lengthE = constRef(length, 4).getInt()
         val modifierE = new String(evalConst(modifier))
@@ -60,26 +73,31 @@ class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
           case "m" => !Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
         }
-        if (flag) run(new String(evalConst(target)), depth + 1)
+        if (flag) Some(new String(evalConst(target))) else None
       }
       case Operation.PrintInt(length, src) =>
         Runtime.printInt(constRef(length, 4).getInt(), addressRef(src))
+        None
       case Operation.Add(length, op1, op2, dst) => {
         val lengthE = constRef(length, 4).getInt()
         Runtime.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
+        None
       }
       case Operation.Mult(length, op1, op2, dst) => {
         val lengthE = constRef(length, 4).getInt()
         Runtime.mult(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
+        None
       }
       case Operation.Neg(length, op, dst) => {
         val lengthE = constRef(length, 4).getInt()
         Runtime.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
+        None
       }
       case Operation.Copy(length, src, dst) => {
         // todo: should be getLong
         val lengthE = constOrAddressRef(length, 8).getLong()
         Runtime.copy(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
+        None
       }
       case _ =>
         throw new IllegalArgumentException(s"unsupported operation '$op''")

@@ -18,8 +18,8 @@ object Main {
 
   def mainFactorialLong(): Unit = {
     val loader = FileLoader.fromFile(new File("src/main/lsh/factorial.lsh").toPath)
-    run(loader, "main_big_factorial", debug = false)
+    run(loader, "test_big_factorial", debug = false)
   }
 
-  def main(args: Array[String]): Unit = mainFactorial()
+  def main(args: Array[String]): Unit = mainFactorialLong()
 }
