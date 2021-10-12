@@ -1,10 +1,5 @@
 package com.tabishev.leshy.ast
 
-enum Const {
-  case Literal(bytes: Array[Byte])
-  case Stack(from: Const, length: Const)
-}
-
 enum Address {
   // Address in stack corresponding to `address`
   // #[const, const]
