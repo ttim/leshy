@@ -13,6 +13,14 @@ def main
   shrink 12
   check_size 0
 
+def main_big_factorial
+  append 8
+  append 1000000
+  call 0 'factorial'
+  print_int 8 #4
+  shrink 12
+  check_size 0
+
 ; 4      4 4     4     4       length length length
 ; length n pos_1 pos_i pos_ans _1     i      ans
 def factorial

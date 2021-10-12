@@ -10,20 +10,6 @@ import java.util
 object Interpreter {
   def run(loader: RoutineLoader, name: String, debug: Boolean): Unit =
     new InterpreterSession(loader, debug).run(name)
-
-  def mainFib(): Unit = {
-    val loader = FileLoader.fromFile(new File("src/main/lsh/fib.lsh").toPath)
-    run(loader, "main", debug = false)
-  }
-
-  def mainFactorial(): Unit = {
-    val loader = FileLoader.fromFile(new File("src/main/lsh/factorial.lsh").toPath)
-    run(loader, "main", debug = false)
-  }
-
-  def main(args: Array[String]): Unit = {
-    mainFactorial()
-  }
 }
 
 private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
