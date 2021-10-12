@@ -11,7 +11,7 @@ object TextParser {
 
   private def parseSubroutine(text: String): Fn = {
     val lines = text.split("\n")
-    Fn(lines.head, lines.toSeq.tail.flatMap(parseOperation))
+    Fn(lines.head, lines.toSeq.tail.flatMap(parseOperation).toArray)
   }
 
   private def parseOperation(text: String): Option[Operation] =

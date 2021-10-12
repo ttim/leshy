@@ -55,4 +55,4 @@ enum Operation {
   case PrintInt(length: Const, src: Address)
 }
 
-case class Fn(name: String, ops: Seq[Operation])
+case class Fn(name: String, ops: Array[Operation])
