@@ -111,10 +111,10 @@ private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
 
   // const evaluation
   private def evalConst(const: Const): Array[Byte] = const match {
-    case Const.Literal(bytes) => bytes
+    case Const.Literal(bytes) => bytes.get()
     case Const.Stack(from, length) => {
       // todo: check constantness
-      addressRef(Address.Stack(from, length)).getBytes(constRef(length, 4).getInt())
+      addressRef(Address.Stack(Const.Literal(from), Const.Literal(length))).getBytes(length.asInt.get)
     }
   }
 
