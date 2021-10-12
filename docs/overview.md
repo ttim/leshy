@@ -152,6 +152,7 @@ def _fib_rec:
   - But maybe not needed since it's very hand written use case?
 - Maybe replace `extend` & `shrink` with signed `resize`?
 - Constrain branch/call instructions to be only last ones in body? otherwise it's unclear how to implement for loops
+- How to implement invoke dynamic?
 
 # Links
 - Risc-V intros
