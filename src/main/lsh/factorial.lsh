@@ -1,19 +1,33 @@
 def main
   append 4
-  append 13
+  append 33
   call 0 'factorial'
   print_int 4 #4
   shrink 8
   check_size 0
 
   append 8
-  append 13
+  append 33
   call 0 'factorial'
   print_int 8 #4
   shrink 12
   check_size 0
 
-def main_big_factorial
+def test_fib_4
+  append 4
+  append 33
+  call 0 'factorial'
+  shrink 8
+  check_size 0
+
+def test_fib_8
+  append 8
+  append 33
+  call 0 'factorial'
+  shrink 12
+  check_size 0
+
+def test_big_factorial
   append 8
   append 1000000
   call 0 'factorial'

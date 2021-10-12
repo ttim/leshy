@@ -12,10 +12,13 @@ object Interpreter {
     new InterpreterSession(loader, debug).run(name)
 }
 
-private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
+class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
   private val state = new InterpreterState()
 
-  def run(name: String): Unit = run(name, 0)
+  def run(name: String): Unit = {
+    assert(state.stack.size == 0)
+    run(name, 0)
+  }
 
   private def run(name: String, depth: Int): Unit =
     run(loader.load(name).get, depth)

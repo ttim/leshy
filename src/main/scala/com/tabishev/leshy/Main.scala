@@ -21,5 +21,5 @@ object Main {
     run(loader, "main_big_factorial", debug = false)
   }
 
-  def main(args: Array[String]): Unit = mainFactorialLong()
+  def main(args: Array[String]): Unit = mainFactorial()
 }
