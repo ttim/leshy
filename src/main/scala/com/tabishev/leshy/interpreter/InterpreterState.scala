@@ -54,4 +54,6 @@ class StackMemory {
     assert(offset >= 0)
     this.offset = newOffset
   }
+
+  override def toString: String = s"[${stack.slice(offset, size).mkString(", ")}]"
 }

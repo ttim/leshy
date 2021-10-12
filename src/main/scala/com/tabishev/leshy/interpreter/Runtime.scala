@@ -14,7 +14,7 @@ class MemoryRef(val buffer: ByteBuffer, val index: Int) {
   def getByte(offset: Int): Byte = buffer.get(index + offset)
   def getBytes(length: Int): Array[Byte] = {
     val bytes = Array.fill[Byte](length)(0)
-    buffer.get(bytes, index, length)
+    buffer.get(index, bytes, 0, length)
     bytes
   }
 }
