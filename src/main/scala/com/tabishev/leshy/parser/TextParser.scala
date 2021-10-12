@@ -1,6 +1,6 @@
 package com.tabishev.leshy.parser
 
-import com.tabishev.leshy.ast.{Address, Const, Operation, Subroutine}
+import com.tabishev.leshy.ast.{Address, Bytes, Const, Operation, Subroutine}
 
 import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.charset.Charset
@@ -67,29 +67,23 @@ object TextParser {
   }
 
   private def parseConst(arg: String): Const =
-    parseConstInt(arg)
+    parseStackConst(arg).getOrElse(Const.Literal(parseBytes(arg)))
+
+  private def parseBytes(arg: String): Bytes =
+    parseIntBytes(arg)
       .orElse(parseConstIntWithLength(arg))
       .orElse(parseConstString(arg))
-      .orElse(parseStackConst(arg))
-      .getOrElse(throw new IllegalArgumentException(s"can't parse const '$arg'"))
+      .getOrElse(throw new IllegalArgumentException(s"can't parse bytes '$arg'"))
 
-  private def parseConstInt(arg: String): Option[Const] =
-    arg.toIntOption.map(constFromInt)
-
-  private def constFromInt(value: Int): Const = {
-    val buffer = Array.fill[Byte](4)(0)
-    val bb = ByteBuffer.wrap(buffer)
-    bb.order(ByteOrder.LITTLE_ENDIAN)
-    bb.putInt(value)
-    Const.Literal(buffer)
-  }
+  private def parseIntBytes(arg: String): Option[Bytes] =
+    arg.toIntOption.map(Bytes.fromInt)
 
   private def parseStackConst(arg: String): Option[Const] =
     if (arg.startsWith("$")) {
-      Some(Const.Stack(parseConst(arg.substring(1)), constFromInt(4)))
+      Some(Const.Stack(parseBytes(arg.substring(1)), Bytes.fromInt(4)))
     } else None
 
-  private def parseConstIntWithLength(arg: String): Option[Const] = {
+  private def parseConstIntWithLength(arg: String): Option[Bytes] = {
     val es = arg.split("_")
     if (es.length == 2) {
       es(0).toLongOption.flatMap { value =>
@@ -101,17 +95,16 @@ object TextParser {
           bb.putLong(value)
           val bytes = Array.fill[Byte](length)(0)
           System.arraycopy(buffer, 0, bytes, 0, length)
-          Const.Literal(bytes)
+          Bytes.fromBytes(bytes)
         }
       }
     } else None
   }
 
-  private def parseConstString(arg: String): Option[Const] =
+  private def parseConstString(arg: String): Option[Bytes] =
     if (arg.startsWith("'") && arg.endsWith("'")) {
       // todo: remove this after I cover other cases
-      val bytes = new String(arg.substring(1, arg.length - 1)).getBytes(Charset.forName("UTF-8"))
-      Some(Const.Literal(bytes))
+      Some(Bytes.fromString(arg.substring(1, arg.length - 1)))
     } else None
 
   private def parseAddress(arg: String, inferredLimit: Option[Const]): Address =

@@ -1,52 +1,65 @@
 package com.tabishev.leshy.ast
 
+import java.nio.charset.Charset
 import java.nio.{ByteBuffer, ByteOrder}
 import java.util.Base64
 import scala.util.Try
 
 enum Const {
-  case Literal(bytes: Array[Byte])
-  case Stack(from: Const, length: Const)
+  case Literal(value: Bytes)
+  case Stack(fromOffset: Bytes, length: Bytes)
 
   override def toString(): String = this match {
-    case Const.Literal(bytes) =>
-      val possible = Seq(
-        asString.map { value => s"'$value'"},
-        asInt.map { value => s"$value"},
-        asLong.map { value => s"${value}_L"}
-      ).flatten
-      if (possible.isEmpty) asBase64Bytes.get else possible.mkString("/")
-    case Const.Stack(from, length) =>
-      "${" + from + ", " + length + "}"
-  }
-
-  def asInt: Option[Int] = asByteBuffer.flatMap { bytes =>
-    if (bytes.limit() == 4) Some(bytes.getInt()) else None
-  }
-
-  def asLong: Option[Long] = asByteBuffer.flatMap { bytes =>
-    if (bytes.limit() == 8) Some(bytes.getLong()) else None
-  }
-
-  def asBase64Bytes: Option[String] = asBytes.map { bytes =>
-    Base64.getEncoder.encodeToString(bytes)
-  }
-
-  def asString: Option[String] = asBytes.flatMap { bytes =>
-    Try { new String(bytes) }.filter { s =>
-      s.forall { c => Character.isDigit(c) || Character.isAlphabetic(c) || c == '_' || c == '-' }
-    }.toOption
-  }
-
-  def asByteBuffer: Option[ByteBuffer] =
-    asBytes.map { bytes =>
-      val bb = ByteBuffer.wrap(bytes)
-      bb.order(ByteOrder.LITTLE_ENDIAN)
-      bb
-    }
-
-  def asBytes: Option[Array[Byte]] = this match {
-    case Const.Literal(bytes) => Some(bytes)
-    case Const.Stack(_, _) => None
+    case Const.Literal(bytes) => s"$bytes"
+    case Const.Stack(from, length) => "${" + from + ", " + length + "}"
   }
 }
+
+object Bytes {
+  def fromInt(value: Int): Bytes = {
+    val buffer = Array.fill[Byte](4)(0)
+    val bb = ByteBuffer.wrap(buffer)
+    bb.order(ByteOrder.LITTLE_ENDIAN)
+    bb.putInt(value)
+    Bytes(buffer)
+  }
+
+  def fromBytes(bytes: Array[Byte]): Bytes = Bytes(bytes.clone())
+
+  def fromString(s: String): Bytes = Bytes(s.getBytes(Charset.forName("UTF-8")))
+}
+
+case class Bytes(private val bytes: Array[Byte]) {
+  lazy val asInt: Option[Int] =
+    if (bytes.length == 4) Some(asByteBuffer.getInt()) else None
+  lazy val asLong: Option[Long] =
+    if (bytes.length == 8) Some(asByteBuffer.getLong()) else None
+
+  def get(): Array[Byte] = bytes.clone()
+
+  override def toString(): String = {
+    val possible = Seq(
+      asString.map { value => s"'$value'"},
+      asInt.map { value => s"$value"},
+      asLong.map { value => s"${value}_L"}
+    ).flatten
+    if (possible.isEmpty) asBase64Bytes else possible.mkString("/")
+  }
+
+  def asBase64Bytes: String =
+    Base64.getEncoder.encodeToString(bytes)
+
+  def asString: Option[String] =
+    Try {
+      new String(bytes)
+    }.filter { s =>
+      s.forall { c => Character.isDigit(c) || Character.isAlphabetic(c) || c == '_' || c == '-' }
+    }.toOption
+
+  private def asByteBuffer: ByteBuffer = {
+    val bb = ByteBuffer.wrap(bytes)
+    bb.order(ByteOrder.LITTLE_ENDIAN)
+    bb
+  }
+}
+
