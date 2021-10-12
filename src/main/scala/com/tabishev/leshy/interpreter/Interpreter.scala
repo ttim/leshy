@@ -29,14 +29,16 @@ object Interpreter {
 private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
   private val state = new InterpreterState()
 
-  def run(name: String): Unit = run(loader.load(name).get)
+  def run(name: String): Unit = run(name, 0)
 
-  private def run(subroutine: Subroutine): Unit = {
-    subroutine.ops.foreach(run)
-  }
+  private def run(name: String, depth: Int): Unit =
+    run(loader.load(name).get, depth)
 
-  private def run(op: Operation): Unit = {
-    if (debug) println(s"run $op with ${state.stack}")
+  private def run(subroutine: Subroutine, depth: Int): Unit =
+    subroutine.ops.foreach { op => run(op, depth) }
+
+  private def run(op: Operation, depth: Int): Unit = {
+    if (debug) println("\t".repeat(depth) + s"$op with ${state.stack}")
     op match {
       case Operation.Extend(length) =>
         state.stack.extend(constRef(length, 4).getInt())
@@ -52,7 +54,7 @@ private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
         val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
         state.stack.offset(newOffset)
         // todo: that's where we increase stack depth even if it's regular for loop
-        run(new String(target))
+        run(new String(target), depth + 1)
         state.stack.offset(prevOffset)
       }
       case Operation.CheckSize(length) =>
@@ -69,7 +71,7 @@ private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
           case "m" => !Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
         }
-        if (flag) run(new String(evalConst(target)))
+        if (flag) run(new String(evalConst(target)), depth + 1)
       }
       case Operation.PrintInt(length, src) =>
         Runtime.printInt(constRef(length, 4).getInt(), addressRef(src))
