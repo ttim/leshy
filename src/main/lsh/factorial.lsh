@@ -1,0 +1,52 @@
+def main
+  append 4
+  append 13
+  call 0 'factorial'
+  print_int 4 #4
+  shrink 8
+  check_size 0
+
+  append 8
+  append 13
+  call 0 'factorial'
+  print_int 8 #4
+  shrink 12
+  check_size 0
+
+; 4      4 4     4     4       length length length
+; length n pos_1 pos_i pos_ans _1     i      ans
+def factorial
+  check_size 8 ; input: length, n
+
+  extend 12 ; pos_1, pos_i, pos_ans
+  copy 4 20 #8 ; pos_1
+  add 4 #8 #0 #12 ; pos_i
+  add 4 #12 #0 #16 ; pos_ans
+
+  extend $0
+  copy $0 1 #$8 ; _1 = 1
+  neg $0 #$8 #$8 ; _1 = -1
+
+  extend $0
+  copy $0 0 #$12 ; i = 0
+  copy 4 #4 #$12 ; i = n
+
+  extend $0
+  copy $0 1 #$16 ; ans = 1
+
+  call 0 '_factorial_loop'
+  copy $0 #$16 #4
+
+  shrink $0
+  shrink $0
+  shrink 16
+
+  extend 4
+  add 4 #0 8 #-4
+  check_size $-4 ;output
+  shrink 4
+
+def _factorial_loop
+  mult $0 #$12 #$16 #$16 ; ans = i * ans
+  add $0 #$12 #$8 #$12 ; i = i - 1
+  branch 'neq' $0 #$12 0 '_factorial_loop'

@@ -11,9 +11,18 @@ object Interpreter {
   def run(loader: RoutineLoader, name: String, debug: Boolean): Unit =
     new InterpreterSession(loader, debug).run(name)
 
-  def main(args: Array[String]): Unit = {
+  def mainFib(): Unit = {
     val loader = FileLoader.fromFile(new File("src/main/lsh/fib.lsh").toPath)
     run(loader, "main", debug = false)
+  }
+
+  def mainFactorial(): Unit = {
+    val loader = FileLoader.fromFile(new File("src/main/lsh/factorial.lsh").toPath)
+    run(loader, "main", debug = false)
+  }
+
+  def main(args: Array[String]): Unit = {
+    mainFactorial()
   }
 }
 
@@ -42,6 +51,7 @@ private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
         val prevOffset = state.stack.offset
         val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
         state.stack.offset(newOffset)
+        // todo: that's where we increase stack depth even if it's regular for loop
         run(new String(target))
         state.stack.offset(prevOffset)
       }
@@ -53,8 +63,8 @@ private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
         val op1Ref = constOrAddressRef(op1, lengthE)
         val op2Ref = constOrAddressRef(op2, lengthE)
         val flag = modifierE match {
-          case "eq" => Runtime.equals(op1Ref, op2Ref)
-          case "neq" => !Runtime.equals(op1Ref, op2Ref)
+          case "eq" => Runtime.arraysEquals(lengthE, op1Ref, op2Ref)
+          case "neq" => !Runtime.arraysEquals(lengthE, op1Ref, op2Ref)
           case "le" => Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
           case "m" => !Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
@@ -66,6 +76,14 @@ private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
       case Operation.Add(length, op1, op2, dst) => {
         val lengthE = constRef(length, 4).getInt()
         Runtime.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
+      }
+      case Operation.Mult(length, op1, op2, dst) => {
+        val lengthE = constRef(length, 4).getInt()
+        Runtime.mult(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
+      }
+      case Operation.Neg(length, op, dst) => {
+        val lengthE = constRef(length, 4).getInt()
+        Runtime.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
       }
       case Operation.Copy(length, src, dst) => {
         // todo: should be getLong
