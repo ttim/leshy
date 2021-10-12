@@ -8,16 +8,16 @@ import java.nio.ByteBuffer
 import java.util
 
 object Interpreter {
-  def run(loader: RoutineLoader, name: String): Unit =
-    new InterpreterSession(loader).run(name)
+  def run(loader: RoutineLoader, name: String, debug: Boolean): Unit =
+    new InterpreterSession(loader, debug).run(name)
 
   def main(args: Array[String]): Unit = {
     val loader = FileLoader.fromFile(new File("src/main/lsh/fib.lsh").toPath)
-    run(loader, "main")
+    run(loader, "main", debug = false)
   }
 }
 
-private class InterpreterSession(loader: RoutineLoader) {
+private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
   private val state = new InterpreterState()
 
   def run(name: String): Unit = run(loader.load(name).get)
@@ -26,52 +26,55 @@ private class InterpreterSession(loader: RoutineLoader) {
     subroutine.ops.foreach(run)
   }
 
-  private def run(op: Operation): Unit = op match {
-    case Operation.Extend(length) =>
-      state.stack.extend(constRef(length, 4).getInt())
-    case Operation.Shrink(length) =>
-      state.stack.shrink(constRef(length, 4).getInt())
-    case Operation.Append(bytes) =>
-      state.stack.append(evalConst(bytes))
-    case Operation.Call(offsetConst, targetConst) => {
-      val offsetChange = constRef(offsetConst, 4).getInt()
-      val target = evalConst(targetConst)
+  private def run(op: Operation): Unit = {
+    if (debug) println(s"run $op with ${state.stack}")
+    op match {
+      case Operation.Extend(length) =>
+        state.stack.extend(constRef(length, 4).getInt())
+      case Operation.Shrink(length) =>
+        state.stack.shrink(constRef(length, 4).getInt())
+      case Operation.Append(bytes) =>
+        state.stack.append(evalConst(bytes))
+      case Operation.Call(offsetConst, targetConst) => {
+        val offsetChange = constRef(offsetConst, 4).getInt()
+        val target = evalConst(targetConst)
 
-      val prevOffset = state.stack.offset
-      val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
-      state.stack.offset(newOffset)
-      run(new String(target))
-      state.stack.offset(prevOffset)
-    }
-    case Operation.CheckSize(length) =>
-      state.stack.checkSize(constRef(length, 4).getInt())
-    case Operation.Branch(modifier, length, op1, op2, target) => {
-      val lengthE = constRef(length, 4).getInt()
-      val modifierE = new String(evalConst(modifier))
-      val op1Ref = constOrAddressRef(op1, lengthE)
-      val op2Ref = constOrAddressRef(op2, lengthE)
-      val flag = modifierE match {
-        case "eq" => Runtime.equals(op1Ref, op2Ref)
-        case "neq" => !Runtime.equals(op1Ref, op2Ref)
-        case "le" => Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
-        case "m" => !Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
-        case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
+        val prevOffset = state.stack.offset
+        val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
+        state.stack.offset(newOffset)
+        run(new String(target))
+        state.stack.offset(prevOffset)
       }
-      if (flag) run(new String(evalConst(target)))
+      case Operation.CheckSize(length) =>
+        state.stack.checkSize(constRef(length, 4).getInt())
+      case Operation.Branch(modifier, length, op1, op2, target) => {
+        val lengthE = constRef(length, 4).getInt()
+        val modifierE = new String(evalConst(modifier))
+        val op1Ref = constOrAddressRef(op1, lengthE)
+        val op2Ref = constOrAddressRef(op2, lengthE)
+        val flag = modifierE match {
+          case "eq" => Runtime.equals(op1Ref, op2Ref)
+          case "neq" => !Runtime.equals(op1Ref, op2Ref)
+          case "le" => Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
+          case "m" => !Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
+          case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
+        }
+        if (flag) run(new String(evalConst(target)))
+      }
+      case Operation.PrintInt(length, src) =>
+        Runtime.printInt(constRef(length, 4).getInt(), addressRef(src))
+      case Operation.Add(length, op1, op2, dst) => {
+        val lengthE = constRef(length, 4).getInt()
+        Runtime.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
+      }
+      case Operation.Copy(length, src, dst) => {
+        // todo: should be getLong
+        val lengthE = constOrAddressRef(length, 8).getLong()
+        Runtime.copy(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
+      }
+      case _ =>
+        throw new IllegalArgumentException(s"unsupported operation '$op''")
     }
-    case Operation.PrintInt(length, src) =>
-      Runtime.printInt(constRef(length, 4).getInt(), addressRef(src))
-    case Operation.Add(length, op1, op2, dst) => {
-      val lengthE = constRef(length, 4).getInt()
-      Runtime.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
-    }
-    case Operation.Copy(length, src, dst) => {
-      // todo: should be getLong
-      val lengthE = constOrAddressRef(length, 8).getLong()
-      Runtime.copy(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
-    }
-    case _ =>
-      throw new IllegalArgumentException(s"unsupported operation '$op''")
   }
 
   // refs
@@ -91,7 +94,10 @@ private class InterpreterSession(loader: RoutineLoader) {
   // const evaluation
   private def evalConst(const: Const): Array[Byte] = const match {
     case Const.Literal(bytes) => bytes
-    case Const.Stack(from, length) => ???
+    case Const.Stack(from, length) => {
+      // todo: check constantness
+      addressRef(Address.Stack(from, length)).getBytes(constRef(length, 4).getInt())
+    }
   }
 
   private def constRef(const: Const, expectedLength: Int): MemoryRef =
