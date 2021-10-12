@@ -1,6 +1,6 @@
 package com.tabishev.leshy.interpreter
 
-import com.tabishev.leshy.ast.{Address, Const, Operation, Subroutine}
+import com.tabishev.leshy.ast.{Address, Const, Operation, Fn}
 import com.tabishev.leshy.loader.{FileLoader, RoutineLoader}
 
 import java.io.File
@@ -34,7 +34,7 @@ private class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
   private def run(name: String, depth: Int): Unit =
     run(loader.load(name).get, depth)
 
-  private def run(subroutine: Subroutine, depth: Int): Unit =
+  private def run(subroutine: Fn, depth: Int): Unit =
     subroutine.ops.foreach { op => run(op, depth) }
 
   private def run(op: Operation, depth: Int): Unit = {

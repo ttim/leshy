@@ -1,17 +1,17 @@
 package com.tabishev.leshy.parser
 
-import com.tabishev.leshy.ast.{Address, Bytes, Const, Operation, Subroutine}
+import com.tabishev.leshy.ast.{Address, Bytes, Const, Operation, Fn}
 
 import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.charset.Charset
 
 object TextParser {
-  def parse(text: String): Map[String, Subroutine] =
+  def parse(text: String): Map[String, Fn] =
     ("\n" + text).split("\ndef ").tail.map(parseSubroutine).map { r => (r.name, r) }.toMap
 
-  private def parseSubroutine(text: String): Subroutine = {
+  private def parseSubroutine(text: String): Fn = {
     val lines = text.split("\n")
-    Subroutine(lines.head, lines.toSeq.tail.flatMap(parseOperation))
+    Fn(lines.head, lines.toSeq.tail.flatMap(parseOperation))
   }
 
   private def parseOperation(text: String): Option[Operation] =
