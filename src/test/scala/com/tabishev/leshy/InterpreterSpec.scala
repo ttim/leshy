@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl}
+import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl, MemoryAccessImpl}
 import com.tabishev.leshy.interpreter.Interpreter
 import com.tabishev.leshy.loader.FileLoader
 
@@ -25,13 +25,15 @@ class InterpreterSpec extends munit.FunSuite {
   val fact4: Seq[Int => Int] = Seq(
     (n) => LshImpl.ffactorial4(interpreter, n),
     (n) => JavaImpl.ffactorial4(n),
-    (n) => ByteBufferImpl.ffactorial4(n)
+    (n) => ByteBufferImpl.ffactorial4(n),
+    (n) => MemoryAccessImpl.ffactorial4(n)
   )
 
   val fact8: Seq[Int => Long] = Seq(
     (n) => LshImpl.ffactorial8(interpreter, n),
     (n) => JavaImpl.ffactorial8(n),
-    (n) => ByteBufferImpl.ffactorial8(n)
+    (n) => ByteBufferImpl.ffactorial8(n),
+    (n) => MemoryAccessImpl.ffactorial8(n)
   )
 
   test("fib4 works") {
@@ -53,6 +55,6 @@ class InterpreterSpec extends munit.FunSuite {
   private def implementationsAgree[A, B](inputs: Seq[A], impls: Seq[A => B]): Unit =
     inputs.foreach { input =>
       val outputs = impls.map { impl => impl(input) }
-      assert(outputs.forall(_ == outputs.head))
+      assert(outputs.forall(_ == outputs.head), s"different outputs for $input: $outputs")
     }
 }
