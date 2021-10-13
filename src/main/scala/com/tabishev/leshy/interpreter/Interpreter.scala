@@ -21,7 +21,7 @@ class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
   }
 
   private def run(name: String, depth: Int): Unit = {
-    var subroutine = loader.load(name).get
+    var subroutine = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
     var i = 0
     while (i < subroutine.ops.length) {
       run(subroutine.ops(i), depth) match {
@@ -67,10 +67,10 @@ class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
         val op1Ref = constOrAddressRef(op1, lengthE)
         val op2Ref = constOrAddressRef(op2, lengthE)
         val flag = modifierE match {
-          case "eq" => Runtime.arraysEquals(lengthE, op1Ref, op2Ref)
-          case "neq" => !Runtime.arraysEquals(lengthE, op1Ref, op2Ref)
-          case "le" => Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
-          case "m" => !Runtime.arraysLess(lengthE, op1Ref, op2Ref, orEqual = true)
+          case "eq" => Runtime.equals(lengthE, op1Ref, op2Ref)
+          case "neq" => !Runtime.equals(lengthE, op1Ref, op2Ref)
+          case "le" => Runtime.less(lengthE, op1Ref, op2Ref, orEqual = true)
+          case "m" => !Runtime.less(lengthE, op1Ref, op2Ref, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
         }
         if (flag) Some(new String(evalConst(target))) else None
