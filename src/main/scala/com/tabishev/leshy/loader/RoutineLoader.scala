@@ -14,6 +14,9 @@ case class MapLoader(routines: Map[String, Fn]) extends RoutineLoader {
 }
 
 object FileLoader {
+  def fromFiles(paths: Seq[Path]): RoutineLoader =
+    MapLoader(paths.flatMap(path => TextParser.parse(Files.readString(path)).toSeq).toMap)
+
   def fromFile(path: Path): RoutineLoader =
     MapLoader(TextParser.parse(Files.readString(path)))
 }
