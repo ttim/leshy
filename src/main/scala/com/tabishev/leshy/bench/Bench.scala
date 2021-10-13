@@ -20,24 +20,24 @@ object Bench {
 }
 
 @BenchmarkMode(Array(Mode.AverageTime))
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Fork(1)
 @Warmup(3, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS)
 class Bench {
   @Benchmark
   def nativeFactorial4(bh: Blackhole): Unit =
-    bh.consume(Example.fact4(33))
+    bh.consume(Example.ffact4(10001))
 
   @Benchmark
   def nativeFactorial8(bh: Blackhole): Unit =
-    bh.consume(Example.fact8(33))
+    bh.consume(Example.ffact8(10001))
 
   @Benchmark
   def interpretFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(state.interpreter.run("test_fib_4"))
+    bh.consume(state.interpreter.run("test_ffact_4"))
 
   @Benchmark
   def interpretFactorial8(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(state.interpreter.run("test_fib_8"))
+    bh.consume(state.interpreter.run("test_ffact_8"))
 }

@@ -20,26 +20,30 @@ class MemoryRef(val buffer: ByteBuffer, val index: Int) {
 }
 
 object Runtime {
-  def arraysLess(length: Int, arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean = {
-    var i = 0
-    while (i < length) {
-      val b1 = arg1.getByte(i)
-      val b2 = arg2.getByte(i)
-      if (b1 < b2) return true
-      if (b1 > b2) return false
-      i += 1
-    }
-    orEqual
+  // todo: should be flag for unsigned/signed comparison
+  // todo: add arbitrary version
+  def less(length: Int, arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean = length match {
+    case 4 => less4(arg1, arg2, orEqual)
+    case 8 => less8(arg1, arg2, orEqual)
+    case _ => throw new IllegalArgumentException(s"unsupported 'less' length $length")
   }
 
-  def arraysEquals(length: Int, arg1: MemoryRef, arg2: MemoryRef): Boolean = {
-    var i = 0
-    while (i < length) {
-      if (arg1.getByte(i) != arg2.getByte(i)) return false
-      i += 1
-    }
-    true
+  def less4(arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean =
+    if (orEqual) (arg1.getInt() <= arg2.getInt()) else (arg1.getInt() < arg2.getInt())
+
+  def less8(arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean =
+    if (orEqual) (arg1.getLong() <= arg2.getLong()) else (arg1.getLong() < arg2.getLong())
+
+  // todo: add arbitrary version
+  def equals(length: Int, arg1: MemoryRef, arg2: MemoryRef): Boolean = length match {
+    case 4 => equals4(arg1, arg2)
+    case 8 => equals8(arg1, arg2)
+    case _ => throw new IllegalArgumentException(s"unsupported 'equals' length $length")
   }
+
+  def equals4(arg1: MemoryRef, arg2: MemoryRef): Boolean = arg1.getInt() == arg2.getInt()
+
+  def equals8(arg1: MemoryRef, arg2: MemoryRef): Boolean = arg1.getLong() == arg2.getLong()
 
   def add(length: Int, arg1: MemoryRef, arg2: MemoryRef, dst: MemoryRef): Unit = length match {
     case 4 => dst.putInt(arg1.getInt() + arg2.getInt())
