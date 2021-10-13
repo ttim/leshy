@@ -6,7 +6,7 @@ import com.tabishev.leshy.loader.FileLoader
 
 import java.io.File
 
-object Wrapper {
+object LshImpl {
   val IncludePaths = Seq(
     "src/main/lsh/fib.lsh",
     "src/main/lsh/factorial.lsh"

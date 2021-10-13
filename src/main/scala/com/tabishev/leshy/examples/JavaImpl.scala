@@ -1,6 +1,6 @@
-package com.tabishev.leshy.bench
+package com.tabishev.leshy.examples
 
-object Example {
+object JavaImpl {
   def fib4(n: Int): Int = if (n <= 1) 1 else fib4(n - 1) + fib4(n - 2)
   def fib8(n: Int): Long = if (n <= 1) 1 else fib8(n - 1) + fib8(n - 2)
 
