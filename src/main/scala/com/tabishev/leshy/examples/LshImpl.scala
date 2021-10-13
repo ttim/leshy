@@ -40,4 +40,10 @@ object LshImpl {
     assert(output.slice(0, 4).asInt.get == length)
     output.slice(4)
   }
+
+  def ffactorial4(interpreter: Interpreter, input: Int): Int =
+    ffactorial(interpreter, 4, input).asInt.get
+
+  def ffactorial8(interpreter: Interpreter, input: Int): Long =
+    ffactorial(interpreter, 8, input).asLong.get
 }

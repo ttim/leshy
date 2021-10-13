@@ -10,55 +10,47 @@ import java.io.File
 class InterpreterSpec extends munit.FunSuite {
   val interpreter = LshImpl.baseInterpreter(false)
 
+  val fib4: Seq[Int => Int] = Seq(
+    (n) => LshImpl.fib4(interpreter, n),
+    (n) => LshImpl.fibx4(interpreter, n),
+    (n) => JavaImpl.fib4(n)
+  )
+
+  val fib8: Seq[Int => Long] = Seq(
+    (n) => LshImpl.fib8(interpreter, n),
+    (n) => LshImpl.fibx8(interpreter, n),
+    (n) => JavaImpl.fib8(n)
+  )
+
+  val fact4: Seq[Int => Int] = Seq(
+    (n) => LshImpl.ffactorial4(interpreter, n),
+    (n) => JavaImpl.ffactorial4(n)
+  )
+
+  val fact8: Seq[Int => Long] = Seq(
+    (n) => LshImpl.ffactorial8(interpreter, n),
+    (n) => JavaImpl.ffactorial8(n)
+  )
+
   test("fib4 works") {
-    testFib(
-      n => LshImpl.fib4(interpreter, n),
-      n => JavaImpl.fib4(n)
-    )
+    implementationsAgree(inputs = 1 to 25, impls = fib4)
   }
 
   test("fib8 works") {
-    testFib(
-      n => LshImpl.fib8(interpreter, n),
-      n => JavaImpl.fib8(n)
-    )
+    implementationsAgree(inputs = 1 to 25, impls = fib8)
   }
 
-  test("fibx4 works") {
-    testFib(
-      n => LshImpl.fibx4(interpreter, n),
-      n => JavaImpl.fib4(n)
-    )
+  test("ffactorial4 works") {
+    implementationsAgree(inputs = 1 to 1000, impls = fact4)
   }
 
-  test("fibx8 works") {
-    testFib(
-      n => LshImpl.fibx8(interpreter, n),
-      n => JavaImpl.fib8(n)
-    )
+  test("ffactorial8 works") {
+    implementationsAgree(inputs = 1 to 1000, impls = fact8)
   }
 
-  test("ffactorial 4 works") {
-    testFfactorial(
-      n => LshImpl.ffactorial(interpreter, 4, n).asInt.get,
-      n => JavaImpl.ffactorial4(n)
-    )
-  }
-
-  test("ffactorial 8 works") {
-    testFfactorial(
-      n => LshImpl.ffactorial(interpreter, 8, n).asLong.get,
-      n => JavaImpl.ffactorial8(n)
-    )
-  }
-
-  private def testFib[T](interpret: Int => T, expected: Int => T): Unit =
-    (1 to 25).foreach { n =>
-      assertEquals(interpret(n), expected(n))
-    }
-
-  private def testFfactorial[T](interpret: Int => T, expected: Int => T): Unit =
-    (1 to 1000).foreach { n =>
-      assertEquals(interpret(n), expected(n))
+  private def implementationsAgree[A, B](inputs: Seq[A], impls: Seq[A => B]): Unit =
+    inputs.foreach { input =>
+      val outputs = impls.map { impl => impl(input) }
+      assert(outputs.forall(_ == outputs.head))
     }
 }

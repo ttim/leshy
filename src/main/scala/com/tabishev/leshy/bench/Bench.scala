@@ -33,9 +33,9 @@ class Bench {
 
   @Benchmark
   def interpretFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshImpl.ffactorial(state.interpreter, 4, 10001).asInt.get)
+    bh.consume(LshImpl.ffactorial4(state.interpreter, 10001))
 
   @Benchmark
   def interpretFactorial8(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshImpl.ffactorial(state.interpreter, 8, 10001).asLong.get)
+    bh.consume(LshImpl.ffactorial8(state.interpreter, 10001))
 }
