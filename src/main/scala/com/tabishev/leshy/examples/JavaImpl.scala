@@ -23,4 +23,7 @@ object JavaImpl {
     }
     ans
   }
+
+  def main(args: Array[String]): Unit =
+    println(s"ffact4: ${ffactorial4(10001)}, ffact8: ${ffactorial8(10001)}")
 }
