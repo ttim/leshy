@@ -1,32 +1,3 @@
-def main
-  append 4
-  append 10001
-  call 0 'ffactorial'
-  print_int 4 #4
-  shrink 8
-  check_size 0
-
-  append 8
-  append 10001
-  call 0 'ffactorial'
-  print_int 8 #4
-  shrink 12
-  check_size 0
-
-def test_ffact_4
-  append 4
-  append 10001
-  call 0 'ffactorial'
-  shrink 8
-  check_size 0
-
-def test_ffact_8
-  append 8
-  append 10001
-  call 0 'ffactorial'
-  shrink 12
-  check_size 0
-
 ; 4      4 4     4     4       length length length
 ; length n pos_1 pos_i pos_ans _1     i      ans
 def ffactorial

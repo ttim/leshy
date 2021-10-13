@@ -33,4 +33,11 @@ object Wrapper {
     assert(output.slice(0, 4).asInt.get == length)
     output.slice(4)
   }
+
+  def ffactorial(interpreter: Interpreter, length: Int, input: Int): Bytes = {
+    val output = interpreter.run("ffactorial", Bytes.seq(Bytes.fromInt(length), Bytes.fromInt(input)))
+    assert(output.get().length == (4 + length))
+    assert(output.slice(0, 4).asInt.get == length)
+    output.slice(4)
+  }
 }

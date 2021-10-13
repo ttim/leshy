@@ -39,8 +39,27 @@ class InterpreterSpec extends munit.FunSuite {
     )
   }
 
+  test("ffactorial 4 works") {
+    testFfactorial(
+      n => Wrapper.ffactorial(interpreter, 4, n).asInt.get,
+      n => Example.ffactorial4(n)
+    )
+  }
+
+  test("ffactorial 8 works") {
+    testFfactorial(
+      n => Wrapper.ffactorial(interpreter, 8, n).asLong.get,
+      n => Example.ffactorial8(n)
+    )
+  }
+
   private def testFib[T](interpret: Int => T, expected: Int => T): Unit =
     (1 to 25).foreach { n =>
+      assertEquals(interpret(n), expected(n))
+    }
+
+  private def testFfactorial[T](interpret: Int => T, expected: Int => T): Unit =
+    (1 to 1000).foreach { n =>
       assertEquals(interpret(n), expected(n))
     }
 }
