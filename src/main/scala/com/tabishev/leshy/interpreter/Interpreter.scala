@@ -1,23 +1,23 @@
 package com.tabishev.leshy.interpreter
 
-import com.tabishev.leshy.ast.{Address, Const, Operation, Fn}
+import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation}
 import com.tabishev.leshy.loader.{FileLoader, RoutineLoader}
 
 import java.io.File
 import java.nio.ByteBuffer
 import java.util
 
-object Interpreter {
-  def run(loader: RoutineLoader, name: String, debug: Boolean): Unit =
-    new InterpreterSession(loader, debug).run(name)
-}
-
-class InterpreterSession(loader: RoutineLoader, debug: Boolean) {
+class Interpreter(loader: RoutineLoader, debug: Boolean) {
   private val state = new InterpreterState()
 
-  def run(name: String): Unit = {
+  def run(name: String, input: Bytes): Bytes = {
     assert(state.stack.size == 0)
+    state.stack.append(input.get())
     run(name, 0)
+    assert(state.stack.offset == 0)
+    val output = Bytes.fromBytes(state.getStack())
+    state.stack.shrink(state.stack.size)
+    output
   }
 
   private def run(name: String, depth: Int): Unit = {

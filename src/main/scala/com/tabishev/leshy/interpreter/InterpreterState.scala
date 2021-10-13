@@ -10,6 +10,8 @@ class InterpreterState {
     System.arraycopy(stack.stack, stack.offset + address, bytes, 0, length)
     bytes
   }
+
+  def getStack(): Array[Byte] = getStack(stack.size - stack.offset, 0)
 }
 
 class StackMemory {

@@ -16,6 +16,8 @@ enum Const {
 }
 
 object Bytes {
+  val Empty: Bytes = Bytes.fromBytes(Array.emptyByteArray)
+
   def fromInt(value: Int): Bytes = {
     val buffer = Array.fill[Byte](4)(0)
     val bb = ByteBuffer.wrap(buffer)
