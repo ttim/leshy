@@ -2,6 +2,7 @@ package com.tabishev.leshy.interpreter
 
 import java.nio.{ByteBuffer, ByteOrder}
 
+// todo: use MemoryAddress, MemorySegment & MemoryAccess instead?
 class MemoryRef(val buffer: ByteBuffer, val index: Int) {
   buffer.order(ByteOrder.LITTLE_ENDIAN)
 

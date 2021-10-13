@@ -7,6 +7,9 @@ enablePlugins(JmhPlugin)
 lazy val root = (project in file("."))
   .settings(
     name := "root",
-    libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test
+    libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
+    javaOptions ++= Seq(
+      "--add-modules", "jdk.incubator.foreign"
+    ),
+    fork := true
   )
-
