@@ -2,19 +2,18 @@
 ffact4: 411587873, ffact8: 7031418319358416161
 ffact4_bytes: 411587873, ffact8_bytes: 7031418319358416161
 
-verification sum: 8231757460000
-ffact4 took 1.268600us
+verification sum: 164635149200000
+ffact4 took 0.534805us
 
-verification sum: 8836313280411251232
-ffact8 took 6.148600us
+verification sum: -7741175128870491520
+ffact8 took 6.148970us
 
-verification sum: 8231757460000
-ffact4_bytes took 0.538200us
+verification sum: 164635149200000
+ffact4_bytes took 0.532280us
 
-verification sum: 8836313280411251232
-ffact8_bytes took 6.157700us
+verification sum: -7741175128870491520
+ffact8_bytes took 6.192760us
 */
-
 #include <stdio.h>
 #include <sys/time.h>
 
@@ -100,7 +99,7 @@ long ffact8_bytes(int n) {
 }
 
 void test(int n, char* name, void* fn(int)) {
-    int repeat = 10000;
+    int repeat = 200000;
     long sum = 0;
 
     // warmup
