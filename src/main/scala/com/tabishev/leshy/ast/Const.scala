@@ -26,9 +26,19 @@ object Bytes {
     Bytes(buffer)
   }
 
+  def fromLong(value: Long): Bytes = {
+    val buffer = Array.fill[Byte](8)(0)
+    val bb = ByteBuffer.wrap(buffer)
+    bb.order(ByteOrder.LITTLE_ENDIAN)
+    bb.putLong(value)
+    Bytes(buffer)
+  }
+
   def fromBytes(bytes: Array[Byte]): Bytes = Bytes(bytes.clone())
 
   def fromString(s: String): Bytes = Bytes(s.getBytes(Charset.forName("UTF-8")))
+
+  def seq(bs: Bytes*): Bytes = Bytes.fromBytes(bs.flatMap(_.get()).toArray)
 }
 
 case class Bytes(private val bytes: Array[Byte]) {
@@ -47,6 +57,12 @@ case class Bytes(private val bytes: Array[Byte]) {
     ).flatten
     if (possible.isEmpty) asBase64Bytes else possible.mkString("/")
   }
+
+  def slice(from: Int, until: Int): Bytes = Bytes(bytes.slice(from, until))
+  def slice(from: Int): Bytes = Bytes(bytes.slice(from, bytes.length))
+
+  override def equals(obj: Any): Boolean = obj.isInstanceOf[Bytes] &&
+    java.util.Arrays.equals(bytes, obj.asInstanceOf[Bytes].bytes)
 
   def asBase64Bytes: String =
     Base64.getEncoder.encodeToString(bytes)
