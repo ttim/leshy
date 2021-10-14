@@ -46,8 +46,29 @@ case class Bytes(private val bytes: Array[Byte]) {
     if (bytes.length == 4) Some(asByteBuffer.getInt()) else None
   lazy val asLong: Option[Long] =
     if (bytes.length == 8) Some(asByteBuffer.getLong()) else None
+  lazy val asBase64Bytes: String =
+    Base64.getEncoder.encodeToString(bytes)
+  lazy val asString: Option[String] =
+    Try {
+      new String(bytes)
+    }.filter { s =>
+      s.forall { c => Character.isDigit(c) || Character.isAlphabetic(c) || c == '_' || c == '-' }
+    }.toOption
 
   def get(): Array[Byte] = bytes.clone()
+
+  def length(): Int = bytes.length
+
+  def copyTo(dest: Array[Byte], offset: Int): Unit =
+    System.arraycopy(bytes, 0, dest, offset, bytes.length)
+
+  def expand(length: Int): Bytes =
+    if (bytes.length == length) this else {
+      assert(length > bytes.length)
+      val expanded = Array.fill[Byte](length)(0)
+      System.arraycopy(bytes, 0, expanded, 0, bytes.length)
+      Bytes(expanded)
+    }
 
   override def toString(): String = {
     val possible = Seq(
@@ -64,18 +85,8 @@ case class Bytes(private val bytes: Array[Byte]) {
   override def equals(obj: Any): Boolean = obj.isInstanceOf[Bytes] &&
     java.util.Arrays.equals(bytes, obj.asInstanceOf[Bytes].bytes)
 
-  def asBase64Bytes: String =
-    Base64.getEncoder.encodeToString(bytes)
-
-  def asString: Option[String] =
-    Try {
-      new String(bytes)
-    }.filter { s =>
-      s.forall { c => Character.isDigit(c) || Character.isAlphabetic(c) || c == '_' || c == '-' }
-    }.toOption
-
-  private def asByteBuffer: ByteBuffer = {
-    val bb = ByteBuffer.wrap(bytes)
+  def asByteBuffer: ByteBuffer = {
+    val bb = ByteBuffer.wrap(bytes).asReadOnlyBuffer()
     bb.order(ByteOrder.LITTLE_ENDIAN)
     bb
   }

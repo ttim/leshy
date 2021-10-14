@@ -1,5 +1,7 @@
 package com.tabishev.leshy.interpreter
 
+import com.tabishev.leshy.ast.Bytes
+
 import java.nio.ByteBuffer
 
 class InterpreterState {
@@ -45,9 +47,9 @@ class StackMemory {
     // todo: decrease size in some cases?
   }
 
-  def append(bytes: Array[Byte]): Unit = {
-    extend(bytes.length)
-    System.arraycopy(bytes, 0, stack, size - bytes.length, bytes.length)
+  def append(bytes: Bytes): Unit = {
+    extend(bytes.length())
+    bytes.copyTo(stack, size - bytes.length())
   }
 
   def checkSize(size: Int): Unit = assert(size == this.size - this.offset)
