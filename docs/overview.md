@@ -130,6 +130,8 @@ def _fib_rec:
 - Add `_start_call` instruction which saves stack offset and later uses it in `call`
 	- Doesn't seem worth it, can be modeled with dedicated first 4 bytes, `_start_call` doing `store_4 0 #size`, and `call` doing `call #0`
 - We might not need binary representation, text with compression is enough. Results of compilation should be cacheable anyway. Maybe the only requirement is to make text splittable by functions so it's easy to do initial parse and hashing
+- Don't consider function to be specialization boundary - specialize only for blocks! functions call happen rarely with inlining and it's fine to despecialize everything when needed!
+  - Seems like not necessary to distinguish between those two tho, it's always *block* which runs when you call function, with some of arguments being const
 
 # Insights
 - Customer facing IR & IR good for optimizations are different IRs, and that's something IMO llvm solves wrongly
