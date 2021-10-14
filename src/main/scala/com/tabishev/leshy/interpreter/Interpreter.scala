@@ -38,16 +38,16 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     if (debug) println("\t".repeat(depth) + s"$op with ${state.stack}")
     op match {
       case Operation.Extend(length) =>
-        state.stack.extend(constRef(length, 4).getInt())
+        state.stack.extend(evalConst(length).asExpandedInt.get)
         None
       case Operation.Shrink(length) =>
-        state.stack.shrink(constRef(length, 4).getInt())
+        state.stack.shrink(evalConst(length).asExpandedInt.get)
         None
       case Operation.Append(bytes) =>
         state.stack.append(evalConst(bytes))
         None
       case Operation.Call(offsetConst, targetConst) => {
-        val offsetChange = constRef(offsetConst, 4).getInt()
+        val offsetChange = evalConst(offsetConst).asExpandedInt.get
         val target = evalConst(targetConst)
 
         val prevOffset = state.stack.offset
@@ -59,10 +59,10 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         None
       }
       case Operation.CheckSize(length) =>
-        state.stack.checkSize(constRef(length, 4).getInt())
+        state.stack.checkSize(evalConst(length).asExpandedInt.get)
         None
       case Operation.Branch(modifier, length, op1, op2, target) => {
-        val lengthE = constRef(length, 4).getInt()
+        val lengthE = evalConst(length).asExpandedInt.get
         val modifierE = evalConst(modifier).asString.get
         val op1Ref = constOrAddressRef(op1, lengthE)
         val op2Ref = constOrAddressRef(op2, lengthE)
@@ -76,20 +76,20 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         if (flag) Some(evalConst(target).asString.get) else None
       }
       case Operation.PrintInt(length, src) =>
-        Runtime.printInt(constRef(length, 4).getInt(), addressRef(src))
+        Runtime.printInt(evalConst(length).asExpandedInt.get, addressRef(src))
         None
       case Operation.Add(length, op1, op2, dst) => {
-        val lengthE = constRef(length, 4).getInt()
+        val lengthE = evalConst(length).asExpandedInt.get
         Runtime.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
         None
       }
       case Operation.Mult(length, op1, op2, dst) => {
-        val lengthE = constRef(length, 4).getInt()
+        val lengthE = evalConst(length).asExpandedInt.get
         Runtime.mult(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
         None
       }
       case Operation.Neg(length, op, dst) => {
-        val lengthE = constRef(length, 4).getInt()
+        val lengthE = evalConst(length).asExpandedInt.get
         Runtime.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
         None
       }
@@ -104,16 +104,18 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     }
   }
 
-  // refs
-  private def constOrAddressRef(constOrAddress: Const | Address, constExpectedLength: Int): MemoryRef = constOrAddress match {
-    case const: Const => constRef(const, constExpectedLength)
-    case address: Address => addressRef(address)
-  }
+  private def constOrAddressRef(constOrAddress: Const | Address, constExpectedLength: Int): MemoryRef =
+    constOrAddress match {
+      case const: Const =>
+        new MemoryRef(evalConst(const).expand(constExpectedLength).asByteBuffer, 0)
+      case address: Address =>
+        addressRef(address)
+    }
 
   private def addressRef(address: Address): MemoryRef = address match {
     case Address.Stack(address, limit) => {
       // todo: do not ignore limit
-      state.stack.getRef(constRef(address, 4).getInt())
+      state.stack.getRef(evalConst(address).asExpandedInt.get)
     }
     case _ => throw new UnsupportedOperationException(s"unsupported address: $address")
   }
@@ -127,7 +129,4 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
       Bytes.fromBytes(address.getBytes(length.asInt.get))
     }
   }
-
-  private def constRef(const: Const, expectedLength: Int): MemoryRef =
-    new MemoryRef(evalConst(const).expand(expectedLength).asByteBuffer, 0)
 }
