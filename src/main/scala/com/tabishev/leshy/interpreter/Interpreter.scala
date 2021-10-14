@@ -12,7 +12,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
 
   def run(name: String, input: Bytes): Bytes = {
     assert(state.stack.size == 0)
-    state.stack.append(input.get())
+    state.stack.append(input)
     run(name, 0)
     assert(state.stack.offset == 0)
     val output = Bytes.fromBytes(state.getStack())
@@ -54,7 +54,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
         state.stack.offset(newOffset)
         // todo: that's where we increase stack depth even if it's regular for loop
-        run(new String(target), depth + 1)
+        run(target.asString.get, depth + 1)
         state.stack.offset(prevOffset)
         None
       }
@@ -63,7 +63,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         None
       case Operation.Branch(modifier, length, op1, op2, target) => {
         val lengthE = constRef(length, 4).getInt()
-        val modifierE = new String(evalConst(modifier))
+        val modifierE = evalConst(modifier).asString.get
         val op1Ref = constOrAddressRef(op1, lengthE)
         val op2Ref = constOrAddressRef(op2, lengthE)
         val flag = modifierE match {
@@ -73,7 +73,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
           case "m" => !Runtime.less(lengthE, op1Ref, op2Ref, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
         }
-        if (flag) Some(new String(evalConst(target))) else None
+        if (flag) Some(evalConst(target).asString.get) else None
       }
       case Operation.PrintInt(length, src) =>
         Runtime.printInt(constRef(length, 4).getInt(), addressRef(src))
@@ -119,20 +119,15 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   }
 
   // const evaluation
-  private def evalConst(const: Const): Array[Byte] = const match {
-    case Const.Literal(bytes) => bytes.get()
+  private def evalConst(const: Const): Bytes = const match {
+    case Const.Literal(bytes) => bytes
     case Const.Stack(from, length) => {
       // todo: check constantness
-      addressRef(Address.Stack(Const.Literal(from), Const.Literal(length))).getBytes(length.asInt.get)
+      val address = addressRef(Address.Stack(Const.Literal(from), Const.Literal(length)))
+      Bytes.fromBytes(address.getBytes(length.asInt.get))
     }
   }
 
   private def constRef(const: Const, expectedLength: Int): MemoryRef =
-    new MemoryRef(ByteBuffer.wrap(expandedBytes(evalConst(const), expectedLength)), 0)
-  private def expandedBytes(bytes: Array[Byte], expectedLength: Int): Array[Byte] =
-    if (bytes.length == expectedLength) bytes else {
-      val result = Array.fill[Byte](expectedLength)(0)
-      System.arraycopy(bytes, 0, result, 0, bytes.length)
-      result
-    }
+    new MemoryRef(evalConst(const).expand(expectedLength).asByteBuffer, 0)
 }
