@@ -36,9 +36,9 @@ object TextParser {
         Some(Operation.Call(parseConst(offset), parseConst(target)))
 
       // memory
-      case Seq("copy", lengthS, src, dst) =>
+      case Seq("set", lengthS, src, dst) =>
         val length = parseConst(lengthS)
-        Some(Operation.Copy(length, parseConstOrAddress(src, Some(length)), parseAddress(dst, Some(length))))
+        Some(Operation.Set(length, parseConstOrAddress(src, Some(length)), parseAddress(dst, Some(length))))
 
       // arithmetic
       case Seq("add", lengthS, op1, op2, dst) =>

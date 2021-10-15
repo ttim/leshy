@@ -64,7 +64,7 @@ object Runtime {
     case other => throw new IllegalArgumentException(s"unsupported neg length '$other'")
   }
 
-  def copy(length: Long, src: MemoryRef, dest: MemoryRef): Unit = {
+  def set(length: Long, src: MemoryRef, dest: MemoryRef): Unit = {
     // todo: do manipulation over underlying byte buffers!
     dest.put(src.getBytes(length.toInt))
   }

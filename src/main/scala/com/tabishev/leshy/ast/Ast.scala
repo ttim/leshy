@@ -35,9 +35,10 @@ enum Operation {
   // Constant operations
 
   // Memory operations
-  // If `length` passed as address it's treated as 8 (?) bytes
-  case Copy(length: Const | Address, src: Const | Address, dst: Address)
-  case Set(length: Const | Address, bytes: Const | Address, dst: Address)
+  // Should be more different `Set` operations, to cover use cases with offsets and array offsets
+  case Set(length: Const, src: Const | Address, dst: Address)
+  // `length` is treated as 8 bytes
+  case SetNative(length: Address, src: Const | Address.Native, dst: Address.Native)
 
   // Integer arithmetic operations
   case Add(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
