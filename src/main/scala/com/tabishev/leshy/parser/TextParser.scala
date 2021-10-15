@@ -122,8 +122,9 @@ object TextParser {
 
   private def parseConstString(arg: String): Option[Bytes] =
     if (arg.startsWith("'") && arg.endsWith("'")) {
-      // todo: remove this after I cover other cases
       Some(Bytes.fromString(arg.substring(1, arg.length - 1)))
+    } else if (arg.startsWith(":")) {
+      Some(Bytes.fromString(arg.substring(1)))
     } else None
 
   private def parseAddress(arg: String): Address =
