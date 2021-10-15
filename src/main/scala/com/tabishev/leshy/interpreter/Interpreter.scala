@@ -112,11 +112,10 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     }
 
   private def addressRef(address: Address): MemoryRef = address match {
-    case Address.Stack(address, limit) => {
-      // todo: do not ignore limit
+    case Address.Stack(address) =>
       state.stack.getRef(evalConst(address).asExpandedInt.get)
-    }
-    case _ => throw new UnsupportedOperationException(s"unsupported address: $address")
+    case _ =>
+      throw new UnsupportedOperationException(s"unsupported address: $address")
   }
 
   // const evaluation
@@ -124,7 +123,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     case Const.Literal(bytes) => bytes
     case Const.Stack(from, length) => {
       // todo: check constantness
-      val address = addressRef(Address.Stack(Const.Literal(from), Const.Literal(length)))
+      val address = addressRef(Address.Stack(Const.Literal(from)))
       Bytes.fromBytes(address.getBytes(length.asInt.get))
     }
   }
