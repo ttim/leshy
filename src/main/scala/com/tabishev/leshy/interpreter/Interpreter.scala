@@ -13,11 +13,13 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   def run(name: String, input: Bytes): Bytes = {
     assert(state.stack.size == 0)
     state.stack.append(input)
-    run(name, 0)
-    assert(state.stack.offset == 0)
-    val output = Bytes.fromBytes(state.getStack())
-    state.stack.shrink(state.stack.size)
-    output
+    try {
+      run(name, 0)
+      assert(state.stack.offset == 0)
+      Bytes.fromBytes(state.getStack())
+    } finally {
+      state.stack.shrink(state.stack.size)
+    }
   }
 
   private def run(name: String, depth: Int): Unit = {
@@ -26,8 +28,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     while (i < subroutine.ops.length) {
       run(subroutine.ops(i), depth) match {
         case Some(toJump) =>
-          subroutine = loader.load(toJump).get
-          i = 0
+          i = subroutine.labels(toJump)
         case None =>
           i += 1
       }
@@ -75,6 +76,8 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         }
         if (flag) Some(evalConst(target).asString.get) else None
       }
+      case Operation.Jump(target) =>
+        Some(evalConst(target).asString.get)
       case Operation.PrintInt(length, src) =>
         Runtime.printInt(evalConst(length).asExpandedInt.get, addressRef(src))
         None
