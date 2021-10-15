@@ -5,7 +5,7 @@ def fib4
   check_size 4 ;output
 
 def _fib4_ret_1
-  copy 4 1 #0
+  set 4 1 #0
 
 def _fib4_rec
   extend 4
@@ -27,7 +27,7 @@ def fib8
 
 def _fib8_ret_1
   extend 4
-  copy 8 1 #0
+  set 8 1 #0
 
 def _fib8_rec
   extend 4
@@ -59,16 +59,16 @@ def _fibx_ret_1
   extend $-4
   shrink 4
 
-  copy $0 1 #4
+  set $0 1 #4
 
 def _fibx_rec
   extend 8
-  copy 4 #0 #-8
+  set 4 #0 #-8
   add 4 #4 -1 #-4
   call -8 'fibx'
 
   extend 8
-  copy 4 #0 #-8
+  set 4 #0 #-8
   add 4 #4 -2 #-4
   call -8 'fibx'
 

@@ -48,6 +48,8 @@ case class Bytes(private val bytes: Array[Byte]) {
     if (bytes.length <= 4) expand(4).asInt else None
   lazy val asLong: Option[Long] =
     if (bytes.length == 8) Some(asByteBuffer.getLong()) else None
+  lazy val asExpandedLong: Option[Long] =
+    if (bytes.length <= 8) expand(8).asLong else None
   lazy val asBase64Bytes: String =
     Base64.getEncoder.encodeToString(bytes)
   lazy val asString: Option[String] =

@@ -4,23 +4,23 @@ def ffactorial
   check_size 8 ; input: length, n
 
   extend 12 ; pos_1, pos_i, pos_ans
-  copy 4 20 #8 ; pos_1
+  set 4 20 #8 ; pos_1
   add 4 #8 #0 #12 ; pos_i
   add 4 #12 #0 #16 ; pos_ans
 
   extend $0
-  copy $0 2 #$8 ; _1 = 2
+  set $0 2 #$8 ; _1 = 2
   neg $0 #$8 #$8 ; _1 = -2
 
   extend $0
-  copy $0 0 #$12 ; i = 0
-  copy 4 #4 #$12 ; i = n
+  set $0 0 #$12 ; i = 0
+  set 4 #4 #$12 ; i = n
 
   extend $0
-  copy $0 1 #$16 ; ans = 1
+  set $0 1 #$16 ; ans = 1
 
   call 0 '_ffactorial_loop'
-  copy $0 #$16 #4
+  set $0 #$16 #4
 
   shrink $0
   shrink $0

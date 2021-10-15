@@ -93,10 +93,9 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         Runtime.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
         None
       }
-      case Operation.Copy(length, src, dst) => {
-        // todo: should be getLong
-        val lengthE = constOrAddressRef(length, 8).getLong()
-        Runtime.copy(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
+      case Operation.Set(length, src, dst) => {
+        val lengthE = evalConst(length).asExpandedLong.get
+        Runtime.set(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
         None
       }
       case _ =>
