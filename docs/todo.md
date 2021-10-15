@@ -4,3 +4,4 @@
   or maybe not and keep current design just with `call` & `return` instructions to indicate stack frames?
   - Good parts: better security. You can't jump to any other place anymore (at least without protecting stack firstly)
   - Bad parts: more complicated, more concepts?
+- Interesting to see how stack based bytes array of 4 elements gets compiled when used from for loop

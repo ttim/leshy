@@ -124,14 +124,19 @@ def _fib_rec:
 - Implement couple of macros for simple functions calls + bytes slices manipulation?
 - It worth doing mental exercise of modeling `put ((get struct .field2) + 1)` with leshy, and checking that result seems reasonable
 - Case study with "dynamic enough" c, where you don't need to recompile everything to run new version and instead it carries type info around
-	- For example incrementing second int field from struct
+    - For example incrementing second int field from struct
 - Another case study is variable pointer size
 - Use positive & negative numbers to distinguish between from beginning or from end of stack. Might need to think how good this is with inlining - gets a bit less trivial than just to replace with offset. Works almost like that when call offset is positive, and needs normalization otherwise. 
 - Add `_start_call` instruction which saves stack offset and later uses it in `call`
-	- Doesn't seem worth it, can be modeled with dedicated first 4 bytes, `_start_call` doing `store_4 0 #size`, and `call` doing `call #0`
+    - Doesn't seem worth it, can be modeled with dedicated first 4 bytes, `_start_call` doing `store_4 0 #size`, and `call` doing `call #0`
 - We might not need binary representation, text with compression is enough. Results of compilation should be cacheable anyway. Maybe the only requirement is to make text splittable by functions so it's easy to do initial parse and hashing
 - Don't consider function to be specialization boundary - specialize only for blocks! functions call happen rarely with inlining and it's fine to despecialize everything when needed!
   - Seems like not necessary to distinguish between those two tho, it's always *block* which runs when you call function, with some of arguments being const
+- No need to have special blocks or `call_specialize`, as well as special syntax for constants, just be back to original `##indirect-stack-address` with const requirement
+  - Push back on constants, right now it's nicer because constants (in opposition to stack refs) are bytes, they do have length, while stack refs have limits but not length, so it's not gonna play out very well with `copy` api for example
+  - Or alternatively make stack addresses just addresses again, *but* make all operations which affect variable length after address to take max limit constant? or just version with limit? or just forbid using them with non native addresses?
+  - Also feels again we don't need offset based stack address, make things messy and more complicated? just `nativize stack_offset stack_limit`
+  - Or maybe const stuff is actually good and I should keep it?
 
 # Insights
 - Customer facing IR & IR good for optimizations are different IRs, and that's something IMO llvm solves wrongly
