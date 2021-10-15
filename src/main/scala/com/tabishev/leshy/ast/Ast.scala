@@ -2,9 +2,8 @@ package com.tabishev.leshy.ast
 
 enum Address {
   // Address in stack corresponding to `address`
-  // #[const, const]
-  // #const is syntatic sugar in which limit is being inferred from the context
-  case Stack(address: Const, limit: Const)
+  // #const
+  case Stack(address: Const)
 
   // Address in stack corresponding to 4 bytes in stack starting from `offset` after `base`, and must be less than `limit`
   // #[const, const, const]

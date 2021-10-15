@@ -29,7 +29,7 @@ object TextParser {
       // branch
       case Seq("branch", modifier, lengthS, op1, op2, dest) =>
         val length = parseConst(lengthS)
-        Some(Operation.Branch(parseConst(modifier), length, parseConstOrAddress(op1, Some(length)), parseConstOrAddress(op2, Some(length)), parseConst(dest)))
+        Some(Operation.Branch(parseConst(modifier), length, parseConstOrAddress(op1), parseConstOrAddress(op2), parseConst(dest)))
 
       // call
       case Seq("call", offset, target) =>
@@ -38,22 +38,22 @@ object TextParser {
       // memory
       case Seq("set", lengthS, src, dst) =>
         val length = parseConst(lengthS)
-        Some(Operation.Set(length, parseConstOrAddress(src, Some(length)), parseAddress(dst, Some(length))))
+        Some(Operation.Set(length, parseConstOrAddress(src), parseAddress(dst)))
 
       // arithmetic
       case Seq("add", lengthS, op1, op2, dst) =>
         val length = parseConst(lengthS)
-        Some(Operation.Add(length, parseConstOrAddress(op1, Some(length)), parseConstOrAddress(op2, Some(length)), parseAddress(dst, Some(length))))
+        Some(Operation.Add(length, parseConstOrAddress(op1), parseConstOrAddress(op2), parseAddress(dst)))
       case Seq("mult", lengthS, op1, op2, dst) =>
         val length = parseConst(lengthS)
-        Some(Operation.Mult(length, parseConstOrAddress(op1, Some(length)), parseConstOrAddress(op2, Some(length)), parseAddress(dst, Some(length))))
+        Some(Operation.Mult(length, parseConstOrAddress(op1), parseConstOrAddress(op2), parseAddress(dst)))
       case Seq("neg", lengthS, op, dst) =>
         val length = parseConst(lengthS)
-        Some(Operation.Neg(length, parseConstOrAddress(op, Some(length)), parseAddress(dst, Some(length))))
+        Some(Operation.Neg(length, parseConstOrAddress(op), parseAddress(dst)))
 
       // "syscalls"
       case Seq("print_int", length, src) =>
-        Some(Operation.PrintInt(parseConst(length), parseAddress(src, Some(parseConst(length)))))
+        Some(Operation.PrintInt(parseConst(length), parseAddress(src)))
 
       case Seq("") =>
         None
@@ -107,15 +107,15 @@ object TextParser {
       Some(Bytes.fromString(arg.substring(1, arg.length - 1)))
     } else None
 
-  private def parseAddress(arg: String, inferredLimit: Option[Const]): Address =
+  private def parseAddress(arg: String): Address =
     if (arg.startsWith("*")) {
       Address.Native(parseConst(arg.substring(1)))
     } else if (arg.startsWith("#")) {
-      Address.Stack(parseConst(arg.substring(1)), inferredLimit.get)
+      Address.Stack(parseConst(arg.substring(1)))
     } else {
       throw new IllegalArgumentException(s"can't parse address '$arg'")
     }
 
-  private def parseConstOrAddress(arg: String, inferredLimit: Option[Const]): Const | Address =
-    if (arg.startsWith("*") || arg.startsWith("#")) parseAddress(arg, inferredLimit) else parseConst(arg)
+  private def parseConstOrAddress(arg: String): Const | Address =
+    if (arg.startsWith("*") || arg.startsWith("#")) parseAddress(arg) else parseConst(arg)
 }
