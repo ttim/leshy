@@ -1,19 +1,19 @@
 def fib4
   init:
     check_size 4 ;input
-    branch 'le' 4 #0 1 'ret_1'
+    branch :le 4 #0 1 :ret_1
   rec:
     extend 4
     add 4 #0 -1 #-4
-    call -4 'fib4'
+    call -4 :fib4
 
     extend 4
     add 4 #0 -2 #-4
-    call -4 'fib4'
+    call -4 :fib4
 
     add 4 #4 #8 #0
     shrink 8
-    jump 'finish'
+    jump :finish
   ret_1:
     set 4 1 #0
   finish:
@@ -22,19 +22,19 @@ def fib4
 def fib8
   init:
     check_size 4 ;input
-    branch 'le' 4 #0 1 'ret_1'
+    branch :le 4 #0 1 :ret_1
   rec:
     extend 4
     add 4 #0 -1 #-4
-    call -4 'fib8'
+    call -4 :fib8
 
     extend 4
     add 4 #0 -2 #-4
-    call -4 'fib8'
+    call -4 :fib8
 
     add 8 #4 #12 #0
     shrink 12
-    jump 'finish'
+    jump :finish
   ret_1:
     extend 4
     set 8 1 #0
@@ -44,17 +44,17 @@ def fib8
 def fibx
   init:
     check_size 8 ;input
-    branch 'le' 4 #4 1 'ret_1'
+    branch :le 4 #4 1 :ret_1
   rec:
     extend 8
     set 4 #0 #-8
     add 4 #4 -1 #-4
-    call -8 'fibx'
+    call -8 :fibx
 
     extend 8
     set 4 #0 #-8
     add 4 #4 -2 #-4
-    call -8 'fibx'
+    call -8 :fibx
 
     extend 4
     add 4 #0 16 #-4 ;second result offset, x input x res1 x res2
@@ -64,7 +64,7 @@ def fibx
     add 4 #0 12 #-4 ; input x res1 x
     shrink $-4
     shrink 4
-    jump 'finish'
+    jump :finish
   ret_1:
     ; size is 4 + 4 = 8, result is of size 4+$0, so we need to extend on $0 - 4
     extend 4
