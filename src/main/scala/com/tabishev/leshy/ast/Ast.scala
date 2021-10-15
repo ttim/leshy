@@ -25,8 +25,9 @@ enum Operation {
   case AppendSize()
   case Append(bytes: Const)
 
-  // Branch operations
+  // Control flow operations
   case Branch(modifier: Const, length: Const, op1: Const | Address, op2: Const | Address, target: Const)
+  case Jump(target: Const)
 
   // Call operations
   case Call(offset: Const, target: Const)
@@ -55,4 +56,8 @@ enum Operation {
   case PrintInt(length: Const, src: Address)
 }
 
-case class Fn(name: String, ops: Array[Operation])
+case class Fn(
+               name: String,
+               ops: Array[Operation],
+               labels: Map[String, Int], // label name to offset
+             )

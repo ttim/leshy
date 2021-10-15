@@ -89,6 +89,8 @@ case class Bytes(private val bytes: Array[Byte]) {
   override def equals(obj: Any): Boolean = obj.isInstanceOf[Bytes] &&
     java.util.Arrays.equals(bytes, obj.asInstanceOf[Bytes].bytes)
 
+  override def hashCode(): Int = java.util.Arrays.hashCode(bytes)
+
   def asByteBuffer: ByteBuffer = {
     val bb = ByteBuffer.wrap(bytes).asReadOnlyBuffer()
     bb.order(ByteOrder.LITTLE_ENDIAN)

@@ -1,21 +1,38 @@
 package com.tabishev.leshy.parser
 
-import com.tabishev.leshy.ast.{Address, Bytes, Const, Operation, Fn}
+import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation}
 
 import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.charset.Charset
+import scala.collection.mutable
 
 object TextParser {
   def parse(text: String): Map[String, Fn] =
     ("\n" + text).split("\ndef ").tail.map(parseSubroutine).map { r => (r.name, r) }.toMap
 
   private def parseSubroutine(text: String): Fn = {
+    val ops = mutable.Buffer[Operation]()
+    val labels = mutable.HashMap[String, Int]()
+
     val lines = text.split("\n")
-    Fn(lines.head, lines.toSeq.tail.flatMap(parseOperation).toArray)
+
+    // head is name
+    lines.tail.foreach { line =>
+      val noComments = removeComments(line)
+      if (noComments.endsWith(":")) {
+        // label
+        labels.put(noComments.substring(0, noComments.length - 1), ops.size)
+      } else {
+        // operation
+        parseOperation(noComments).foreach(ops.append)
+      }
+    }
+
+    Fn(lines.head, ops.toArray, labels.toMap)
   }
 
   private def parseOperation(text: String): Option[Operation] =
-    cleanOperation(text).split(" ").toSeq match {
+    text.split(" ").toSeq match {
       // stack
       case Seq("extend", length) =>
         Some(Operation.Extend(parseConst(length)))
@@ -26,10 +43,12 @@ object TextParser {
       case Seq("append", bytes) =>
         Some(Operation.Append(parseConst(bytes)))
 
-      // branch
+      // control flow
       case Seq("branch", modifier, lengthS, op1, op2, dest) =>
         val length = parseConst(lengthS)
         Some(Operation.Branch(parseConst(modifier), length, parseConstOrAddress(op1), parseConstOrAddress(op2), parseConst(dest)))
+      case Seq("jump", dest) =>
+        Some(Operation.Jump(parseConst(dest)))
 
       // call
       case Seq("call", offset, target) =>
@@ -58,10 +77,10 @@ object TextParser {
       case Seq("") =>
         None
       case _ =>
-        throw new IllegalArgumentException(s"can't parse operation '${cleanOperation(text)}'")
+        throw new IllegalArgumentException(s"can't parse operation '${removeComments(text)}'")
     }
 
-  private def cleanOperation(operation: String): String = {
+  private def removeComments(operation: String): String = {
     val noComment = if (operation.contains(";")) operation.substring(0, operation.indexOf(";")) else operation
     noComment.trim
   }
