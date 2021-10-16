@@ -6,9 +6,19 @@ import com.tabishev.leshy.loader.{FileLoader, RoutineLoader}
 import java.io.File
 import java.nio.ByteBuffer
 import java.util
+import scala.collection.mutable
+
+class Symbols(register: String => Symbol) {
+  val eq = register("eq")
+  val neq = register("neq")
+  val m = register("m")
+  val le = register("le")
+}
 
 class Interpreter(loader: RoutineLoader, debug: Boolean) {
   private val state = new InterpreterState()
+  private val symbols = Symbols(state.registerSymbol)
+  private val loadedFunctions = mutable.HashMap[String, Fn]()
 
   def run(name: String, input: Bytes): Bytes = {
     assert(state.stack.size == 0)
@@ -23,19 +33,25 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   }
 
   private def run(name: String, depth: Int): Unit = {
-    var subroutine = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
+    val fn = loadedFunctions.getOrElse(name, {
+      var loaded = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
+      state.registerSymbol(loaded.name)
+      loaded.labels.foreach { case (name, _) => state.registerSymbol(name) }
+      loaded
+    })
+
     var i = 0
-    while (i < subroutine.ops.length) {
-      run(subroutine.ops(i), depth) match {
+    while (i < fn.ops.length) {
+      run(fn.ops(i), depth) match {
         case Some(toJump) =>
-          i = subroutine.labels(toJump)
+          i = fn.labels(toJump.name)
         case None =>
           i += 1
       }
     }
   }
 
-  private def run(op: Operation, depth: Int): Option[String] = {
+  private def run(op: Operation, depth: Int): Option[Symbol] = {
     if (debug) println("\t".repeat(depth) + s"$op with ${state.stack}")
     op match {
       case Operation.Extend(length) =>
@@ -49,12 +65,12 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         None
       case Operation.Call(offsetConst, targetConst) => {
         val offsetChange = evalConst(offsetConst).asExpandedInt.get
-        val target = evalConst(targetConst)
+        val target = evalSymbol(targetConst)
 
         val prevOffset = state.stack.offset
         val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
         state.stack.offset(newOffset)
-        run(target.asString.get, depth + 1)
+        run(target.name, depth + 1)
         state.stack.offset(prevOffset)
         None
       }
@@ -63,20 +79,20 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         None
       case Operation.Branch(modifier, length, op1, op2, target) => {
         val lengthE = evalConst(length).asExpandedInt.get
-        val modifierE = evalConst(modifier).asString.get
+        val modifierE = evalSymbol(modifier)
         val op1Ref = constOrAddressRef(op1, lengthE)
         val op2Ref = constOrAddressRef(op2, lengthE)
-        val flag = modifierE match {
+        val flag = modifierE.name match {
           case "eq" => Runtime.equals(lengthE, op1Ref, op2Ref)
           case "neq" => !Runtime.equals(lengthE, op1Ref, op2Ref)
           case "le" => Runtime.less(lengthE, op1Ref, op2Ref, orEqual = true)
           case "m" => !Runtime.less(lengthE, op1Ref, op2Ref, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
         }
-        if (flag) Some(evalConst(target).asString.get) else None
+        if (flag) Some(evalSymbol(target)) else None
       }
       case Operation.Jump(target) =>
-        Some(evalConst(target).asString.get)
+        Some(evalSymbol(target))
       case Operation.PrintInt(length, src) =>
         Runtime.printInt(evalConst(length).asExpandedInt.get, addressRef(src))
         None
@@ -123,10 +139,13 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   // const evaluation
   private def evalConst(const: Const): Bytes = const match {
     case Const.Literal(bytes) => bytes
+    case Const.Symbol(name) => state.resolveSymbol(name).asBytes
     case Const.Stack(from, length) => {
       // todo: check constantness
       val address = addressRef(Address.Stack(Const.Literal(from)))
       Bytes.fromBytes(address.getBytes(length.asInt.get))
     }
   }
+
+  private def evalSymbol(const: Const): Symbol = state.resolveSymbolBytes(evalConst(const))
 }
