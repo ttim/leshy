@@ -54,7 +54,6 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         val prevOffset = state.stack.offset
         val newOffset = if (offsetChange >= 0) state.stack.offset + offsetChange else state.stack.size + offsetChange
         state.stack.offset(newOffset)
-        // todo: that's where we increase stack depth even if it's regular for loop
         run(target.asString.get, depth + 1)
         state.stack.offset(prevOffset)
         None
