@@ -86,20 +86,22 @@ object TextParser {
   }
 
   private def parseConst(arg: String): Const =
-    parseStackConst(arg).getOrElse(Const.Literal(parseBytes(arg)))
+    parseStackConst(arg)
+      .orElse(parseConstSymbol(arg))
+      .orElse(parseLiteral(arg).map(Const.Literal.apply))
+      .getOrElse(throw new IllegalArgumentException(s"can't parse const $arg"))
 
-  private def parseBytes(arg: String): Bytes =
+  private def parseLiteral(arg: String): Option[Bytes] =
     parseIntBytes(arg)
       .orElse(parseConstIntWithLength(arg))
       .orElse(parseConstString(arg))
-      .getOrElse(throw new IllegalArgumentException(s"can't parse bytes '$arg'"))
 
   private def parseIntBytes(arg: String): Option[Bytes] =
     arg.toIntOption.map(Bytes.fromInt)
 
   private def parseStackConst(arg: String): Option[Const] =
     if (arg.startsWith("$")) {
-      Some(Const.Stack(parseBytes(arg.substring(1)), Bytes.fromInt(4)))
+      Some(Const.Stack(parseLiteral(arg.substring(1)).get, Bytes.fromInt(4)))
     } else None
 
   private def parseConstIntWithLength(arg: String): Option[Bytes] = {
@@ -120,11 +122,12 @@ object TextParser {
     } else None
   }
 
+  private def parseConstSymbol(arg: String): Option[Const] =
+    if (arg.startsWith(":")) Some(Const.Symbol(arg.substring(1))) else None
+
   private def parseConstString(arg: String): Option[Bytes] =
     if (arg.startsWith("'") && arg.endsWith("'")) {
       Some(Bytes.fromString(arg.substring(1, arg.length - 1)))
-    } else if (arg.startsWith(":")) {
-      Some(Bytes.fromString(arg.substring(1)))
     } else None
 
   private def parseAddress(arg: String): Address =

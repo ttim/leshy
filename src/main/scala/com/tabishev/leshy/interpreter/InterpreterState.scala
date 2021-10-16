@@ -3,9 +3,28 @@ package com.tabishev.leshy.interpreter
 import com.tabishev.leshy.ast.Bytes
 
 import java.nio.ByteBuffer
+import scala.collection.mutable
 
 class InterpreterState {
   val stack = new StackMemory()
+
+  private val symbolsByName: mutable.Map[String, Symbol] = mutable.HashMap()
+  private val symbolsById: mutable.Map[Int, Symbol] = mutable.HashMap()
+  private var nextSymbol: Int = 1
+
+  def registerSymbol(name: String): Symbol =
+    if (symbolsByName.contains(name)) symbolsByName(name) else {
+      val symbol = Symbol(name, nextSymbol)
+      nextSymbol += 1
+
+      symbolsByName.put(name, symbol)
+      symbolsById.put(symbol.id, symbol)
+
+      symbol
+    }
+
+  def resolveSymbol(name: String): Symbol = symbolsByName(name)
+  def resolveSymbolBytes(bytes: Bytes): Symbol = symbolsById(bytes.asInt.get)
 
   def getStack(length: Int, address: Int): Array[Byte] = {
     val bytes = Array.fill[Byte](length)(0)

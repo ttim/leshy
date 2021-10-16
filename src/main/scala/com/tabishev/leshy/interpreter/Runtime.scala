@@ -1,5 +1,7 @@
 package com.tabishev.leshy.interpreter
 
+import com.tabishev.leshy.ast.Bytes
+
 import java.nio.{ByteBuffer, ByteOrder}
 
 // todo: use MemoryAddress, MemorySegment & MemoryAccess instead?
@@ -18,6 +20,10 @@ class MemoryRef(val buffer: ByteBuffer, val index: Int) {
     buffer.get(index, bytes, 0, length)
     bytes
   }
+}
+
+case class Symbol(name: String, id: Int) {
+  val asBytes: Bytes = Bytes.fromInt(id)
 }
 
 object Runtime {
