@@ -24,6 +24,9 @@ final class Memory private (val bytes: Array[Byte]) {
     copyBytes
   }
 
+  def zero(offset: Int, length: Int): Unit =
+    java.util.Arrays.fill(bytes, offset, offset + length, 0.toByte)
+
   def extended(extendSize: Int): Memory = {
     val newBytes = Array.fill[Byte](bytes.length + extendSize)(0)
     System.arraycopy(bytes, 0, newBytes, 0, bytes.length)
