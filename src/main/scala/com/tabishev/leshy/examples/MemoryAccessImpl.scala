@@ -1,11 +1,14 @@
 package com.tabishev.leshy.examples
 
-import jdk.incubator.foreign.{MemoryAccess, MemoryAddress, MemorySegment}
+import jdk.incubator.foreign.{MemoryAccess, MemoryAddress, MemorySegment, ResourceScope}
 
 import java.nio.{ByteBuffer, ByteOrder}
 
 object MemoryAccessImpl {
-  private val memory: MemorySegment = MemorySegment.ofArray(Array.fill(24)(0))
+  private val native = true
+  private val memory: MemorySegment =
+    if (native) MemorySegment.allocateNative(24, ResourceScope.globalScope())
+    else MemorySegment.ofArray(Array.fill[Byte](24)(0))
 
   def ffactorial4(n: Int): Int = {
     MemoryAccess.setIntAtOffset(memory, 0, n) // n
