@@ -5,38 +5,65 @@ import com.tabishev.leshy.ast.Bytes
 import java.nio.{ByteBuffer, ByteOrder}
 
 // todo: use MemoryAddress, MemorySegment & MemoryAccess instead?
-final class Memory private (val bytes: Array[Byte]) {
+final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
+  private var unloaded: Boolean = false
   private val mirror = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
 
-  def size: Int = bytes.length
+  def size: Int = read {
+    bytes.length
+  }
 
-  def putInt(offset: Int, value: Int): Unit = mirror.putInt(offset, value)
-  def putLong(offset: Int, value: Long): Unit = mirror.putLong(offset, value)
-  def putBytes(offset: Int, value: Bytes): Unit = value.copyTo(bytes, offset)
-  def put(offset: Int, value: Array[Byte]): Unit =
+  def putInt(offset: Int, value: Int): Unit = write {
+    mirror.putInt(offset, value)
+  }
+  def putLong(offset: Int, value: Long): Unit = write {
+    mirror.putLong(offset, value)
+  }
+  def putBytes(offset: Int, value: Bytes): Unit = write {
+    value.copyTo(bytes, offset)
+  }
+  def put(offset: Int, value: Array[Byte]): Unit = write {
     System.arraycopy(value, 0, bytes, offset, value.length)
+  }
 
-  def getInt(offset: Int): Int = mirror.getInt(offset)
-  def getLong(offset: Int): Long = mirror.getLong(offset)
-  def get(offset: Int, length: Int): Array[Byte] = {
+  def getInt(offset: Int): Int = read {
+    mirror.getInt(offset)
+  }
+  def getLong(offset: Int): Long = read {
+    mirror.getLong(offset)
+  }
+  def get(offset: Int, length: Int): Array[Byte] = read {
     val copyBytes = Array.fill[Byte](length)(0)
     System.arraycopy(bytes, offset, copyBytes, 0, length)
     copyBytes
   }
 
-  def zero(offset: Int, length: Int): Unit =
+  def zero(offset: Int, length: Int): Unit = write {
     java.util.Arrays.fill(bytes, offset, offset + length, 0.toByte)
+  }
 
-  def extended(extendSize: Int): Memory = {
-    val newBytes = Array.fill[Byte](bytes.length + extendSize)(0)
-    System.arraycopy(bytes, 0, newBytes, 0, bytes.length)
-    new Memory(newBytes)
+  def extended(extendSize: Int, ro: Boolean): Memory = {
+    read {
+      val newBytes = Array.fill[Byte](bytes.length + extendSize)(0)
+      System.arraycopy(bytes, 0, newBytes, 0, bytes.length)
+      unloaded = true
+      new Memory(newBytes, ro)
+    }
+  }
+
+  private inline def write[T](inline op: T): T = {
+    assert(!unloaded && !ro)
+    op
+  }
+  private inline def read[T](inline op: T): T = {
+    assert(!unloaded)
+    op
   }
 }
 
 object Memory {
-  def ofSize(size: Int): Memory = new Memory(Array.fill[Byte](size)(0))
-  def ofBytes(bytes: Array[Byte]): Memory = new Memory(bytes.clone())
+  def ofSize(size: Int, ro: Boolean): Memory = new Memory(Array.fill[Byte](size)(0), ro)
+  def ofBytes(bytes: Array[Byte], ro: Boolean): Memory = new Memory(bytes.clone(), ro)
 }
 
 final class MemoryRef(val memory: Memory, val offset: Int) {

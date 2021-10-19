@@ -124,7 +124,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   private def constOrAddressRef(constOrAddress: Const | Address, constExpectedLength: Int): MemoryRef =
     constOrAddress match {
       case const: Const =>
-        new MemoryRef(Memory.ofBytes(evalConst(const).expand(constExpectedLength).get()), 0)
+        new MemoryRef(Memory.ofBytes(evalConst(const).expand(constExpectedLength).get(), ro = true), 0)
       case address: Address =>
         addressRef(address)
     }
