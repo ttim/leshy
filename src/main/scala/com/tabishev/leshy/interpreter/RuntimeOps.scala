@@ -50,7 +50,7 @@ object RuntimeOps {
 
   def set(length: Long, src: MemoryRef, dest: MemoryRef): Unit = {
     // todo: do manipulation over underlying byte buffers!
-    dest.put(src.getBytes(length.toInt))
+    dest.put(src.get(length.toInt))
   }
 
   def printInt(length: Int, arg: MemoryRef): Unit = length match {

@@ -26,9 +26,9 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     try {
       run(name, 0)
       assert(state.stack.offset == 0)
-      Bytes.fromBytes(state.stack.getFully())
+      Bytes.fromBytes(state.stack.getCurrentStackFrame())
     } finally {
-      state.stack.shrink(state.stack.size)
+      state.stack.clean()
     }
   }
 
@@ -124,7 +124,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   private def constOrAddressRef(constOrAddress: Const | Address, constExpectedLength: Int): MemoryRef =
     constOrAddress match {
       case const: Const =>
-        new MemoryRef(evalConst(const).expand(constExpectedLength).asByteBuffer, 0)
+        new MemoryRef(Memory.ofBytes(evalConst(const).expand(constExpectedLength).get()), 0)
       case address: Address =>
         addressRef(address)
     }
@@ -143,7 +143,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     case Const.Stack(from, length) => {
       // todo: check constantness
       val address = addressRef(Address.Stack(Const.Literal(from)))
-      Bytes.fromBytes(address.getBytes(length.asInt.get))
+      Bytes.fromBytes(address.get(length.asInt.get))
     }
   }
 

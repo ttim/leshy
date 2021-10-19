@@ -5,27 +5,9 @@ import com.tabishev.leshy.ast.Bytes
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable
 
-class Runtime {
+final class Runtime {
   val stack = new StackMemory()
   val symbols = new Symbols()
-}
-
-// todo: use MemoryAddress, MemorySegment & MemoryAccess instead?
-class MemoryRef(val buffer: ByteBuffer, val index: Int) {
-  buffer.order(ByteOrder.LITTLE_ENDIAN)
-
-  def putInt(value: Int): Unit = buffer.putInt(index, value)
-  def putLong(value: Long): Unit = buffer.putLong(index, value)
-  def put(value: Array[Byte]): Unit = buffer.put(index, value)
-
-  def getInt(): Int = buffer.getInt(index)
-  def getLong(): Long = buffer.getLong(index)
-  def getByte(offset: Int): Byte = buffer.get(index + offset)
-  def getBytes(length: Int): Array[Byte] = {
-    val bytes = Array.fill[Byte](length)(0)
-    buffer.get(index, bytes, 0, length)
-    bytes
-  }
 }
 
 case class Symbol(name: String, id: Int) {
@@ -53,36 +35,24 @@ class Symbols {
 }
 
 class StackMemory {
-  var stack: Array[Byte] = Array.fill(10)(0)
-  var mirror: ByteBuffer = ByteBuffer.wrap(stack).order(ByteOrder.LITTLE_ENDIAN)
+  var stack: Memory = Memory.ofSize(10)
   var size: Int = 0
   var offset: Int = 0
 
-  def get(length: Int, address: Int): Array[Byte] = {
-    val bytes = Array.fill[Byte](length)(0)
-    System.arraycopy(stack, offset + address, bytes, 0, length)
-    bytes
-  }
-
-  def getFully(): Array[Byte] = get(size - offset, 0)
+  def getCurrentStackFrame(): Array[Byte] = stack.get(offset, size - offset)
 
   def getRef(index: Int): MemoryRef =
     if (index >= 0) {
       assert(index < (size - offset))
-      new MemoryRef(mirror, offset + index)
+      new MemoryRef(stack, offset + index)
     } else {
       assert((-index) < (size - offset))
-      new MemoryRef(mirror, size + index)
+      new MemoryRef(stack, size + index)
     }
 
   def extend(extendSize: Int): Unit = {
-    if (size + extendSize <= stack.length) size += extendSize else {
-      val newStack = Array.fill[Byte](stack.length * 2)(0)
-      System.arraycopy(stack, 0, newStack, 0, stack.length)
-      stack = newStack
-      mirror = ByteBuffer.wrap(stack).order(ByteOrder.LITTLE_ENDIAN)
-      extend(extendSize)
-    }
+    if (size + extendSize > stack.size) stack = stack.extended(Math.min(stack.size, extendSize))
+    size += extendSize
   }
 
   def shrink(shrinkSize: Int): Unit = {
@@ -91,9 +61,14 @@ class StackMemory {
     // todo: decrease size in some cases?
   }
 
+  def clean(): Unit = {
+    size = 0
+    offset = 0
+  }
+
   def append(bytes: Bytes): Unit = {
     extend(bytes.length())
-    bytes.copyTo(stack, size - bytes.length())
+    stack.putBytes(size - bytes.length(), bytes)
   }
 
   def checkSize(size: Int): Unit = assert(size == this.size - this.offset)
@@ -103,5 +78,5 @@ class StackMemory {
     this.offset = newOffset
   }
 
-  override def toString: String = s"[${stack.slice(offset, size).mkString(", ")}]"
+  override def toString: String = s"[${stack.get(offset, size - offset).mkString(", ")}]"
 }
