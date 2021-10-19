@@ -8,7 +8,7 @@ import java.nio.ByteBuffer
 import java.util
 import scala.collection.mutable
 
-class Symbols(register: String => Symbol) {
+class CommonSymbols(register: String => Symbol) {
   val eq = register("eq")
   val neq = register("neq")
   val m = register("m")
@@ -16,8 +16,8 @@ class Symbols(register: String => Symbol) {
 }
 
 class Interpreter(loader: RoutineLoader, debug: Boolean) {
-  private val state = new InterpreterState()
-  private val symbols = Symbols(state.registerSymbol)
+  private val state = new Runtime()
+  private val commonSymbols = CommonSymbols(state.symbols.register)
   private val loadedFunctions = mutable.HashMap[String, Fn]()
 
   def run(name: String, input: Bytes): Bytes = {
@@ -26,7 +26,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     try {
       run(name, 0)
       assert(state.stack.offset == 0)
-      Bytes.fromBytes(state.getStack())
+      Bytes.fromBytes(state.stack.getFully())
     } finally {
       state.stack.shrink(state.stack.size)
     }
@@ -34,9 +34,9 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
 
   private def run(name: String, depth: Int): Unit = {
     val fn = loadedFunctions.getOrElse(name, {
-      var loaded = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
-      state.registerSymbol(loaded.name)
-      loaded.labels.foreach { case (name, _) => state.registerSymbol(name) }
+      val loaded = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
+      state.symbols.register(loaded.name)
+      loaded.labels.foreach { case (name, _) => state.symbols.register(name) }
       loaded
     })
 
@@ -83,10 +83,10 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         val op1Ref = constOrAddressRef(op1, lengthE)
         val op2Ref = constOrAddressRef(op2, lengthE)
         val flag = modifierE.name match {
-          case "eq" => Runtime.equals(lengthE, op1Ref, op2Ref)
-          case "neq" => !Runtime.equals(lengthE, op1Ref, op2Ref)
-          case "le" => Runtime.less(lengthE, op1Ref, op2Ref, orEqual = true)
-          case "m" => !Runtime.less(lengthE, op1Ref, op2Ref, orEqual = true)
+          case "eq" => RuntimeOps.equals(lengthE, op1Ref, op2Ref)
+          case "neq" => !RuntimeOps.equals(lengthE, op1Ref, op2Ref)
+          case "le" => RuntimeOps.less(lengthE, op1Ref, op2Ref, orEqual = true)
+          case "m" => !RuntimeOps.less(lengthE, op1Ref, op2Ref, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
         }
         if (flag) Some(evalSymbol(target)) else None
@@ -94,26 +94,26 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
       case Operation.Jump(target) =>
         Some(evalSymbol(target))
       case Operation.PrintInt(length, src) =>
-        Runtime.printInt(evalConst(length).asExpandedInt.get, addressRef(src))
+        RuntimeOps.printInt(evalConst(length).asExpandedInt.get, addressRef(src))
         None
       case Operation.Add(length, op1, op2, dst) => {
         val lengthE = evalConst(length).asExpandedInt.get
-        Runtime.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
+        RuntimeOps.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
         None
       }
       case Operation.Mult(length, op1, op2, dst) => {
         val lengthE = evalConst(length).asExpandedInt.get
-        Runtime.mult(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
+        RuntimeOps.mult(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
         None
       }
       case Operation.Neg(length, op, dst) => {
         val lengthE = evalConst(length).asExpandedInt.get
-        Runtime.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
+        RuntimeOps.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
         None
       }
       case Operation.Set(length, src, dst) => {
         val lengthE = evalConst(length).asExpandedLong.get
-        Runtime.set(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
+        RuntimeOps.set(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
         None
       }
       case _ =>
@@ -139,7 +139,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   // const evaluation
   private def evalConst(const: Const): Bytes = const match {
     case Const.Literal(bytes) => bytes
-    case Const.Symbol(name) => state.resolveSymbol(name).asBytes
+    case Const.Symbol(name) => state.symbols.resolve(name).asBytes
     case Const.Stack(from, length) => {
       // todo: check constantness
       val address = addressRef(Address.Stack(Const.Literal(from)))
@@ -147,5 +147,5 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     }
   }
 
-  private def evalSymbol(const: Const): Symbol = state.resolveSymbolBytes(evalConst(const))
+  private def evalSymbol(const: Const): Symbol = state.symbols.resolveBytes(evalConst(const))
 }

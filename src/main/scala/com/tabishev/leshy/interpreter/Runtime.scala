@@ -3,6 +3,12 @@ package com.tabishev.leshy.interpreter
 import com.tabishev.leshy.ast.Bytes
 
 import java.nio.{ByteBuffer, ByteOrder}
+import scala.collection.mutable
+
+class Runtime {
+  val stack = new StackMemory()
+  val symbols = new Symbols()
+}
 
 // todo: use MemoryAddress, MemorySegment & MemoryAccess instead?
 class MemoryRef(val buffer: ByteBuffer, val index: Int) {
@@ -26,58 +32,76 @@ case class Symbol(name: String, id: Int) {
   val asBytes: Bytes = Bytes.fromInt(id)
 }
 
-object Runtime {
-  // todo: should be flag for unsigned/signed comparison
-  // todo: add arbitrary version
-  def less(length: Int, arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean = length match {
-    case 4 => less4(arg1, arg2, orEqual)
-    case 8 => less8(arg1, arg2, orEqual)
-    case _ => throw new IllegalArgumentException(s"unsupported 'less' length $length")
+class Symbols {
+  private val symbolsByName: mutable.Map[String, Symbol] = mutable.HashMap()
+  private val symbolsById: mutable.Map[Int, Symbol] = mutable.HashMap()
+  private var nextSymbol: Int = 1
+
+  def register(name: String): Symbol =
+    if (symbolsByName.contains(name)) symbolsByName(name) else {
+      val symbol = Symbol(name, nextSymbol)
+      nextSymbol += 1
+
+      symbolsByName.put(name, symbol)
+      symbolsById.put(symbol.id, symbol)
+
+      symbol
+    }
+
+  def resolve(name: String): Symbol = symbolsByName(name)
+  def resolveBytes(bytes: Bytes): Symbol = symbolsById(bytes.asInt.get)
+}
+
+class StackMemory {
+  var stack: Array[Byte] = Array.fill(10)(0)
+  var mirror: ByteBuffer = ByteBuffer.wrap(stack).order(ByteOrder.LITTLE_ENDIAN)
+  var size: Int = 0
+  var offset: Int = 0
+
+  def get(length: Int, address: Int): Array[Byte] = {
+    val bytes = Array.fill[Byte](length)(0)
+    System.arraycopy(stack, offset + address, bytes, 0, length)
+    bytes
   }
 
-  def less4(arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean =
-    if (orEqual) (arg1.getInt() <= arg2.getInt()) else (arg1.getInt() < arg2.getInt())
+  def getFully(): Array[Byte] = get(size - offset, 0)
 
-  def less8(arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean =
-    if (orEqual) (arg1.getLong() <= arg2.getLong()) else (arg1.getLong() < arg2.getLong())
+  def getRef(index: Int): MemoryRef =
+    if (index >= 0) {
+      assert(index < (size - offset))
+      new MemoryRef(mirror, offset + index)
+    } else {
+      assert((-index) < (size - offset))
+      new MemoryRef(mirror, size + index)
+    }
 
-  // todo: add arbitrary version
-  def equals(length: Int, arg1: MemoryRef, arg2: MemoryRef): Boolean = length match {
-    case 4 => equals4(arg1, arg2)
-    case 8 => equals8(arg1, arg2)
-    case _ => throw new IllegalArgumentException(s"unsupported 'equals' length $length")
+  def extend(extendSize: Int): Unit = {
+    if (size + extendSize <= stack.length) size += extendSize else {
+      val newStack = Array.fill[Byte](stack.length * 2)(0)
+      System.arraycopy(stack, 0, newStack, 0, stack.length)
+      stack = newStack
+      mirror = ByteBuffer.wrap(stack).order(ByteOrder.LITTLE_ENDIAN)
+      extend(extendSize)
+    }
   }
 
-  def equals4(arg1: MemoryRef, arg2: MemoryRef): Boolean = arg1.getInt() == arg2.getInt()
-
-  def equals8(arg1: MemoryRef, arg2: MemoryRef): Boolean = arg1.getLong() == arg2.getLong()
-
-  def add(length: Int, arg1: MemoryRef, arg2: MemoryRef, dst: MemoryRef): Unit = length match {
-    case 4 => dst.putInt(arg1.getInt() + arg2.getInt())
-    case 8 => dst.putLong(arg1.getLong() + arg2.getLong())
-    case other => throw new IllegalArgumentException(s"unsupported add length '$other'")
+  def shrink(shrinkSize: Int): Unit = {
+    assert(size - offset >= shrinkSize)
+    size -= shrinkSize
+    // todo: decrease size in some cases?
   }
 
-  def mult(length: Int, arg1: MemoryRef, arg2: MemoryRef, dst: MemoryRef): Unit = length match {
-    case 4 => dst.putInt(arg1.getInt() * arg2.getInt())
-    case 8 => dst.putLong(arg1.getLong() * arg2.getLong())
-    case other => throw new IllegalArgumentException(s"unsupported mult length '$other'")
+  def append(bytes: Bytes): Unit = {
+    extend(bytes.length())
+    bytes.copyTo(stack, size - bytes.length())
   }
 
-  def neg(length: Int, arg: MemoryRef, dst: MemoryRef): Unit = length match {
-    case 4 => dst.putInt(-arg.getInt())
-    case 8 => dst.putLong(-arg.getLong())
-    case other => throw new IllegalArgumentException(s"unsupported neg length '$other'")
+  def checkSize(size: Int): Unit = assert(size == this.size - this.offset)
+
+  def offset(newOffset: Int): Unit = {
+    assert(offset >= 0)
+    this.offset = newOffset
   }
 
-  def set(length: Long, src: MemoryRef, dest: MemoryRef): Unit = {
-    // todo: do manipulation over underlying byte buffers!
-    dest.put(src.getBytes(length.toInt))
-  }
-
-  def printInt(length: Int, arg: MemoryRef): Unit = length match {
-    case 4 => println(arg.getInt())
-    case 8 => println(arg.getLong())
-    case other => throw new IllegalArgumentException(s"unsupported int width for printing: $other")
-  }
+  override def toString: String = s"[${stack.slice(offset, size).mkString(", ")}]"
 }
