@@ -52,7 +52,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   }
 
   private def run(op: Operation, depth: Int): Option[Symbol] = {
-    if (debug) println("\t".repeat(depth) + s"$op with ${state.stack}")
+    if (debug) println("\t".repeat(depth) + s"${state.stack}: $op")
     op match {
       case Operation.Extend(length) =>
         state.stack.extend(evalConst(length).asExpandedInt.get)

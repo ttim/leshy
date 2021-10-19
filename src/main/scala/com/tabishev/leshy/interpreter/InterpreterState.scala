@@ -2,7 +2,7 @@ package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.Bytes
 
-import java.nio.ByteBuffer
+import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable
 
 class InterpreterState {
@@ -37,7 +37,7 @@ class InterpreterState {
 
 class StackMemory {
   var stack: Array[Byte] = Array.fill(10)(0)
-  var mirror: ByteBuffer = ByteBuffer.wrap(stack)
+  var mirror: ByteBuffer = ByteBuffer.wrap(stack).order(ByteOrder.LITTLE_ENDIAN)
   var size: Int = 0
   var offset: Int = 0
 
@@ -55,7 +55,7 @@ class StackMemory {
       val newStack = Array.fill[Byte](stack.length * 2)(0)
       System.arraycopy(stack, 0, newStack, 0, stack.length)
       stack = newStack
-      mirror = ByteBuffer.wrap(stack)
+      mirror = ByteBuffer.wrap(stack).order(ByteOrder.LITTLE_ENDIAN)
       extend(extendSize)
     }
   }
