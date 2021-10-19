@@ -35,7 +35,7 @@ class Symbols {
 }
 
 class StackMemory {
-  var memory: Memory = Memory.ofSize(10)
+  var memory: Memory = Memory.ofSize(10, ro = false)
   var size: Int = 0
   var offset: Int = 0
 
@@ -52,7 +52,7 @@ class StackMemory {
 
   def extend(extendSize: Int): Unit = {
     assert(extendSize >= 0)
-    if (size + extendSize > memory.size) memory = memory.extended(Math.min(memory.size, extendSize))
+    if (size + extendSize > memory.size) memory = memory.extended(Math.min(memory.size, extendSize), ro = false)
     size += extendSize
   }
 
