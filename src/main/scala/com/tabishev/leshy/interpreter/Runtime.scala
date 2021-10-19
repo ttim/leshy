@@ -35,28 +35,31 @@ class Symbols {
 }
 
 class StackMemory {
-  var stack: Memory = Memory.ofSize(10)
+  var memory: Memory = Memory.ofSize(10)
   var size: Int = 0
   var offset: Int = 0
 
-  def getCurrentStackFrame(): Array[Byte] = stack.get(offset, size - offset)
+  def getCurrentStackFrame(): Array[Byte] = memory.get(offset, size - offset)
 
   def getRef(index: Int): MemoryRef =
     if (index >= 0) {
       assert(index < (size - offset))
-      new MemoryRef(stack, offset + index)
+      new MemoryRef(memory, offset + index)
     } else {
       assert((-index) < (size - offset))
-      new MemoryRef(stack, size + index)
+      new MemoryRef(memory, size + index)
     }
 
   def extend(extendSize: Int): Unit = {
-    if (size + extendSize > stack.size) stack = stack.extended(Math.min(stack.size, extendSize))
+    assert(extendSize >= 0)
+    if (size + extendSize > memory.size) memory = memory.extended(Math.min(memory.size, extendSize))
     size += extendSize
   }
 
   def shrink(shrinkSize: Int): Unit = {
+    assert(shrinkSize >= 0)
     assert(size - offset >= shrinkSize)
+    memory.zero(size - shrinkSize, shrinkSize)
     size -= shrinkSize
     // todo: decrease size in some cases?
   }
@@ -68,7 +71,7 @@ class StackMemory {
 
   def append(bytes: Bytes): Unit = {
     extend(bytes.length())
-    stack.putBytes(size - bytes.length(), bytes)
+    memory.putBytes(size - bytes.length(), bytes)
   }
 
   def checkSize(size: Int): Unit = assert(size == this.size - this.offset)
@@ -78,5 +81,5 @@ class StackMemory {
     this.offset = newOffset
   }
 
-  override def toString: String = s"[${stack.get(offset, size - offset).mkString(", ")}]"
+  override def toString: String = s"[${memory.get(offset, size - offset).mkString(", ")}]"
 }
