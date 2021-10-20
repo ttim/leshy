@@ -1,8 +1,4 @@
-package com.tabishev.leshy.interpreter
-
-import com.tabishev.leshy.ast.Bytes
-
-import java.nio.{ByteBuffer, ByteOrder}
+package com.tabishev.leshy.runtime
 
 object RuntimeOps {
   // todo: should be flag for unsigned/signed comparison
@@ -31,20 +27,20 @@ object RuntimeOps {
   def equals8(arg1: MemoryRef, arg2: MemoryRef): Boolean = arg1.getLong() == arg2.getLong()
 
   def add(length: Int, arg1: MemoryRef, arg2: MemoryRef, dst: MemoryRef): Unit = length match {
-    case 4 => dst.putInt(arg1.getInt() + arg2.getInt())
-    case 8 => dst.putLong(arg1.getLong() + arg2.getLong())
+    case 4     => dst.putInt(arg1.getInt() + arg2.getInt())
+    case 8     => dst.putLong(arg1.getLong() + arg2.getLong())
     case other => throw new IllegalArgumentException(s"unsupported add length '$other'")
   }
 
   def mult(length: Int, arg1: MemoryRef, arg2: MemoryRef, dst: MemoryRef): Unit = length match {
-    case 4 => dst.putInt(arg1.getInt() * arg2.getInt())
-    case 8 => dst.putLong(arg1.getLong() * arg2.getLong())
+    case 4     => dst.putInt(arg1.getInt() * arg2.getInt())
+    case 8     => dst.putLong(arg1.getLong() * arg2.getLong())
     case other => throw new IllegalArgumentException(s"unsupported mult length '$other'")
   }
 
   def neg(length: Int, arg: MemoryRef, dst: MemoryRef): Unit = length match {
-    case 4 => dst.putInt(-arg.getInt())
-    case 8 => dst.putLong(-arg.getLong())
+    case 4     => dst.putInt(-arg.getInt())
+    case 8     => dst.putLong(-arg.getLong())
     case other => throw new IllegalArgumentException(s"unsupported neg length '$other'")
   }
 
@@ -54,8 +50,8 @@ object RuntimeOps {
   }
 
   def printInt(length: Int, arg: MemoryRef): Unit = length match {
-    case 4 => println(arg.getInt())
-    case 8 => println(arg.getLong())
+    case 4     => println(arg.getInt())
+    case 8     => println(arg.getLong())
     case other => throw new IllegalArgumentException(s"unsupported int width for printing: $other")
   }
 }
