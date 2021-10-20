@@ -46,4 +46,10 @@ object LshImpl {
 
   def ffactorial8(interpreter: Interpreter, input: Int): Long =
     ffactorial(interpreter, 8, input).asLong.get
+
+  def main(args: Array[String]): Unit = {
+    val start = System.currentTimeMillis()
+    println(fib4(baseInterpreter(false), 38))
+    println((System.currentTimeMillis() - start)/1000)
+  }
 }
