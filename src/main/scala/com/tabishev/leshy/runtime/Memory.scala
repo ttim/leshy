@@ -1,4 +1,4 @@
-package com.tabishev.leshy.interpreter
+package com.tabishev.leshy.runtime
 
 import com.tabishev.leshy.ast.Bytes
 

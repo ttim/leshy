@@ -2,7 +2,7 @@ package com.tabishev.leshy.bench
 
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl, MemoryAccessImpl}
-import com.tabishev.leshy.interpreter.{Interpreter, Runtime}
+import com.tabishev.leshy.interpreter.Interpreter
 import com.tabishev.leshy.loader.FileLoader
 import org.openjdk.jmh.annotations.*
 import org.openjdk.jmh.infra.Blackhole

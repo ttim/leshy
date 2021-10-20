@@ -2,22 +2,15 @@ package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation}
 import com.tabishev.leshy.loader.{FileLoader, RoutineLoader}
+import com.tabishev.leshy.runtime.{CommonSymbols, Memory, MemoryRef, Runtime, RuntimeOps, Symbol}
 
 import java.io.File
 import java.nio.ByteBuffer
 import java.util
 import scala.collection.mutable
 
-class CommonSymbols(register: String => Symbol) {
-  val eq = register("eq")
-  val neq = register("neq")
-  val m = register("m")
-  val le = register("le")
-}
-
 class Interpreter(loader: RoutineLoader, debug: Boolean) {
   private val state = new Runtime()
-  private val commonSymbols = CommonSymbols(state.symbols.register)
   private val loadedFunctions = mutable.HashMap[String, Fn]()
 
   def run(name: String, input: Bytes): Bytes = {
