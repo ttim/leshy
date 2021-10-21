@@ -13,6 +13,19 @@ final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
     bytes.length
   }
 
+  def fill(offset: Int, length: Int, value: Byte): Unit = write {
+    java.util.Arrays.fill(bytes, offset, offset + length, value)
+  }
+
+  def allEquals(offset: Int, length: Int, value: Byte): Boolean = read {
+    var i = 0
+    while (i < length) {
+      if (!(bytes(offset + i) == value)) return false
+      i += 1
+    }
+    true
+  }
+
   def putInt(offset: Int, value: Int): Unit = write {
     mirror.putInt(offset, value)
   }
@@ -36,10 +49,6 @@ final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
     val copyBytes = Array.fill[Byte](length)(0)
     System.arraycopy(bytes, offset, copyBytes, 0, length)
     copyBytes
-  }
-
-  def zero(offset: Int, length: Int): Unit = write {
-    java.util.Arrays.fill(bytes, offset, offset + length, 0.toByte)
   }
 
   def extended(extendSize: Int, ro: Boolean): Memory = {
