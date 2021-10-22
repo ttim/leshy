@@ -6,13 +6,13 @@ import com.tabishev.leshy.runtime.Runtime
 
 import java.util.concurrent.atomic.AtomicReference
 
-class NodeContext(val loader: RoutineLoader) {
+class NodeContext(val loader: RoutineLoader, val runtime: Runtime) {
   private def operation(op: OperationRef): Option[ast.Operation] = {
     val ops = loader.load(op.fn).get.ops
     if (ops.length == op.line) None else Some(ops(op.line))
   }
 
-  def create(runtime: Runtime, op: OperationRef): Node = {
+  def create(op: OperationRef): Node = {
     val specializationContext = SpecializationContext.current(runtime)
     operation(op) match {
       case None => ???
@@ -50,33 +50,33 @@ abstract class Node {
   val specializationCtx: SpecializationContext
   val op: OperationRef
 
-  final def run(runtime: Runtime): Unit = {
+  final def run(): Unit = {
     var node = this
-    while (!node.isInstanceOf[Node.Final]) node = node.runInternal(runtime)
+    while (!node.isInstanceOf[Node.Final]) node = node.runInternal()
   }
 
-  protected def runInternal(runtime: Runtime): Node
+  protected def runInternal(): Node
 
-  protected def nextLineNode(runtime: Runtime): Node = {
+  protected def nextLineNode(): Node = {
     if (computedNextNode == null)
-      computedNextNode = nodeCtx.create(runtime, OperationRef(op.fn, op.line + 1))
+      computedNextNode = nodeCtx.create(OperationRef(op.fn, op.line + 1))
     computedNextNode
   }
 }
 
 object Node {
   case class Simple(nodeCtx: NodeContext, specializationCtx: SpecializationContext, op: OperationRef, operation: Operation.Simple) extends Node {
-    protected def runInternal(runtime: Runtime): Node = {
-      operation.execute(runtime)
-      nextLineNode(runtime)
+    protected def runInternal(): Node = {
+      operation.execute(nodeCtx.runtime)
+      nextLineNode()
     }
   }
 
   case class Noop(nodeCtx: NodeContext, specializationCtx: SpecializationContext, op: OperationRef) extends Node {
-    protected def runInternal(runtime: Runtime): Node = nextLineNode(runtime)
+    protected def runInternal(): Node = nextLineNode()
   }
 
   case class Final(nodeCtx: NodeContext, specializationCtx: SpecializationContext, op: OperationRef) extends Node {
-    protected def runInternal(runtime: Runtime): Node = null
+    protected def runInternal(): Node = null
   }
 }

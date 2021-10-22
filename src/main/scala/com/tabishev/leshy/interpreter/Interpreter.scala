@@ -10,26 +10,29 @@ import java.util
 import scala.collection.mutable
 
 class Interpreter(loader: RoutineLoader, debug: Boolean) {
-  private val state = new Runtime()
+  private val runtime = new Runtime()
   private val loadedFunctions = mutable.HashMap[String, Fn]()
 
+  private val constInterpreter = ConstInterpreter(runtime)
+  import constInterpreter._
+
   def run(name: String)(init: StackMemory => Unit): Bytes = {
-    assert(state.stack.size == 0)
-    init(state.stack)
+    assert(runtime.stack.size == 0)
+    init(runtime.stack)
     try {
       run(name, 0)
-      assert(state.stack.frameOffset == 0)
-      Bytes.fromBytes(state.stack.getCurrentStackFrame())
+      assert(runtime.stack.frameOffset == 0)
+      Bytes.fromBytes(runtime.stack.getCurrentStackFrame())
     } finally {
-      state.stack.clean()
+      runtime.stack.clean()
     }
   }
 
   private def run(name: String, depth: Int): Unit = {
     val fn = loadedFunctions.getOrElse(name, {
       val loaded = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
-      state.symbols.register(loaded.name)
-      loaded.labels.foreach { case (name, _) => state.symbols.register(name) }
+      runtime.symbols.register(loaded.name)
+      loaded.labels.foreach { case (name, _) => runtime.symbols.register(name) }
       loaded
     })
 
@@ -45,32 +48,32 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
   }
 
   private def run(op: Operation, depth: Int): Option[Symbol] = {
-    if (debug) println("\t".repeat(depth) + s"${state.stack}: $op")
+    if (debug) println("\t".repeat(depth) + s"${runtime.stack}: $op")
     op match {
       case Operation.Extend(lengthAst) =>
         val length = evalConst(lengthAst).asExpandedInt.get
-        state.stack.extend(length)
+        runtime.stack.extend(length)
         None
       case Operation.Shrink(lengthAst) =>
         val length = evalConst(lengthAst).asExpandedInt.get
-        state.stack.shrink(length)
+        runtime.stack.shrink(length)
         None
       case Operation.Append(bytesAst) =>
         val bytes = evalConst(bytesAst)
-        state.stack.append(bytes, isConst = true)
+        runtime.stack.append(bytes, isConst = true)
         None
       case Operation.Call(offsetConst, targetConst) =>
         val offsetChange = evalConst(offsetConst).asExpandedInt.get
         val target = evalSymbol(targetConst)
 
-        val prevOffset = state.stack.frameOffset
-        val newOffset = if (offsetChange >= 0) state.stack.frameOffset + offsetChange else state.stack.size + offsetChange
-        state.stack.offset(newOffset)
+        val prevOffset = runtime.stack.frameOffset
+        val newOffset = if (offsetChange >= 0) runtime.stack.frameOffset + offsetChange else runtime.stack.size + offsetChange
+        runtime.stack.offset(newOffset)
         run(target.name, depth + 1)
-        state.stack.offset(prevOffset)
+        runtime.stack.offset(prevOffset)
         None
       case Operation.CheckSize(length) =>
-        state.stack.checkSize(evalConst(length).asExpandedInt.get)
+        runtime.stack.checkSize(evalConst(length).asExpandedInt.get)
         None
       case Operation.Branch(modifier, length, op1, op2, target) =>
         val lengthE = evalConst(length).asExpandedInt.get
@@ -125,43 +128,8 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
 
   private def addressRef(address: Address): MemoryRef = address match {
     case Address.Stack(address) =>
-      state.stack.getRef(evalConst(address).asExpandedInt.get)
+      runtime.stack.getRef(evalConst(address).asExpandedInt.get)
     case _ =>
       throw new UnsupportedOperationException(s"unsupported address: $address")
-  }
-
-  // const evaluation
-  private def evalConst(const: Const): Bytes = const match {
-    case Const.Literal(bytes) =>
-      bytes
-    case Const.Symbol(name) =>
-      state.symbols.resolve(name).asBytes
-    case Const.Stack(fromBytes, lengthBytes) =>
-      val from = fromBytes.asExpandedInt.get
-      val length = lengthBytes.asExpandedInt.get
-      assert(state.stack.isConst(from, length))
-      Bytes.fromBytes(state.stack.getRef(from).get(length))
-  }
-
-  private def evalSymbol(const: Const): Symbol = state.symbols.resolveBytes(evalConst(const))
-
-  private def checkConst(constOrAddress: Const | Address, length: Int): Boolean = constOrAddress match {
-    case _ : Const =>
-      true
-    case Address.Native(_) =>
-      false
-    case Address.Stack(offset) =>
-      state.stack.isConst(evalConst(offset).asExpandedInt.get, length)
-    case Address.StackOffset(_, _, _) =>
-      ???
-  }
-
-  private def markConst(dst: Address, length: Int, isConst: Boolean): Unit = dst match {
-    case Address.Stack(offset) =>
-      state.stack.markConst(evalConst(offset).asExpandedInt.get, length, isConst)
-    case Address.Native(_) =>
-      // do nothing
-    case Address.StackOffset(_, _, _) =>
-      ???
   }
 }
