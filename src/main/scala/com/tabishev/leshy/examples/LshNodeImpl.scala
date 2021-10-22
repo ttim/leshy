@@ -15,18 +15,19 @@ object LshNodeImpl {
   )
 
   private val nodeContext: NodeContext =
-    new NodeContext(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)))
+    new NodeContext(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), new Runtime())
 
   private var node: Node = null
 
   def ffactorial(length: Int, input: Int): Bytes = {
-    val runtime = new Runtime()
+    val runtime = nodeContext.runtime
+    assert(runtime.stack.frameOffset == 0 && runtime.stack.size == 0)
     runtime.stack.append(Bytes.fromInt(length), isConst = true)
     runtime.stack.append(Bytes.fromInt(input), isConst = false)
 
     if (node == null)
-      node = nodeContext.create(runtime, OperationRef("ffactorial", 0))
-    node.run(runtime)
+      node = nodeContext.create(OperationRef("ffactorial", 0))
+    node.run()
 
     assert(runtime.stack.frameOffset == 0)
     val output = Bytes.fromBytes(runtime.stack.getCurrentStackFrame())
