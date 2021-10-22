@@ -26,6 +26,17 @@ final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
     true
   }
 
+  // returns absolute offsets
+  def nonEqualOffsets(offset: Int, length: Int, value: Byte): Array[Int] = {
+    val offsets = scala.collection.mutable.ArrayBuffer[Int]()
+    var i = 0
+    while (i < length) {
+      if (bytes(offset + i) != value) offsets.append(offset + i)
+      i += 1
+    }
+    offsets.toArray
+  }
+
   def putInt(offset: Int, value: Int): Unit = write {
     mirror.putInt(offset, value)
   }
@@ -39,6 +50,9 @@ final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
     System.arraycopy(value, 0, bytes, offset, value.length)
   }
 
+  def getByte(offset: Int): Byte = read {
+    bytes(offset)
+  }
   def getInt(offset: Int): Int = read {
     mirror.getInt(offset)
   }

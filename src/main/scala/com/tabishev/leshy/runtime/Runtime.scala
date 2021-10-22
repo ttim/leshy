@@ -22,6 +22,7 @@ class StackMemory {
   var size: Int = 0
   var frameOffset: Int = 0
 
+  def stackFrameSize(): Int = size - frameOffset
   def getCurrentStackFrame(): Array[Byte] = memory.get(frameOffset, size - frameOffset)
 
   private def calcAbsoluteOffset(offset: Int): Int =
@@ -87,4 +88,9 @@ class StackMemory {
     assert(absoluteOffset + length <= size)
     marks.allEquals(absoluteOffset, length, 1)
   }
+
+  def stackFrameConsts(): Map[Int, Byte] =
+    marks.nonEqualOffsets(frameOffset, size - frameOffset, 1).map { offset =>
+      (offset - frameOffset, memory.getByte(frameOffset))
+    }.toMap
 }
