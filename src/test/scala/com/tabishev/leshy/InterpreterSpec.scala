@@ -24,7 +24,7 @@ class InterpreterSpec extends munit.FunSuite {
 
   val fact4: Seq[Int => Int] = Seq(
     (n) => LshImpl.ffactorial4(interpreter, n),
-//    (n) => LshNodeImpl.ffactorial4(n),
+    (n) => LshNodeImpl.ffactorial4(n),
     (n) => JavaImpl.ffactorial4(n),
     (n) => ByteBufferImpl.ffactorial4(n),
     (n) => MemoryAccessImpl.ffactorial4(n),
@@ -32,7 +32,7 @@ class InterpreterSpec extends munit.FunSuite {
 
   val fact8: Seq[Int => Long] = Seq(
     (n) => LshImpl.ffactorial8(interpreter, n),
-//    (n) => LshNodeImpl.ffactorial8(n),
+    (n) => LshNodeImpl.ffactorial8(n),
     (n) => JavaImpl.ffactorial8(n),
     (n) => ByteBufferImpl.ffactorial8(n),
     (n) => MemoryAccessImpl.ffactorial8(n)
