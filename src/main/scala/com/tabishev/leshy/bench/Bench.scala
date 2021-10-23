@@ -1,7 +1,7 @@
 package com.tabishev.leshy.bench
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl, MemoryAccessImpl}
+import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl, LshNodeImpl, MemoryAccessImpl}
 import com.tabishev.leshy.interpreter.Interpreter
 import com.tabishev.leshy.loader.FileLoader
 import org.openjdk.jmh.annotations.*
@@ -39,6 +39,13 @@ class Bench {
   def interpretFactorial8(bh: Blackhole, state: Bench.BenchState): Unit =
     bh.consume(LshImpl.ffactorial8(state.interpreter, 10001))
 
+  @Benchmark
+  def nodeFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =
+    bh.consume(LshNodeImpl.ffactorial4(10001))
+
+  @Benchmark
+  def nodeFactorial8(bh: Blackhole, state: Bench.BenchState): Unit =
+    bh.consume(LshNodeImpl.ffactorial8(10001))
 
   @Benchmark
   def byteBufferFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =
