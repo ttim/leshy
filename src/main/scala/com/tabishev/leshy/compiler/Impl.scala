@@ -39,6 +39,14 @@ object Const {
   }
 }
 
+object NonConst {
+  case class Mark(length: Int, dst: MemoryOperand) extends SimpleImpl {
+    override val dstLength: Int = length
+    override def execute(runtime: Runtime): Unit =
+      () // do nothing apart from marking purposes which is done in node
+  }
+}
+
 object Sum {
   // MM - memory, memory
   case class MM4(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends SimpleImpl with Length4 {

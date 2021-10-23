@@ -16,6 +16,7 @@ def fib4
     jump :finish
   ret_1:
     set 4 1 #0
+    non_const 4 #0
   finish:
     check_size 4 ;output
 

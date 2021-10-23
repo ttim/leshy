@@ -34,10 +34,11 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
-  private[compiler] def debug(op: OperationRef, ctx: SpecializationContext, msg: String): Unit = {
+  private[compiler] def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit = {
     // todo: print specialization context as well?
     val origin = operation(op).map(_.origin).getOrElse(Origin(loader.load(op.fn).get.ops.head.origin.path, -1))
-    if (debugEnabled) println(s"${runtime.stack.frameToString}, ${origin.path.getFileName.toString}:${origin.line}: $msg")
+    if (debugEnabled || force)
+      println(s"${runtime.stack.frameToString}, ${origin.path.getFileName.toString}:${origin.line}: $msg")
   }
 
   private def operation(op: OperationRef): Option[ast.OperationWithSource] = {
@@ -194,14 +195,17 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
             case _ => ???
           }
           simpleNode(impl)
-        case _ =>
+        case ast.Operation.NonConst(lengthAst, dstAst) =>
+          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          simpleNode(NonConst.Mark(length, toOperand(dstAst)))
+        case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }
     }
 
     nodes.put(nodeKey, node)
 
-    if (nodes.size > 100) debug(op, ctx, s"too many created nodes ${nodes.size}")
+    if (nodes.size > 100) debug(op, ctx, s"too many created nodes ${nodes.size}", force = true)
 
     debug(op, ctx, "finish create")
 
@@ -332,7 +336,13 @@ object Node {
       compiler.runtime.stack.offset(prevFrame + offset)
       callNode().run()
       compiler.runtime.stack.offset(prevFrame)
-      nextLineNode()
+      // !!! we can't cache nextLineNode because we can't guarantee that constantness stays the same between subcalls
+      // actually it's symptom, real issue is something else
+      // because if everything else is correct this is not needed
+      // in reality it's something around branches
+      // or actually it's here, but importantly it's around main while (node != final) loop, because that's a loop which depends on actual run through branch instructions, so ctx of result node isn't guaranteed, but can be returned btw!!!
+      // still weird i get result as const in fib example unless I add explicit `non_const` calls
+      compiler.create(OperationRef(op.fn, op.line + 1))
     }
 
     private var cachedCallNode: Node = null

@@ -35,6 +35,7 @@ enum Operation {
   case Call(offset: Const, target: Const)
 
   // Constant operations
+  case NonConst(length: Const, dst: Address)
 
   // Memory operations
   // Should be more different `Set` operations, to cover use cases with offsets and array offsets
