@@ -27,11 +27,11 @@ final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
   }
 
   // returns absolute offsets
-  def nonEqualOffsets(offset: Int, length: Int, value: Byte): Array[Int] = {
+  def equalOffsets(offset: Int, length: Int, value: Byte): Array[Int] = {
     val offsets = scala.collection.mutable.ArrayBuffer[Int]()
     var i = 0
     while (i < length) {
-      if (bytes(offset + i) != value) offsets.append(offset + i)
+      if (bytes(offset + i) == value) offsets.append(offset + i)
       i += 1
     }
     offsets.toArray

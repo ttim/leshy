@@ -135,4 +135,22 @@ object Branch {
   case class MoreMC8(op1: MemoryOperand, op2: Long) extends BranchImpl {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() > op2
   }
+
+  case class LessOrEqualMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchImpl {
+    override def execute(runtime: Runtime): Boolean =
+      op1.materialize(runtime).getInt() <= op2.materialize(runtime).getInt()
+  }
+
+  case class LessOrEqualMC4(op1: MemoryOperand, op2: Int) extends BranchImpl {
+    override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() <= op2
+  }
+
+  case class LessOrEqualMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchImpl {
+    override def execute(runtime: Runtime): Boolean =
+      op1.materialize(runtime).getLong() <= op2.materialize(runtime).getLong()
+  }
+
+  case class LessOrEqualMC8(op1: MemoryOperand, op2: Long) extends BranchImpl {
+    override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() <= op2
+  }
 }

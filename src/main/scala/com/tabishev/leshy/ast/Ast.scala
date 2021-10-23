@@ -1,5 +1,7 @@
 package com.tabishev.leshy.ast
 
+import java.nio.file.Path
+
 enum Address {
   // Address in stack corresponding to `address`
   // #const
@@ -56,8 +58,11 @@ enum Operation {
   case PrintInt(length: Const, src: Address)
 }
 
+case class Origin(path: Path, line: Int)
+case class OperationWithSource(op: Operation, origin: Origin)
+
 case class Fn(
                name: String,
-               ops: Array[Operation],
+               ops: Seq[OperationWithSource],
                labels: Map[String, Int], // label name to offset
              )

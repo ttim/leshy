@@ -1,7 +1,7 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast
-import com.tabishev.leshy.ast.{Address, Bytes}
+import com.tabishev.leshy.ast.{Address, Bytes, Origin}
 import com.tabishev.leshy.interpreter.ConstInterpreter
 import com.tabishev.leshy.loader.RoutineLoader
 import com.tabishev.leshy.runtime.{CommonSymbols, MemoryRef, Runtime, StackMemory}
@@ -29,12 +29,18 @@ enum MemoryOperand {
 
 case class OperationRef(fn: String, line: Int)
 
-class Compiler(val loader: RoutineLoader, val runtime: Runtime) {
+class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled: Boolean) {
   private val constInterpreter = ConstInterpreter(runtime)
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
-  private def operation(op: OperationRef): Option[ast.Operation] = {
+  private[compiler] def debug(op: OperationRef, ctx: SpecializationContext, msg: String): Unit = {
+    // todo: print specialization context as well?
+    val origin = operation(op).map(_.origin).getOrElse(Origin(loader.load(op.fn).get.ops.head.origin.path, -1))
+    if (debugEnabled) println(s"${runtime.stack.frameToString}, ${origin.path.getFileName.toString}:${origin.line}: $msg")
+  }
+
+  private def operation(op: OperationRef): Option[ast.OperationWithSource] = {
     val ops = loader.load(op.fn).get.ops
     if (ops.length == op.line) None else Some(ops(op.line))
   }
@@ -53,32 +59,39 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime) {
   }
 
   private[compiler] def create(op: OperationRef): Node = {
-    val specializationContext = SpecializationContext.current(runtime)
+    val ctx = SpecializationContext.current(runtime)
 
-    val nodeKey = (op, specializationContext)
+    debug(op, ctx, "start create")
+
+    val nodeKey = (op, ctx)
     if (nodes.contains(nodeKey)) return nodes(nodeKey)
 
     if (!registeredFns.contains(op.fn)) {
       registeredFns.add(op.fn)
+      runtime.symbols.register(op.fn)
       loader.load(op.fn).get.labels.foreach { case (label, _) => runtime.symbols.register(label) }
     }
 
     def simpleNode(impl: SimpleImpl): Node =
-      Node.Simple(this, specializationContext, op, impl, markConst = true)
+      Node.Simple(this, ctx, op, impl, markConst = true)
 
     val node = operation(op) match {
-      case None => Node.Final(this, specializationContext, op)
-      case Some(operation) => operation match {
+      case None => Node.Final(this, ctx, op)
+      case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
-          Node.StackResize(this, specializationContext, op, length)
+          Node.StackResize(this, ctx, op, length)
         case ast.Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
-          Node.StackResize(this, specializationContext, op, -length)
+          Node.StackResize(this, ctx, op, -length)
         case ast.Operation.Append(bytesAst) => ???
-        case ast.Operation.Call(offsetConst, targetConst) => ???
+        case ast.Operation.Call(offsetAst, targetAst) =>
+          val offsetRaw = constInterpreter.evalConst(offsetAst).asExpandedInt.get
+          val offset = if (offsetRaw >= 0) offsetRaw else runtime.stack.stackFrameSize() + offsetRaw
+          val target = constInterpreter.evalSymbol(targetAst).name
+          Node.Call(this, ctx, op, offset, target)
         case ast.Operation.CheckSize(lengthAst) =>
-          Node.Throw(this, specializationContext, op, Try {
+          Node.Throw(this, ctx, op, Try {
             runtime.stack.checkSize(constInterpreter.evalConst(lengthAst).asExpandedInt.get)
           })
         case ast.Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
@@ -92,6 +105,7 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime) {
               val op2 = toIntOrOperand(op2Ast)
               (modifier, op1, op2) match {
                 case ("m", op1: MemoryOperand, op2: Int) => Branch.MoreMC4(op1, op2)
+                case ("le", op1: MemoryOperand, op2: Int) => Branch.LessOrEqualMC4(op1, op2)
                 case _ =>
                   throw new UnsupportedOperationException(modifier + " " + op1 + " " + op2)
               }
@@ -107,8 +121,10 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime) {
               ???
           }
 
-          Node.Branch(this, specializationContext, op, impl, target)
-        case ast.Operation.Jump(target) => ???
+          Node.Branch(this, ctx, op, impl, target)
+        case ast.Operation.Jump(targetAst) =>
+          val target = label(op, constInterpreter.evalSymbol(targetAst).name)
+          Node.Branch(this, ctx, op, Branch.Always, target)
         case ast.Operation.PrintInt(length, src) => ???
         case ast.Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
@@ -184,7 +200,11 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime) {
     }
 
     nodes.put(nodeKey, node)
-    if (nodes.size > 100) println(s"too many created nodes ${nodes.size}")
+
+    if (nodes.size > 100) debug(op, ctx, s"too many created nodes ${nodes.size}")
+
+    debug(op, ctx, "finish create")
+
     node
   }
 
@@ -215,7 +235,15 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime) {
     }
 }
 
-case class SpecializationContext(stackSize: Int, consts: Map[Int, Byte])
+case class SpecializationContext(stackSize: Int, consts: Map[Int, Byte]) {
+  override def toString: String =
+    s"spec[$stackSize, " +
+      s"(${constWithIndex.map(_._1).mkString(",")})," +
+      s"(${constWithIndex.map(_._2).mkString(",")})" +
+      s"]"
+
+  private def constWithIndex: Seq[(Int, Byte)] = consts.toList.sortBy(_._1)
+}
 
 object SpecializationContext {
   def current(runtime: Runtime): SpecializationContext =
@@ -234,7 +262,12 @@ abstract class Node {
   final def run(): Unit = {
     assert(checkContext())
     var node = this
-    while (!node.isInstanceOf[Node.Final]) node = node.runInternal()
+    while (!node.isInstanceOf[Node.Final]) {
+      compiler.debug(node.op, ctx, "start run")
+      val nextNode = node.runInternal()
+      compiler.debug(node.op, ctx, "finish run")
+      node = nextNode
+    }
   }
 
   protected def runInternal(): Node
@@ -288,6 +321,24 @@ object Node {
     def targetNode(): Node = {
       if (computedTargetNode == null) computedTargetNode = compiler.create(target)
       computedTargetNode
+    }
+  }
+
+  case class Call(compiler: Compiler, ctx: SpecializationContext, op: OperationRef,
+                  offset: Int, target: String) extends Node {
+    override protected def runInternal(): Node = {
+      assert(offset >= 0)
+      val prevFrame = compiler.runtime.stack.frameOffset
+      compiler.runtime.stack.offset(prevFrame + offset)
+      callNode().run()
+      compiler.runtime.stack.offset(prevFrame)
+      nextLineNode()
+    }
+
+    private var cachedCallNode: Node = null
+    private def callNode(): Node = {
+      if (cachedCallNode == null) cachedCallNode = compiler.create(OperationRef(target, 0))
+      cachedCallNode
     }
   }
 }

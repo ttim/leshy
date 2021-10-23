@@ -74,7 +74,16 @@ class StackMemory {
     this.frameOffset = newOffset
   }
 
-  override def toString: String = s"[${memory.get(frameOffset, size - frameOffset).mkString(", ")}]"
+  def frameToString: String = {
+    import scala.io.AnsiColor.RED
+    import scala.io.AnsiColor.RESET
+
+    val frameData = memory.get(frameOffset, size - frameOffset)
+    val frameMarks = marks.get(frameOffset, size - frameOffset)
+    frameData.zip(frameMarks).map { case (byte, mark) =>
+      if (mark == 0) byte.toString else RED + byte.toString + RESET
+    }.mkString(", ")
+  }
 
   // const actions
   def markConst(offset: Int, length: Int, isConst: Boolean): Unit = {
@@ -90,7 +99,7 @@ class StackMemory {
   }
 
   def stackFrameConsts(): Map[Int, Byte] =
-    marks.nonEqualOffsets(frameOffset, size - frameOffset, 1).map { offset =>
-      (offset - frameOffset, memory.getByte(frameOffset))
+    marks.equalOffsets(frameOffset, size - frameOffset, 1).map { offset =>
+      (offset - frameOffset, memory.getByte(offset))
     }.toMap
 }
