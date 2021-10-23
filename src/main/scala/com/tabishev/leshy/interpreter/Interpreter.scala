@@ -108,6 +108,10 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         RuntimeOps.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
         markConst(dst, lengthE, isConst = checkConst(op, lengthE))
         None
+      case Operation.NonConst(lengthAst, dstAst) =>
+        val length = evalConst(lengthAst).asExpandedInt.get
+        markConst(dstAst, length, isConst = false)
+        None
       case Operation.Set(length, src, dst) =>
         val lengthE = evalConst(length).asExpandedLong.get
         RuntimeOps.set(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))

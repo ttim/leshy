@@ -76,6 +76,10 @@ object TextParser {
       case Seq("call", offset, target) =>
         Some(Operation.Call(parseConst(offset), parseConst(target)))
 
+      // const
+      case Seq("non_const", length, dst) =>
+        Some(Operation.NonConst(parseConst(length), parseAddress(dst)))
+
       // memory
       case Seq("set", lengthS, src, dst) =>
         val length = parseConst(lengthS)

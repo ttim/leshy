@@ -15,7 +15,7 @@ object LshNodeImpl {
   )
 
   private val compiler: Compiler =
-    new Compiler(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), new Runtime(), debugEnabled = true)
+    new Compiler(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), new Runtime(), debugEnabled = false)
 
   def ffactorial(length: Int, input: Int): Bytes = {
     val output = compiler.run("ffactorial") { stack =>
@@ -42,7 +42,7 @@ object LshNodeImpl {
 //    assert(ffactorial8(4) == 8)
 //    assert(ffactorial8(17) == 34459425)
 //    assert(ffactorial8(10001) == 7031418319358416161L)
-    println(fib4(4))
+    println(fib4(38))
 //    assert(fib4(10) == 89)
 
     println((System.currentTimeMillis() - start)/1000)
