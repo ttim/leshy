@@ -1,34 +1,56 @@
 package com.tabishev.leshy.parser
 
-import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation}
+import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource, Origin}
 
 import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.charset.Charset
+import java.nio.file.Path
 import scala.collection.mutable
 
 object TextParser {
-  def parse(text: String): Map[String, Fn] =
-    ("\n" + text).split("\ndef ").tail.map(parseSubroutine).map { r => (r.name, r) }.toMap
+  case class InputLine(str: String, origin: Origin)
 
-  private def parseSubroutine(text: String): Fn = {
-    val ops = mutable.Buffer[Operation]()
+  def parse(file: Path, text: String): Map[String, Fn] = {
+    val lines = text.split("\n").zipWithIndex.map { case (str, line) =>
+      InputLine(str, Origin(file, line))
+    }
+
+    val currentFunction = mutable.ArrayBuffer[InputLine]()
+    val fns = mutable.ArrayBuffer[Fn]()
+
+    lines.foreach { line =>
+      if (line.str.startsWith("def ")) {
+        if (currentFunction.nonEmpty) {
+          fns.addOne(parseSubroutine(currentFunction.toSeq))
+          currentFunction.clear()
+        } // else do nothing
+      }
+      currentFunction.addOne(line)
+    }
+    if (currentFunction.nonEmpty) fns.addOne(parseSubroutine(currentFunction.toSeq))
+
+    fns.map { r => (r.name, r) }.toMap
+  }
+
+  private def parseSubroutine(lines: Seq[InputLine]): Fn = {
+    val fnName = lines.head.str.substring(4).trim // remove 'def '
+
+    val ops = mutable.Buffer[OperationWithSource]()
     val labels = mutable.HashMap[String, Int]()
-
-    val lines = text.split("\n")
 
     // head is name
     lines.tail.foreach { line =>
-      val noComments = removeComments(line)
+      val noComments = removeComments(line.str)
       if (noComments.endsWith(":")) {
         // label
         labels.put(noComments.substring(0, noComments.length - 1), ops.size)
       } else {
         // operation
-        parseOperation(noComments).foreach(ops.append)
+        parseOperation(noComments).foreach { op => ops.append(OperationWithSource(op, line.origin)) }
       }
     }
 
-    Fn(lines.head, ops.toArray, labels.toMap)
+    Fn(fnName, ops.toArray, labels.toMap)
   }
 
   private def parseOperation(text: String): Option[Operation] =

@@ -1,6 +1,6 @@
 package com.tabishev.leshy.interpreter
 
-import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation}
+import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource}
 import com.tabishev.leshy.loader.{FileLoader, RoutineLoader}
 import com.tabishev.leshy.runtime.{CommonSymbols, Memory, MemoryRef, Runtime, RuntimeOps, StackMemory, Symbol}
 
@@ -47,9 +47,9 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     }
   }
 
-  private def run(op: Operation, depth: Int): Option[Symbol] = {
-    if (debug) println("\t".repeat(depth) + s"${runtime.stack}: $op")
-    op match {
+  private def run(op: OperationWithSource, depth: Int): Option[Symbol] = {
+    if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString}: ${op.op}")
+    op.op match {
       case Operation.Extend(lengthAst) =>
         val length = evalConst(lengthAst).asExpandedInt.get
         runtime.stack.extend(length)
