@@ -34,6 +34,10 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
+  private var frozen: Boolean = false
+
+  def freeze(): Unit = frozen = true
+
   private[compiler] def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit = {
     // todo: print specialization context as well?
     val origin = operation(op).map(_.origin).getOrElse(Origin(loader.load(op.fn).get.ops.head.origin.path, -1))
@@ -66,6 +70,8 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
 
     val nodeKey = (op, ctx)
     if (nodes.contains(nodeKey)) return nodes(nodeKey)
+
+    if (frozen) throw new IllegalStateException()
 
     if (!registeredFns.contains(op.fn)) {
       registeredFns.add(op.fn)
@@ -205,7 +211,7 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
 
     nodes.put(nodeKey, node)
 
-    if (nodes.size > 100) debug(op, ctx, s"too many created nodes ${nodes.size}", force = true)
+    if (nodes.size > 100) debug(op, ctx, s"too many created nodes ${nodes.size}")
 
     debug(op, ctx, "finish create")
 

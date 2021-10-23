@@ -36,14 +36,43 @@ object LshNodeImpl {
     stack.append(Bytes.fromInt(input), isConst = false)
   }.asInt.get
 
+  def fib8(input: Int): Long = compiler.run("fib8") { stack =>
+    stack.append(Bytes.fromInt(input), isConst = false)
+  }.asLong.get
+
+  def fibx(length: Int, input: Int): Bytes = {
+    val output = compiler.run("fibx") { stack =>
+      stack.append(Bytes.fromInt(length), isConst = true)
+      stack.append(Bytes.fromInt(input), isConst = false)
+    }
+
+    assert(output.get().length == (4 + length))
+    assert(output.slice(0, 4).asInt.get == length)
+    output.slice(4)
+  }
+
+  def fibx4(input: Int): Int = fibx(4, input).asInt.get
+  def fibx8(input: Int): Long = fibx(8, input).asLong.get
+
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
 
-//    assert(ffactorial8(4) == 8)
-//    assert(ffactorial8(17) == 34459425)
-//    assert(ffactorial8(10001) == 7031418319358416161L)
-    println(fib4(38))
-//    assert(fib4(10) == 89)
+    assert(fib4(10) == 89)
+    assert(fib8(10) == 89)
+    assert(fibx4(10) == 89)
+    assert(fibx8(10) == 89)
+
+    assert(ffactorial4(4) == 8)
+    assert(ffactorial8(4) == 8)
+
+    // todo: move to tests
+    compiler.freeze()
+
+    assert(ffactorial8(17) == 34459425)
+    assert(ffactorial8(10001) == 7031418319358416161L)
+    assert(fibx4(11) == 144)
+    assert(fibx8(11) == 144)
+    println(fibx8(38))
 
     println((System.currentTimeMillis() - start)/1000)
   }
