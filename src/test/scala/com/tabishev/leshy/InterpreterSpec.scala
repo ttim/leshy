@@ -11,35 +11,35 @@ class InterpreterSpec extends munit.FunSuite {
   val interpreter = LshImpl.baseInterpreter(false)
 
   val fib4: Seq[Int => Int] = Seq(
-    (n) => LshImpl.fib4(interpreter, n),
-    (n) => LshImpl.fibx4(interpreter, n),
-    (n) => LshNodeImpl.fib4(n),
-    (n) => LshNodeImpl.fibx4(n),
-    (n) => JavaImpl.fib4(n)
+    n => LshImpl.fib4(interpreter, n),
+    n => LshImpl.fibx4(interpreter, n),
+    n => LshNodeImpl.fib4(n),
+    n => LshNodeImpl.fibx4(n),
+    n => JavaImpl.fib4(n)
   )
 
   val fib8: Seq[Int => Long] = Seq(
-    (n) => LshImpl.fib8(interpreter, n),
-    (n) => LshImpl.fibx8(interpreter, n),
-    (n) => LshNodeImpl.fib8(n),
-    (n) => LshNodeImpl.fibx8(n),
-    (n) => JavaImpl.fib8(n)
+    n => LshImpl.fib8(interpreter, n),
+    n => LshImpl.fibx8(interpreter, n),
+    n => LshNodeImpl.fib8(n),
+    n => LshNodeImpl.fibx8(n),
+    n => JavaImpl.fib8(n)
   )
 
   val fact4: Seq[Int => Int] = Seq(
-    (n) => LshImpl.ffactorial4(interpreter, n),
-    (n) => LshNodeImpl.ffactorial4(n),
-    (n) => JavaImpl.ffactorial4(n),
-    (n) => ByteBufferImpl.ffactorial4(n),
-    (n) => MemoryAccessImpl.ffactorial4(n),
+    n => LshImpl.ffactorial4(interpreter, n),
+    n => LshNodeImpl.ffactorial4(n),
+    n => JavaImpl.ffactorial4(n),
+    n => ByteBufferImpl.ffactorial4(n),
+    n => MemoryAccessImpl.ffactorial4(n),
   )
 
   val fact8: Seq[Int => Long] = Seq(
-    (n) => LshImpl.ffactorial8(interpreter, n),
-    (n) => LshNodeImpl.ffactorial8(n),
-    (n) => JavaImpl.ffactorial8(n),
-    (n) => ByteBufferImpl.ffactorial8(n),
-    (n) => MemoryAccessImpl.ffactorial8(n)
+    n => LshImpl.ffactorial8(interpreter, n),
+    n => LshNodeImpl.ffactorial8(n),
+    n => JavaImpl.ffactorial8(n),
+    n => ByteBufferImpl.ffactorial8(n),
+    n => MemoryAccessImpl.ffactorial8(n)
   )
 
   test("fib4 works") {
