@@ -13,12 +13,16 @@ class InterpreterSpec extends munit.FunSuite {
   val fib4: Seq[Int => Int] = Seq(
     (n) => LshImpl.fib4(interpreter, n),
     (n) => LshImpl.fibx4(interpreter, n),
+    (n) => LshNodeImpl.fib4(n),
+    (n) => LshNodeImpl.fibx4(n),
     (n) => JavaImpl.fib4(n)
   )
 
   val fib8: Seq[Int => Long] = Seq(
     (n) => LshImpl.fib8(interpreter, n),
     (n) => LshImpl.fibx8(interpreter, n),
+    (n) => LshNodeImpl.fib8(n),
+    (n) => LshNodeImpl.fibx8(n),
     (n) => JavaImpl.fib8(n)
   )
 

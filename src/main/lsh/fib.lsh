@@ -39,6 +39,7 @@ def fib8
   ret_1:
     extend 4
     set 8 1 #0
+    non_const 8 #0
   finish:
     check_size 8 ;output
 
@@ -74,6 +75,7 @@ def fibx
     shrink 4
 
     set $0 1 #4
+    non_const $0 #4
   finish:
     ; this all can be just `check_size [$0+4]`, should it be?
     extend 4 ;input length
