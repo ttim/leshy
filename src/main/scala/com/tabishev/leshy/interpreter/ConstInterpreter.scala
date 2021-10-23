@@ -16,13 +16,19 @@ case class ConstInterpreter(runtime: Runtime) {
       Bytes.fromBytes(runtime.stack.getRef(from).get(length))
   }
 
-  def checkConst(constOrAddress: Const | Address, length: Int): Boolean = constOrAddress match {
-    case _ : Const =>
-      true
+  def checkConst(constOrAddress: Const | Address, length: Int): Boolean =
+    tryConst(constOrAddress, length).isDefined
+
+  def tryConst(constOrAddress: Const | Address, length: Int): Option[Bytes] = constOrAddress match {
+    case const : Const =>
+      Some(evalConst(const).expand(length))
     case Address.Native(_) =>
-      false
-    case Address.Stack(offset) =>
-      runtime.stack.isConst(evalConst(offset).asExpandedInt.get, length)
+      None
+    case Address.Stack(offsetAst) =>
+      val offset = evalConst(offsetAst).asExpandedInt.get
+      if (runtime.stack.isConst(offset, length)) {
+        Some(Bytes.fromBytes(runtime.stack.getRef(offset).get(length)))
+      } else None
     case Address.StackOffset(_, _, _) =>
       ???
   }
