@@ -40,7 +40,8 @@ abstract class Node {
 
   protected def nextLineNode(): Node = {
     if (computedNextNode == null)
-      computedNextNode = compiler.create(OperationRef(op.fn, op.line + 1))
+      // todo: to other nodes apart from simple original context can be used
+      computedNextNode = compiler.create(OperationRef(op.fn, op.line + 1), SpecializationContext.current(compiler.runtime))
     computedNextNode
   }
 }
@@ -89,7 +90,7 @@ object Node {
       if (impl.execute(compiler.runtime)) targetNode() else nextLineNode()
 
     def targetNode(): Node = {
-      if (computedTargetNode == null) computedTargetNode = compiler.create(target)
+      if (computedTargetNode == null) computedTargetNode = compiler.create(target, ctx)
       computedTargetNode
     }
   }
@@ -113,17 +114,19 @@ object Node {
 
     private var cachedCallNode: Node = null
     private def callNode(): Node = {
-      if (cachedCallNode == null) cachedCallNode = compiler.create(OperationRef(target, 0))
+      if (cachedCallNode == null) {
+        val callCtx = SpecializationContext.offset(ctx, offset)
+        cachedCallNode = compiler.create(OperationRef(target, 0), callCtx)
+      }
       cachedCallNode
     }
 
     private var cachedNextLineNode = Map[SpecializationContext, Node]()
-    private def nextLineNode(ctx: SpecializationContext): Node =
-      cachedNextLineNode.getOrElse(ctx, {
-        // todo: not true because of offsets
-        //assert(SpecializationContext.current(compiler.runtime) == ctx)
-        val node = compiler.create(OperationRef(op.fn, op.line + 1))
-        cachedNextLineNode = cachedNextLineNode.updated(ctx, node)
+    private def nextLineNode(calleeCtx: SpecializationContext): Node =
+      cachedNextLineNode.getOrElse(calleeCtx, {
+        val nextLineCtx = SpecializationContext.fnCall(ctx, offset, calleeCtx)
+        val node = compiler.create(OperationRef(op.fn, op.line + 1), nextLineCtx)
+        cachedNextLineNode = cachedNextLineNode.updated(calleeCtx, node)
         node
       })
   }
