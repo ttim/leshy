@@ -1,6 +1,7 @@
 package com.tabishev.leshy.bench
 
 import com.tabishev.leshy.ast.Bytes
+import com.tabishev.leshy.compiler.Compiler
 import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl, LshNodeImpl, MemoryAccessImpl}
 import com.tabishev.leshy.interpreter.Interpreter
 import com.tabishev.leshy.loader.FileLoader
@@ -13,7 +14,8 @@ import java.util.concurrent.TimeUnit
 object Bench {
   @State(Scope.Benchmark)
   class BenchState {
-    var interpreter: Interpreter = LshImpl.baseInterpreter(debug = false)
+    var interpreter: Interpreter = LshImpl.createInterpreter(debug = false)
+    val compiler: Compiler = LshNodeImpl.createCompiler(debug = false)
   }
 }
 
@@ -41,11 +43,11 @@ class Bench {
 
   @Benchmark
   def nodeFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshNodeImpl.ffactorial4(10001))
+    bh.consume(LshNodeImpl.ffactorial4(state.compiler, 10001))
 
   @Benchmark
   def nodeFactorial8(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshNodeImpl.ffactorial8(10001))
+    bh.consume(LshNodeImpl.ffactorial8(state.compiler, 10001))
 
   @Benchmark
   def byteBufferFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =

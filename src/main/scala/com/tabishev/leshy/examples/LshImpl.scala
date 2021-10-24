@@ -12,7 +12,7 @@ object LshImpl {
     "src/main/lsh/factorial.lsh"
   )
 
-  def baseInterpreter(debug: Boolean): Interpreter =
+  def createInterpreter(debug: Boolean): Interpreter =
     new Interpreter(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), debug)
 
   def fib4(interpreter: Interpreter, value: Int): Int =
@@ -59,8 +59,8 @@ object LshImpl {
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
-    println(fib4(baseInterpreter(false), 38))
-    println(ffactorial8(baseInterpreter(true), 17))
+    println(fib4(createInterpreter(false), 38))
+    println(ffactorial8(createInterpreter(true), 17))
     println((System.currentTimeMillis() - start)/1000)
   }
 }

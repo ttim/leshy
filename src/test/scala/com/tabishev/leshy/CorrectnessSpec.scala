@@ -7,28 +7,29 @@ import com.tabishev.leshy.loader.FileLoader
 
 import java.io.File
 
-class InterpreterSpec extends munit.FunSuite {
-  val interpreter = LshImpl.baseInterpreter(false)
+class CorrectnessSpec extends munit.FunSuite {
+  val interpreter = LshImpl.createInterpreter(false)
+  val compiler = LshNodeImpl.createCompiler(false)
 
   val fib4: Seq[Int => Int] = Seq(
     n => LshImpl.fib4(interpreter, n),
     n => LshImpl.fibx4(interpreter, n),
-    n => LshNodeImpl.fib4(n),
-    n => LshNodeImpl.fibx4(n),
+    n => LshNodeImpl.fib4(compiler, n),
+    n => LshNodeImpl.fibx4(compiler, n),
     n => JavaImpl.fib4(n)
   )
 
   val fib8: Seq[Int => Long] = Seq(
     n => LshImpl.fib8(interpreter, n),
     n => LshImpl.fibx8(interpreter, n),
-    n => LshNodeImpl.fib8(n),
-    n => LshNodeImpl.fibx8(n),
+    n => LshNodeImpl.fib8(compiler, n),
+    n => LshNodeImpl.fibx8(compiler, n),
     n => JavaImpl.fib8(n)
   )
 
   val fact4: Seq[Int => Int] = Seq(
     n => LshImpl.ffactorial4(interpreter, n),
-    n => LshNodeImpl.ffactorial4(n),
+    n => LshNodeImpl.ffactorial4(compiler, n),
     n => JavaImpl.ffactorial4(n),
     n => ByteBufferImpl.ffactorial4(n),
     n => MemoryAccessImpl.ffactorial4(n),
@@ -36,7 +37,7 @@ class InterpreterSpec extends munit.FunSuite {
 
   val fact8: Seq[Int => Long] = Seq(
     n => LshImpl.ffactorial8(interpreter, n),
-    n => LshNodeImpl.ffactorial8(n),
+    n => LshNodeImpl.ffactorial8(compiler, n),
     n => JavaImpl.ffactorial8(n),
     n => ByteBufferImpl.ffactorial8(n),
     n => MemoryAccessImpl.ffactorial8(n)

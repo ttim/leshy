@@ -14,10 +14,23 @@ object LshNodeImpl {
     "src/main/lsh/factorial.lsh"
   )
 
-  private val compiler: Compiler =
-    new Compiler(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), new Runtime(), debugEnabled = false)
+  def createCompiler(debug: Boolean): Compiler = {
+    val loader = FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath))
+    val instance = new Compiler(loader, new Runtime(), debug)
 
-  def ffactorial(length: Int, input: Int): Bytes = {
+    // warmup to get all nodes ready before freeze
+    ffactorial4(instance, 10)
+    ffactorial8(instance, 10)
+    fib4(instance, 10)
+    fib8(instance, 10)
+    fibx4(instance, 10)
+    fibx8(instance, 10)
+
+    instance.freeze()
+    instance
+  }
+
+  def ffactorial(compiler: Compiler, length: Int, input: Int): Bytes = {
     val output = compiler.run("ffactorial") { stack =>
       stack.append(Bytes.fromInt(length), isConst = true)
       stack.append(Bytes.fromInt(input), isConst = false)
@@ -28,19 +41,19 @@ object LshNodeImpl {
     output.slice(4)
   }
 
-  def ffactorial4(input: Int): Int = ffactorial(4, input).asInt.get
+  def ffactorial4(compiler: Compiler, input: Int): Int = ffactorial(compiler, 4, input).asInt.get
 
-  def ffactorial8(input: Int): Long = ffactorial(8, input).asLong.get
+  def ffactorial8(compiler: Compiler, input: Int): Long = ffactorial(compiler, 8, input).asLong.get
 
-  def fib4(input: Int): Int = compiler.run("fib4") { stack =>
+  def fib4(compiler: Compiler, input: Int): Int = compiler.run("fib4") { stack =>
     stack.append(Bytes.fromInt(input), isConst = false)
   }.asInt.get
 
-  def fib8(input: Int): Long = compiler.run("fib8") { stack =>
+  def fib8(compiler: Compiler, input: Int): Long = compiler.run("fib8") { stack =>
     stack.append(Bytes.fromInt(input), isConst = false)
   }.asLong.get
 
-  def fibx(length: Int, input: Int): Bytes = {
+  def fibx(compiler: Compiler, length: Int, input: Int): Bytes = {
     val output = compiler.run("fibx") { stack =>
       stack.append(Bytes.fromInt(length), isConst = true)
       stack.append(Bytes.fromInt(input), isConst = false)
@@ -51,29 +64,27 @@ object LshNodeImpl {
     output.slice(4)
   }
 
-  def fibx4(input: Int): Int = fibx(4, input).asInt.get
-  def fibx8(input: Int): Long = fibx(8, input).asLong.get
+  def fibx4(compiler: Compiler, input: Int): Int = fibx(compiler, 4, input).asInt.get
+  def fibx8(compiler: Compiler, input: Int): Long = fibx(compiler, 8, input).asLong.get
 
   def main(args: Array[String]): Unit = {
+    val compiler = createCompiler(false)
+
+    assert(fib4(compiler, 10) == 89)
+    assert(fib8(compiler, 10) == 89)
+    assert(fibx4(compiler, 10) == 89)
+    assert(fibx8(compiler, 10) == 89)
+
+    assert(ffactorial4(compiler, 4) == 8)
+    assert(ffactorial8(compiler, 4) == 8)
+
+    assert(ffactorial8(compiler, 17) == 34459425)
+    assert(ffactorial8(compiler, 10001) == 7031418319358416161L)
+    assert(fibx4(compiler, 11) == 144)
+    assert(fibx8(compiler, 11) == 144)
+
     val start = System.currentTimeMillis()
-
-    assert(fib4(10) == 89)
-    assert(fib8(10) == 89)
-    assert(fibx4(10) == 89)
-    assert(fibx8(10) == 89)
-
-    assert(ffactorial4(4) == 8)
-    assert(ffactorial8(4) == 8)
-
-    // todo: move to tests
-    compiler.freeze()
-
-    assert(ffactorial8(17) == 34459425)
-    assert(ffactorial8(10001) == 7031418319358416161L)
-    assert(fibx4(11) == 144)
-    assert(fibx8(11) == 144)
-//    assert(fibx8(38) == 63245986)
-    println(fibx8(38))
+    assert(fibx8(compiler, 38) == 63245986)
     println((System.currentTimeMillis() - start)/1000)
   }
 }
