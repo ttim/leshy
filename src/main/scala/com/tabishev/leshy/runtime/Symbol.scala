@@ -30,5 +30,5 @@ class Symbols {
     }
 
   def resolve(name: String): Symbol = symbolsByName(name)
-  def resolveBytes(bytes: Bytes): Symbol = symbolsById(bytes.asInt.get)
+  def resolveBytes(bytes: Bytes): Symbol = symbolsById(bytes.asInt)
 }

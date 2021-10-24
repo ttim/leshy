@@ -12,8 +12,8 @@ case class ConstInterpreter(runtime: Runtime) {
     case Const.Symbol(name) =>
       runtime.symbols.resolve(name).asBytes
     case Const.Stack(fromBytes, lengthBytes) =>
-      val from = fromBytes.asExpandedInt.get
-      val length = lengthBytes.asExpandedInt.get
+      val from = fromBytes.asInt
+      val length = lengthBytes.asInt
       assert(runtime.stack.isConst(from, length))
       Bytes.fromBytes(runtime.stack.getRef(from).get(length))
   }
@@ -27,7 +27,7 @@ case class ConstInterpreter(runtime: Runtime) {
     case Address.Native(_) =>
       None
     case Address.Stack(offsetAst) =>
-      val offset = evalConst(offsetAst).asExpandedInt.get
+      val offset = evalConst(offsetAst).asInt
       if (runtime.stack.isConst(offset, length)) {
         Some(Bytes.fromBytes(runtime.stack.getRef(offset).get(length)))
       } else None
@@ -37,7 +37,7 @@ case class ConstInterpreter(runtime: Runtime) {
 
   def markConst(dst: Address, length: Int, isConst: Boolean): Unit = dst match {
     case Address.Stack(offset) =>
-      runtime.stack.markConst(evalConst(offset).asExpandedInt.get, length, isConst)
+      runtime.stack.markConst(evalConst(offset).asInt, length, isConst)
     case Address.Native(_) =>
     // do nothing
     case Address.StackOffset(_, _, _) =>

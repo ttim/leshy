@@ -18,18 +18,18 @@ object LshImpl {
   def fib4(interpreter: Interpreter, value: Int): Int =
     interpreter.run("fib4") { stack =>
       stack.append(Bytes.fromInt(value), isConst = false)
-    }.asInt.get
+    }.asInt
 
   def fib8(interpreter: Interpreter, value: Int): Long =
     interpreter.run("fib8") { stack =>
       stack.append(Bytes.fromInt(value), isConst = false)
-    }.asLong.get
+    }.asLong
 
   def fibx4(interpreter: Interpreter, value: Int): Int =
-    fibx(interpreter, 4, value).asInt.get
+    fibx(interpreter, 4, value).asInt
 
   def fibx8(interpreter: Interpreter, value: Int): Long =
-    fibx(interpreter, 8, value).asLong.get
+    fibx(interpreter, 8, value).asLong
 
   def fibx(interpreter: Interpreter, length: Int, input: Int): Bytes = {
     val output = interpreter.run("fibx") { stack =>
@@ -37,7 +37,7 @@ object LshImpl {
       stack.append(Bytes.fromInt(input), isConst = false)
     }
     assert(output.get().length == (4 + length))
-    assert(output.slice(0, 4).asInt.get == length)
+    assert(output.slice(0, 4).asInt == length)
     output.slice(4)
   }
 
@@ -47,15 +47,15 @@ object LshImpl {
       stack.append(Bytes.fromInt(input), isConst = false)
     }
     assert(output.get().length == (4 + length))
-    assert(output.slice(0, 4).asInt.get == length)
+    assert(output.slice(0, 4).asInt == length)
     output.slice(4)
   }
 
   def ffactorial4(interpreter: Interpreter, input: Int): Int =
-    ffactorial(interpreter, 4, input).asInt.get
+    ffactorial(interpreter, 4, input).asInt
 
   def ffactorial8(interpreter: Interpreter, input: Int): Long =
-    ffactorial(interpreter, 8, input).asLong.get
+    ffactorial(interpreter, 8, input).asLong
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
