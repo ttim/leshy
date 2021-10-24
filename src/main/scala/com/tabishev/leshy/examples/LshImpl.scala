@@ -59,7 +59,7 @@ object LshImpl {
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
-//    println(fib4(baseInterpreter(false), 38))
+    println(fib4(baseInterpreter(false), 38))
     println(ffactorial8(baseInterpreter(true), 17))
     println((System.currentTimeMillis() - start)/1000)
   }

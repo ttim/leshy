@@ -72,8 +72,8 @@ object LshNodeImpl {
     assert(ffactorial8(10001) == 7031418319358416161L)
     assert(fibx4(11) == 144)
     assert(fibx8(11) == 144)
-    println(fibx8(38))
-
+//    assert(fibx8(38) == 63245986)
+    println(fibx8(35))
     println((System.currentTimeMillis() - start)/1000)
   }
 }
