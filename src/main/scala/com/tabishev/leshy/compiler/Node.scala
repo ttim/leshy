@@ -113,26 +113,15 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
           val modifier = constInterpreter.evalSymbol(modifierAst).name
           val target = label(op, constInterpreter.evalSymbol(targetAst).name)
 
-          val impl = length match {
-            case 4 =>
-              val op1 = toIntOrOperand(op1Ast)
-              val op2 = toIntOrOperand(op2Ast)
-              (modifier, op1, op2) match {
-                case ("m", op1: MemoryOperand, op2: Int) => Branch.MoreMC4(op1, op2)
-                case ("le", op1: MemoryOperand, op2: Int) => Branch.LessOrEqualMC4(op1, op2)
-                case _ =>
-                  throw new UnsupportedOperationException(modifier + " " + op1 + " " + op2)
-              }
-            case 8 =>
-              val op1 = toLongOrOperand(op1Ast)
-              val op2 = toLongOrOperand(op2Ast)
-              (modifier, op1, op2) match {
-                case ("m", op1: MemoryOperand, op2: Long) => Branch.MoreMC8(op1, op2)
-                case _ =>
-                  throw new UnsupportedOperationException(modifier + " " + op1 + " " + op2)
-              }
+          val impl = (length, modifier) match {
+            case (4, "m") => Branch.more4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
+            case (4, "le") => Branch.lessOrEqual4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
+
+            case (8, "m") => Branch.more8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
+            case (8, "le") => Branch.lessOrEqual8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
+
             case _ =>
-              ???
+              throw new UnsupportedOperationException(length + " " + modifier)
           }
 
           Node.Branch(this, ctx, op, impl, target)
@@ -144,18 +133,8 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => (toIntOrOperand(op1Ast), toIntOrOperand(op2Ast)) match {
-              case (v1: Int, v2: Int) => Const.Write4(v1 + v2, dst)
-              case (v1: Int, v2: MemoryOperand) => Sum.MC4(v2, v1, dst)
-              case (v1: MemoryOperand, v2: Int) => Sum.MC4(v1, v2, dst)
-              case (v1: MemoryOperand, v2: MemoryOperand) => Sum.MM4(v1, v2, dst)
-            }
-            case 8 => (toLongOrOperand(op1Ast), toLongOrOperand(op2Ast)) match {
-              case (v1: Long, v2: Long) => Const.Write8(v1 + v2, dst)
-              case (v1: Long, v2: MemoryOperand) => Sum.MC8(v2, v1, dst)
-              case (v1: MemoryOperand, v2: Long) => Sum.MC8(v1, v2, dst)
-              case (v1: MemoryOperand, v2: MemoryOperand) => Sum.MM8(v1, v2, dst)
-            }
+            case 4 => Sum.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
+            case 8 => Sum.length8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast), dst)
             case _ => ???
           }
           simpleNode(impl)
@@ -163,18 +142,8 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => (toIntOrOperand(op1Ast), toIntOrOperand(op2Ast)) match {
-              case (v1: Int, v2: Int) => Const.Write4(v1 * v2, dst)
-              case (v1: Int, v2: MemoryOperand) => Mult.MC4(v2, v1, dst)
-              case (v1: MemoryOperand, v2: Int) => Mult.MC4(v1, v2, dst)
-              case (v1: MemoryOperand, v2: MemoryOperand) => Mult.MM4(v1, v2, dst)
-            }
-            case 8 => (toLongOrOperand(op1Ast), toLongOrOperand(op2Ast)) match {
-              case (v1: Long, v2: Long) => Const.Write8(v1 * v2, dst)
-              case (v1: Long, v2: MemoryOperand) => Mult.MC8(v2, v1, dst)
-              case (v1: MemoryOperand, v2: Long) => Mult.MC8(v1, v2, dst)
-              case (v1: MemoryOperand, v2: MemoryOperand) => Mult.MM8(v1, v2, dst)
-            }
+            case 4 => Mult.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
+            case 8 => Mult.length8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast), dst)
             case _ => ???
           }
           simpleNode(impl)
@@ -182,14 +151,8 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => toIntOrOperand(opAst) match {
-              case v: Int => Const.Write4(-v, dst)
-              case v: MemoryOperand => Negate.M4(v, dst)
-            }
-            case 8 => toLongOrOperand(opAst) match {
-              case v: Long => Const.Write8(-v, dst)
-              case v: MemoryOperand => Negate.M8(v, dst)
-            }
+            case 4 => Negate.length4(toIntOrOperand(opAst), dst)
+            case 8 => Negate.length8(toLongOrOperand(opAst), dst)
             case _ => ???
           }
           simpleNode(impl)
@@ -197,14 +160,8 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => toIntOrOperand(srcAst) match {
-              case src: Int => Const.Write4(src, dst)
-              case src: MemoryOperand => Set.M4(src, dst)
-            }
-            case 8 => toLongOrOperand(srcAst) match {
-              case src: Long => Const.Write8(src, dst)
-              case src: MemoryOperand => Set.M8(src, dst)
-            }
+            case 4 => Set.length4(toIntOrOperand(srcAst), dst)
+            case 8 => Set.length8(toLongOrOperand(srcAst), dst)
             case _ => ???
           }
           simpleNode(impl)
