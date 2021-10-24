@@ -15,7 +15,7 @@ enum MemoryOperand {
   case Native(stackOffset: Int)
 
   def materialize(runtime: Runtime): MemoryRef = this match {
-    case MemoryOperand.Stack(offset) => runtime.stack.getRef(offset)
+    case MemoryOperand.Stack(offset) => runtime.stack.getRefUnsafe(offset)
     case MemoryOperand.Native(offset) => ???
   }
 
@@ -49,7 +49,7 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
     s"${origin.path.getFileName.toString}:${origin.line}"
   }
 
-  private[compiler] def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit = {
+  private[compiler] inline def debug(inline op: OperationRef, inline ctx: SpecializationContext, inline msg: String, force: Boolean = false): Unit = {
     // todo: print specialization context as well?
     if (debugEnabled || force) println(s"${runtime.stack.frameToString}, ${opRepr(op)}: $msg")
   }
@@ -226,8 +226,10 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
   }
 
   private def toOperand(address: ast.Address): MemoryOperand = address match {
-    case ast.Address.Stack(offset) =>
-      MemoryOperand.Stack(constInterpreter.evalConst(offset).asExpandedInt.get)
+    case ast.Address.Stack(offsetAst) =>
+      val rawOffset = constInterpreter.evalConst(offsetAst).asExpandedInt.get
+      val offset = if (rawOffset < 0) runtime.stack.stackFrameSize() + rawOffset else rawOffset
+      MemoryOperand.Stack(offset)
     case ast.Address.StackOffset(_, _, _) =>
       ???
     case ast.Address.Native(_) =>

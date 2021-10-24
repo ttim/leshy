@@ -30,7 +30,7 @@ case class Consts private[runtime] (constOffsetsAndData: Bytes) {
 }
 
 class StackMemory {
-  private val initialSize = 10
+  private val initialSize = 1000
 
   var memory: Memory = Memory.ofSize(initialSize, ro = false)
   var marks: Memory = Memory.ofSize(initialSize, ro = false)
@@ -52,6 +52,9 @@ class StackMemory {
 
   def getRef(offset: Int): MemoryRef = new MemoryRef(memory, calcAbsoluteOffset(offset))
 
+  // offset >= 0 and guaranteed in range
+  def getRefUnsafe(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + offset)
+
   def extend(extendSize: Int, doConstMark: Boolean = true): Unit = {
     assert(extendSize >= 0)
     if (size + extendSize > memory.size) {
@@ -60,14 +63,13 @@ class StackMemory {
       marks = marks.extended(memoryExtendSize, ro = false)
     }
     size += extendSize
+    memory.fill(size - extendSize, extendSize, 0)
     if (doConstMark) markConst(-extendSize, extendSize, isConst = true)
   }
 
   def shrink(shrinkSize: Int): Unit = {
     assert(shrinkSize >= 0)
     assert(size - frameOffset >= shrinkSize)
-    memory.fill(size - shrinkSize, shrinkSize, 0)
-    markConst(-shrinkSize, shrinkSize, isConst = false)
     size -= shrinkSize
     // todo: decrease size in some cases?
   }
