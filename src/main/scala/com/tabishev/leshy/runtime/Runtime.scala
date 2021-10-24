@@ -24,6 +24,9 @@ case class Consts private[runtime] (constOffsetsAndData: Bytes) {
   }
 
   def length: Int = constOffsetsAndData.length() / 5
+
+  override def equals(obj: Any): Boolean = obj.isInstanceOf[Consts] &&
+    obj.asInstanceOf[Consts].constOffsetsAndData == constOffsetsAndData
 }
 
 class StackMemory {
@@ -49,7 +52,7 @@ class StackMemory {
 
   def getRef(offset: Int): MemoryRef = new MemoryRef(memory, calcAbsoluteOffset(offset))
 
-  def extend(extendSize: Int): Unit = {
+  def extend(extendSize: Int, doConstMark: Boolean = true): Unit = {
     assert(extendSize >= 0)
     if (size + extendSize > memory.size) {
       val memoryExtendSize = Math.min(memory.size, extendSize)
@@ -57,7 +60,7 @@ class StackMemory {
       marks = marks.extended(memoryExtendSize, ro = false)
     }
     size += extendSize
-    markConst(-extendSize, extendSize, isConst = true)
+    if (doConstMark) markConst(-extendSize, extendSize, isConst = true)
   }
 
   def shrink(shrinkSize: Int): Unit = {
