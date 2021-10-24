@@ -37,21 +37,21 @@ object LshNodeImpl {
     }
 
     assert(output.get().length == (4 + length))
-    assert(output.slice(0, 4).asInt.get == length)
+    assert(output.slice(0, 4).asInt == length)
     output.slice(4)
   }
 
-  def ffactorial4(compiler: Compiler, input: Int): Int = ffactorial(compiler, 4, input).asInt.get
+  def ffactorial4(compiler: Compiler, input: Int): Int = ffactorial(compiler, 4, input).asInt
 
-  def ffactorial8(compiler: Compiler, input: Int): Long = ffactorial(compiler, 8, input).asLong.get
+  def ffactorial8(compiler: Compiler, input: Int): Long = ffactorial(compiler, 8, input).asLong
 
   def fib4(compiler: Compiler, input: Int): Int = compiler.run("fib4") { stack =>
     stack.append(Bytes.fromInt(input), isConst = false)
-  }.asInt.get
+  }.asInt
 
   def fib8(compiler: Compiler, input: Int): Long = compiler.run("fib8") { stack =>
     stack.append(Bytes.fromInt(input), isConst = false)
-  }.asLong.get
+  }.asLong
 
   def fibx(compiler: Compiler, length: Int, input: Int): Bytes = {
     val output = compiler.run("fibx") { stack =>
@@ -60,12 +60,12 @@ object LshNodeImpl {
     }
 
     assert(output.get().length == (4 + length))
-    assert(output.slice(0, 4).asInt.get == length)
+    assert(output.slice(0, 4).asInt == length)
     output.slice(4)
   }
 
-  def fibx4(compiler: Compiler, input: Int): Int = fibx(compiler, 4, input).asInt.get
-  def fibx8(compiler: Compiler, input: Int): Long = fibx(compiler, 8, input).asLong.get
+  def fibx4(compiler: Compiler, input: Int): Int = fibx(compiler, 4, input).asInt
+  def fibx8(compiler: Compiler, input: Int): Long = fibx(compiler, 8, input).asLong
 
   def main(args: Array[String]): Unit = {
     val compiler = createCompiler(false)

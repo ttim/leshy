@@ -44,14 +44,11 @@ object Bytes {
 }
 
 case class Bytes(private val bytes: Array[Byte]) {
-  lazy val asInt: Option[Int] =
-    if (bytes.length == 4) Some(asByteBuffer.getInt()) else None
-  lazy val asExpandedInt: Option[Int] =
-    if (bytes.length <= 4) expand(4).asInt else None
-  lazy val asLong: Option[Long] =
-    if (bytes.length == 8) Some(asByteBuffer.getLong()) else None
-  lazy val asExpandedLong: Option[Long] =
-    if (bytes.length <= 8) expand(8).asLong else None
+  lazy val asInt: Int =
+    if (bytes.length == 4) asByteBuffer.getInt() else throw new IllegalArgumentException(s"not int $asString")
+  lazy val asLong: Long =
+    if (bytes.length == 8) asByteBuffer.getLong() else throw new IllegalArgumentException(s"not long $asString")
+
   lazy val asBase64Bytes: String =
     Base64.getEncoder.encodeToString(bytes)
   lazy val asString: Option[String] =
@@ -79,8 +76,8 @@ case class Bytes(private val bytes: Array[Byte]) {
   override def toString(): String = {
     val possible = Seq(
       asString.map { value => s"'$value'"},
-      asInt.map { value => s"$value"},
-      asLong.map { value => s"${value}_L"}
+      Try { asInt }.toOption.map { value => s"$value"},
+      Try { asLong }.toOption.map { value => s"${value}_L"}
     ).flatten
     if (possible.isEmpty) asBase64Bytes else possible.mkString("/")
   }

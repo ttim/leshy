@@ -51,15 +51,15 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString}: ${op.op}")
     op.op match {
       case Operation.Extend(lengthAst) =>
-        val length = evalConst(lengthAst).asExpandedInt.get
+        val length = evalConst(lengthAst).asInt
         runtime.stack.extend(length)
         None
       case Operation.Shrink(lengthAst) =>
-        val length = evalConst(lengthAst).asExpandedInt.get
+        val length = evalConst(lengthAst).asInt
         runtime.stack.shrink(length)
         None
       case Operation.Call(offsetConst, targetConst) =>
-        val offsetChange = evalConst(offsetConst).asExpandedInt.get
+        val offsetChange = evalConst(offsetConst).asInt
         val target = evalSymbol(targetConst)
 
         val prevOffset = runtime.stack.frameOffset
@@ -69,10 +69,10 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         runtime.stack.offset(prevOffset)
         None
       case Operation.CheckSize(length) =>
-        assert(evalConst(length).asExpandedInt.get == runtime.stack.stackFrameSize())
+        assert(evalConst(length).asInt == runtime.stack.stackFrameSize())
         None
       case Operation.Branch(modifier, length, op1, op2, target) =>
-        val lengthE = evalConst(length).asExpandedInt.get
+        val lengthE = evalConst(length).asInt
         val modifierE = evalSymbol(modifier)
         val op1Ref = constOrAddressRef(op1, lengthE)
         val op2Ref = constOrAddressRef(op2, lengthE)
@@ -87,28 +87,28 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
       case Operation.Jump(target) =>
         Some(evalSymbol(target))
       case Operation.Add(length, op1, op2, dst) =>
-        val lengthE = evalConst(length).asExpandedInt.get
+        val lengthE = evalConst(length).asInt
         RuntimeOps.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
         markConst(dst, lengthE, isConst = checkConst(op1, lengthE) && checkConst(op2, lengthE))
         None
       case Operation.Mult(length, op1, op2, dst) =>
-        val lengthE = evalConst(length).asExpandedInt.get
+        val lengthE = evalConst(length).asInt
         RuntimeOps.mult(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
         markConst(dst, lengthE, isConst = checkConst(op1, lengthE) && checkConst(op2, lengthE))
         None
       case Operation.Neg(length, op, dst) =>
-        val lengthE = evalConst(length).asExpandedInt.get
+        val lengthE = evalConst(length).asInt
         RuntimeOps.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
         markConst(dst, lengthE, isConst = checkConst(op, lengthE))
         None
       case Operation.NotSpecialize(lengthAst, dstAst) =>
-        val length = evalConst(lengthAst).asExpandedInt.get
+        val length = evalConst(lengthAst).asInt
         markConst(dstAst, length, isConst = false)
         None
       case Operation.Set(length, src, dst) =>
-        val lengthE = evalConst(length).asExpandedLong.get
-        RuntimeOps.set(lengthE, constOrAddressRef(src, lengthE.toInt), constOrAddressRef(dst, lengthE.toInt))
-        markConst(dst, lengthE.toInt, isConst = checkConst(src, lengthE.toInt))
+        val lengthE = evalConst(length).asInt
+        RuntimeOps.set(lengthE, constOrAddressRef(src, lengthE), constOrAddressRef(dst, lengthE))
+        markConst(dst, lengthE, isConst = checkConst(src, lengthE))
         None
       case _ =>
         throw new IllegalArgumentException(s"unsupported operation '$op''")
@@ -125,7 +125,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
 
   private def addressRef(address: Address): MemoryRef = address match {
     case Address.Stack(address) =>
-      runtime.stack.getRef(evalConst(address).asExpandedInt.get)
+      runtime.stack.getRef(evalConst(address).asInt)
     case _ =>
       throw new UnsupportedOperationException(s"unsupported address: $address")
   }

@@ -18,22 +18,22 @@ object NodeFactory {
       case None => Node.Final(compiler, ctx, op)
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           Node.SetStackSize(compiler, ctx, op, constInterpreter.frameSize() + length)
         case ast.Operation.Shrink(lengthAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           Node.SetStackSize(compiler, ctx, op, constInterpreter.frameSize() - length)
         case ast.Operation.Call(offsetAst, targetAst) =>
-          val offsetRaw = constInterpreter.evalConst(offsetAst).asExpandedInt.get
+          val offsetRaw = constInterpreter.evalConst(offsetAst).asInt
           val offset = if (offsetRaw >= 0) offsetRaw else constInterpreter.frameSize() + offsetRaw
           val target = constInterpreter.evalSymbol(targetAst).name
           Node.Call(compiler, ctx, op, offset, target)
         case ast.Operation.CheckSize(lengthAst) =>
           Node.Throw(compiler, ctx, op, Try {
-            assert(constInterpreter.evalConst(lengthAst).asExpandedInt.get == constInterpreter.frameSize())
+            assert(constInterpreter.evalConst(lengthAst).asInt == constInterpreter.frameSize())
           })
         case ast.Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           val modifier = constInterpreter.evalSymbol(modifierAst).name
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
 
@@ -53,7 +53,7 @@ object NodeFactory {
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           Node.Branch(compiler, ctx, op, Branch.Always, target)
         case ast.Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Sum.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
@@ -62,7 +62,7 @@ object NodeFactory {
           }
           simpleNode(impl)
         case ast.Operation.Mult(lengthAst, op1Ast, op2Ast, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Mult.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
@@ -71,7 +71,7 @@ object NodeFactory {
           }
           simpleNode(impl)
         case ast.Operation.Neg(lengthAst, opAst, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Negate.length4(toIntOrOperand(opAst), dst)
@@ -80,7 +80,7 @@ object NodeFactory {
           }
           simpleNode(impl)
         case ast.Operation.Set(lengthAst, srcAst, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Set.length4(toIntOrOperand(srcAst), dst)
@@ -89,7 +89,7 @@ object NodeFactory {
           }
           simpleNode(impl)
         case ast.Operation.NotSpecialize(lengthAst, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
+          val length = constInterpreter.evalConst(lengthAst).asInt
           simpleNode(Specialize.Mark(length, toOperand(dstAst), specialize = false))
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
@@ -102,7 +102,7 @@ object NodeFactory {
 
   private def toOperandFn(constInterpreter: ConstInterpreter, address: ast.Address): MemoryOperand = address match {
     case ast.Address.Stack(offsetAst) =>
-      val rawOffset = constInterpreter.evalConst(offsetAst).asExpandedInt.get
+      val rawOffset = constInterpreter.evalConst(offsetAst).asInt
       val offset = if (rawOffset < 0) constInterpreter.frameSize() + rawOffset else rawOffset
       MemoryOperand.Stack(offset)
     case ast.Address.StackOffset(_, _, _) =>
@@ -112,10 +112,10 @@ object NodeFactory {
   }
 
   private def toIntOrOperandFn(constInterpreter: ConstInterpreter, addressOrConst: ast.Address | ast.Const): Int | MemoryOperand =
-    toBytesOrOperandFn(constInterpreter, addressOrConst, 4, _.asInt.get)
+    toBytesOrOperandFn(constInterpreter, addressOrConst, 4, _.asInt)
 
   private def toLongOrOperandFn(constInterpreter: ConstInterpreter, addressOrConst: ast.Address | ast.Const): Long | MemoryOperand =
-    toBytesOrOperandFn(constInterpreter, addressOrConst, 8, _.asLong.get)
+    toBytesOrOperandFn(constInterpreter, addressOrConst, 8, _.asLong)
 
   private def toBytesOrOperandFn[T](constInterpreter: ConstInterpreter, addressOrConst: ast.Address | ast.Const, length: Int, transform: Bytes => T): T | MemoryOperand =
     addressOrConst match {
