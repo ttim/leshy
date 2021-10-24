@@ -73,7 +73,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         runtime.stack.offset(prevOffset)
         None
       case Operation.CheckSize(length) =>
-        runtime.stack.checkSize(evalConst(length).asExpandedInt.get)
+        assert(evalConst(length).asExpandedInt.get == runtime.stack.stackFrameSize())
         None
       case Operation.Branch(modifier, length, op1, op2, target) =>
         val lengthE = evalConst(length).asExpandedInt.get

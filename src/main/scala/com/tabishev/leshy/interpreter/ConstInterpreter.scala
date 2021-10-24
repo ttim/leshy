@@ -4,6 +4,8 @@ import com.tabishev.leshy.ast.{Address, Bytes, Const}
 import com.tabishev.leshy.runtime.{StackMemory, Symbol, Symbols, Runtime}
 
 case class ConstInterpreter(runtime: Runtime) {
+  def frameSize(): Int = runtime.stack.stackFrameSize()
+
   def evalConst(const: Const): Bytes = const match {
     case Const.Literal(bytes) =>
       bytes
