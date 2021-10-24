@@ -62,8 +62,6 @@ object TextParser {
         Some(Operation.Shrink(parseConst(length)))
       case Seq("check_size", length) =>
         Some(Operation.CheckSize(parseConst(length)))
-      case Seq("append", bytes) =>
-        Some(Operation.Append(parseConst(bytes)))
 
       // control flow
       case Seq("branch", modifier, lengthS, op1, op2, dest) =>
@@ -77,8 +75,10 @@ object TextParser {
         Some(Operation.Call(parseConst(offset), parseConst(target)))
 
       // const
-      case Seq("non_const", length, dst) =>
-        Some(Operation.NonConst(parseConst(length), parseAddress(dst)))
+      case Seq("not_specialize", length, dst) =>
+        Some(Operation.NotSpecialize(parseConst(length), parseAddress(dst)))
+      case Seq("specialize", length, dst) =>
+        Some(Operation.Specialize(parseConst(length), parseAddress(dst)))
 
       // memory
       case Seq("set", lengthS, src, dst) =>
@@ -95,10 +95,6 @@ object TextParser {
       case Seq("neg", lengthS, op, dst) =>
         val length = parseConst(lengthS)
         Some(Operation.Neg(length, parseConstOrAddress(op), parseAddress(dst)))
-
-      // "syscalls"
-      case Seq("print_int", length, src) =>
-        Some(Operation.PrintInt(parseConst(length), parseAddress(src)))
 
       case Seq("") =>
         None

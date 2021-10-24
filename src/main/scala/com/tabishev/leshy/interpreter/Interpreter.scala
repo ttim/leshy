@@ -58,10 +58,6 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         val length = evalConst(lengthAst).asExpandedInt.get
         runtime.stack.shrink(length)
         None
-      case Operation.Append(bytesAst) =>
-        val bytes = evalConst(bytesAst)
-        runtime.stack.append(bytes, isConst = true)
-        None
       case Operation.Call(offsetConst, targetConst) =>
         val offsetChange = evalConst(offsetConst).asExpandedInt.get
         val target = evalSymbol(targetConst)
@@ -90,9 +86,6 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         if (flag) Some(evalSymbol(target)) else None
       case Operation.Jump(target) =>
         Some(evalSymbol(target))
-      case Operation.PrintInt(length, src) =>
-        RuntimeOps.printInt(evalConst(length).asExpandedInt.get, addressRef(src))
-        None
       case Operation.Add(length, op1, op2, dst) =>
         val lengthE = evalConst(length).asExpandedInt.get
         RuntimeOps.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
@@ -108,7 +101,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         RuntimeOps.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
         markConst(dst, lengthE, isConst = checkConst(op, lengthE))
         None
-      case Operation.NonConst(lengthAst, dstAst) =>
+      case Operation.NotSpecialize(lengthAst, dstAst) =>
         val length = evalConst(lengthAst).asExpandedInt.get
         markConst(dstAst, length, isConst = false)
         None

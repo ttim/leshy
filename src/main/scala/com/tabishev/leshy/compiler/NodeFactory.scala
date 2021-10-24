@@ -23,7 +23,6 @@ object NodeFactory {
         case ast.Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
           Node.SetStackSize(compiler, ctx, op, constInterpreter.frameSize() - length)
-        case ast.Operation.Append(bytesAst) => ???
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offsetRaw = constInterpreter.evalConst(offsetAst).asExpandedInt.get
           val offset = if (offsetRaw >= 0) offsetRaw else constInterpreter.frameSize() + offsetRaw
@@ -53,7 +52,6 @@ object NodeFactory {
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           Node.Branch(compiler, ctx, op, Branch.Always, target)
-        case ast.Operation.PrintInt(length, src) => ???
         case ast.Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
           val dst = toOperand(dstAst)
@@ -90,9 +88,9 @@ object NodeFactory {
             case _ => ???
           }
           simpleNode(impl)
-        case ast.Operation.NonConst(lengthAst, dstAst) =>
+        case ast.Operation.NotSpecialize(lengthAst, dstAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
-          simpleNode(NonConst.Mark(length, toOperand(dstAst)))
+          simpleNode(Specialize.Mark(length, toOperand(dstAst), specialize = false))
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }

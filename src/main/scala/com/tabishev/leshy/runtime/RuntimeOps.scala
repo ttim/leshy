@@ -48,10 +48,4 @@ object RuntimeOps {
     // todo: do manipulation over underlying byte buffers!
     dest.put(src.get(length.toInt))
   }
-
-  def printInt(length: Int, arg: MemoryRef): Unit = length match {
-    case 4     => println(arg.getInt())
-    case 8     => println(arg.getLong())
-    case other => throw new IllegalArgumentException(s"unsupported int width for printing: $other")
-  }
 }

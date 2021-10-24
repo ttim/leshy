@@ -39,9 +39,11 @@ object Const {
   }
 }
 
-object NonConst {
-  case class Mark(length: Int, dst: MemoryOperand) extends SimpleImpl {
+object Specialize {
+  case class Mark(length: Int, dst: MemoryOperand, specialize: Boolean) extends SimpleImpl {
     override val dstLength: Int = length
+    override val isConst: Boolean = specialize
+
     override def execute(runtime: Runtime): Unit =
       () // do nothing apart from marking purposes which is done in node
   }
