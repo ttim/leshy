@@ -97,8 +97,6 @@ class StackMemory {
     markConst(size - bytes.length(), bytes.length(), isConst)
   }
 
-  def checkSize(size: Int): Unit = assert(size == this.size - this.frameOffset)
-
   def offset(newOffset: Int): Unit = {
     assert(frameOffset >= 0)
     this.frameOffset = newOffset
