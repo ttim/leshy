@@ -16,8 +16,8 @@ def fib4
     jump :finish
   ret_1:
     set 4 1 #0
-    non_const 4 #0
   finish:
+    not_specialize 4 #0
     check_size 4 ;output
 
 def fib8
@@ -39,8 +39,8 @@ def fib8
   ret_1:
     extend 4
     set 8 1 #0
-    non_const 8 #0
   finish:
+    not_specialize 8 #0
     check_size 8 ;output
 
 def fibx
@@ -75,8 +75,9 @@ def fibx
     shrink 4
 
     set $0 1 #4
-    non_const $0 #4
   finish:
+    not_specialize $0 #4
+
     ; this all can be just `check_size [$0+4]`, should it be?
     extend 4 ;input length
     add 4 #0 8 #-4 ;input length + output length + 4 additional bytes for checker
