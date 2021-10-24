@@ -55,23 +55,35 @@ class StackMemory {
   // offset >= 0 and guaranteed in range
   def getRefUnsafe(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + offset)
 
+  def setFramesize(newFrameSize: Int, doConstMark: Boolean): Unit = {
+    assert(newFrameSize >= 0)
+
+    val newSize = frameOffset + newFrameSize
+    if (newSize > size) {
+      // extend
+      if (newSize > memory.size) {
+        val memoryExtendSize = Math.min(memory.size, newSize - memory.size)
+        memory = memory.extended(memoryExtendSize, ro = false)
+        marks = marks.extended(memoryExtendSize, ro = false)
+      }
+
+      memory.fill(size, newSize - size, 0)
+      if (doConstMark) marks.fill(size, newSize - size, 1)
+      size = newSize
+    } else if (newSize < size) {
+      // shrink
+      size = newSize
+    }
+  }
+
   def extend(extendSize: Int, doConstMark: Boolean = true): Unit = {
     assert(extendSize >= 0)
-    if (size + extendSize > memory.size) {
-      val memoryExtendSize = Math.min(memory.size, extendSize)
-      memory = memory.extended(memoryExtendSize, ro = false)
-      marks = marks.extended(memoryExtendSize, ro = false)
-    }
-    size += extendSize
-    memory.fill(size - extendSize, extendSize, 0)
-    if (doConstMark) markConst(-extendSize, extendSize, isConst = true)
+    setFramesize(stackFrameSize() + extendSize, doConstMark)
   }
 
   def shrink(shrinkSize: Int): Unit = {
     assert(shrinkSize >= 0)
-    assert(size - frameOffset >= shrinkSize)
-    size -= shrinkSize
-    // todo: decrease size in some cases?
+    setFramesize(stackFrameSize() - shrinkSize, doConstMark = false)
   }
 
   def clean(): Unit = {
