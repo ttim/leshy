@@ -38,11 +38,10 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
 
   def freeze(): Unit = {
     frozen = true
-    // can't do this until SpecializationContext.current(runtime) removed
-//    nodes.values.foreach {
-//      case node: Node.Simple => node.markConst = false
-//      case _ => // do nothing
-//    }
+    nodes.values.foreach {
+      case node: UpdatesConst => node.markConst = false
+      case _ => // do nothing
+    }
   }
 
   private def opRepr(op: OperationRef): String = {
@@ -88,8 +87,7 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
       loader.load(op.fn).get.labels.foreach { case (label, _) => runtime.symbols.register(label) }
     }
 
-    def simpleNode(impl: SimpleImpl): Node =
-      Node.Simple(this, ctx, op, impl, markConst = true)
+    def simpleNode(impl: SimpleImpl): Node = Node.Simple(this, ctx, op, impl)
 
     val node = operation(op) match {
       case None => Node.Final(this, ctx, op)
@@ -254,13 +252,37 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
     }
 }
 
-case class SpecializationContext(stackSize: Int, consts: Consts) {
-  override def toString: String = s"spec[$stackSize, $consts)]"
+case class SpecializationContext private (id: Int) {
+  override def toString: String = {
+    val (stackSize, consts) = SpecializationContext.get(this)
+    s"spec[$stackSize, $consts)]"
+  }
+
+  override def hashCode(): Int = id
+  override def equals(obj: Any): Boolean = obj.isInstanceOf[SpecializationContext] &&
+    obj.asInstanceOf[SpecializationContext].id == id
 }
 
 object SpecializationContext {
+  private var maxId = 1
+  private val contextToId = mutable.HashMap[(Int, Consts), Int]()
+  private val idToContext = mutable.HashMap[Int, (Int, Consts)]()
+
+  def from(stackSize: Int, consts: Consts): SpecializationContext = {
+    val key = (stackSize, consts)
+    if (contextToId.contains(key)) SpecializationContext(contextToId(key)) else {
+      val newId = maxId
+      maxId += 1
+      contextToId.put(key, newId)
+      idToContext.put(newId, key)
+      SpecializationContext(newId)
+    }
+  }
+
+  def get(ctx: SpecializationContext): (Int, Consts) = idToContext(ctx.id)
+
   def current(runtime: Runtime): SpecializationContext =
-    SpecializationContext(runtime.stack.stackFrameSize(), runtime.stack.stackFrameConsts())
+    SpecializationContext.from(runtime.stack.stackFrameSize(), runtime.stack.stackFrameConsts())
 }
 
 abstract class Node {
@@ -298,9 +320,13 @@ abstract class Node {
   }
 }
 
+trait UpdatesConst {
+  var markConst: Boolean = true
+}
+
 object Node {
   case class Simple(compiler: Compiler, ctx: SpecializationContext, op: OperationRef,
-                    impl: SimpleImpl, var markConst: Boolean) extends Node {
+                    impl: SimpleImpl) extends Node with UpdatesConst {
     protected def runInternal(): Node = {
       impl.execute(compiler.runtime)
       if (markConst) impl.dst.markConst(compiler.runtime, impl.dstLength, impl.isConst)
@@ -323,9 +349,9 @@ object Node {
     }
   }
 
-  case class StackResize(compiler: Compiler, ctx: SpecializationContext, op: OperationRef, delta: Int) extends Node {
+  case class StackResize(compiler: Compiler, ctx: SpecializationContext, op: OperationRef, delta: Int) extends Node with UpdatesConst {
     protected def runInternal(): Node = {
-      if (delta >= 0) compiler.runtime.stack.extend(delta) else compiler.runtime.stack.shrink(-delta)
+      if (delta >= 0) compiler.runtime.stack.extend(delta, markConst) else compiler.runtime.stack.shrink(-delta)
       nextLineNode()
     }
   }
@@ -366,15 +392,14 @@ object Node {
       cachedCallNode
     }
 
-    private val cachedNextLineNode = mutable.HashMap[SpecializationContext, Node]()
-    private def nextLineNode(ctx: SpecializationContext): Node = {
-      if (cachedNextLineNode.contains(ctx)) cachedNextLineNode(ctx) else {
+    private var cachedNextLineNode = Map[SpecializationContext, Node]()
+    private def nextLineNode(ctx: SpecializationContext): Node =
+      cachedNextLineNode.getOrElse(ctx, {
         // todo: not true because of offsets
         //assert(SpecializationContext.current(compiler.runtime) == ctx)
         val node = compiler.create(OperationRef(op.fn, op.line + 1))
-        cachedNextLineNode.put(ctx, node)
+        cachedNextLineNode = cachedNextLineNode.updated(ctx, node)
         node
-      }
-    }
+      })
   }
 }

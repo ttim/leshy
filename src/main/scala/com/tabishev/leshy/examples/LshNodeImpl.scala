@@ -73,7 +73,7 @@ object LshNodeImpl {
     assert(fibx4(11) == 144)
     assert(fibx8(11) == 144)
 //    assert(fibx8(38) == 63245986)
-    println(fibx8(35))
+    println(fibx8(38))
     println((System.currentTimeMillis() - start)/1000)
   }
 }
