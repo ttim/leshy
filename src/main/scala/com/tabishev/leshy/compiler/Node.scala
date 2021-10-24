@@ -103,12 +103,7 @@ object Node {
       compiler.runtime.stack.offset(prevFrame + offset)
       val finalCtx = callNode().run()
       compiler.runtime.stack.offset(prevFrame)
-      // !!! we can't cache nextLineNode because we can't guarantee that constantness stays the same between subcalls
-      // actually it's symptom, real issue is something else
-      // because if everything else is correct this is not needed
-      // in reality it's something around branches
-      // or actually it's here, but importantly it's around main while (node != final) loop, because that's a loop which depends on actual run through branch instructions, so ctx of result node isn't guaranteed, but can be returned btw!!!
-      // still weird i get result as const in fib example unless I add explicit `non_const` calls
+      // depending on calculation/specializations being made by callee next line node might be different
       nextLineNode(finalCtx)
     }
 
