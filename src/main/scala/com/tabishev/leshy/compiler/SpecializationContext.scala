@@ -35,4 +35,18 @@ object SpecializationContext {
 
   def current(runtime: Runtime): SpecializationContext =
     SpecializationContext.from(runtime.stack.stackFrameSize(), runtime.stack.stackFrameConsts())
+
+  def fnCall(caller: SpecializationContext, offset: Int, callee: SpecializationContext): SpecializationContext = {
+    val (_, callerConsts) = get(caller)
+    val (calleeSize, calleeConsts) = get(callee)
+    SpecializationContext.from(offset + calleeSize, Consts.fnCall(callerConsts, offset, calleeConsts))
+  }
+
+  def offset(caller: SpecializationContext, offset: Int): SpecializationContext = {
+    val (size, consts) = SpecializationContext.get(caller)
+    val calleeConsts = consts.asMap().collect {
+      case (callerOffset, value) if callerOffset >= offset => (callerOffset - offset, value)
+    }
+    SpecializationContext.from(size - offset, Consts.fromMap(calleeConsts))
+  }
 }

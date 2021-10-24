@@ -31,15 +31,17 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
   def run(fn: String)(init: StackMemory => Unit): Bytes = {
     assert(runtime.stack.frameOffset == 0 && runtime.stack.size == 0)
     init(runtime.stack)
-    create(OperationRef(fn, 0)).run()
+    create(OperationRef(fn, 0), SpecializationContext.current(runtime)).run()
     assert(runtime.stack.frameOffset == 0)
     val output = Bytes.fromBytes(runtime.stack.getCurrentStackFrame())
     runtime.stack.shrink(output.length())
     output
   }
 
-  private[compiler] def create(op: OperationRef): Node = {
-    val ctx = SpecializationContext.current(runtime)
+  private[compiler] def create(op: OperationRef, ctx: SpecializationContext): Node = {
+    if (!frozen) // & debug?
+      assert(ctx == SpecializationContext.current(runtime))
+
     debug(op, ctx, "start create")
 
     val nodeKey = (op, ctx)
