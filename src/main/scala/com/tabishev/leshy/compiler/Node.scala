@@ -94,10 +94,10 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
-          Node.StackResize(this, ctx, op, length)
+          Node.SetStackSize(this, ctx, op, runtime.stack.stackFrameSize() + length)
         case ast.Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asExpandedInt.get
-          Node.StackResize(this, ctx, op, -length)
+          Node.SetStackSize(this, ctx, op, runtime.stack.stackFrameSize() - length)
         case ast.Operation.Append(bytesAst) => ???
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offsetRaw = constInterpreter.evalConst(offsetAst).asExpandedInt.get
@@ -351,9 +351,9 @@ object Node {
     }
   }
 
-  case class StackResize(compiler: Compiler, ctx: SpecializationContext, op: OperationRef, delta: Int) extends Node with UpdatesConst {
+  case class SetStackSize(compiler: Compiler, ctx: SpecializationContext, op: OperationRef, stackFrameSize: Int) extends Node with UpdatesConst {
     protected def runInternal(): Node = {
-      if (delta >= 0) compiler.runtime.stack.extend(delta, markConst) else compiler.runtime.stack.shrink(-delta)
+      compiler.runtime.stack.setFramesize(stackFrameSize, markConst)
       nextLineNode()
     }
   }
