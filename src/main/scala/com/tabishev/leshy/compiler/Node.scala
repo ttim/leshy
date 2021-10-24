@@ -4,7 +4,7 @@ import com.tabishev.leshy.ast
 import com.tabishev.leshy.ast.{Address, Bytes, Origin}
 import com.tabishev.leshy.interpreter.ConstInterpreter
 import com.tabishev.leshy.loader.RoutineLoader
-import com.tabishev.leshy.runtime.{CommonSymbols, MemoryRef, Runtime, StackMemory}
+import com.tabishev.leshy.runtime.{CommonSymbols, Consts, MemoryRef, Runtime, StackMemory}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
@@ -34,15 +34,25 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
-  private var frozen: Boolean = false
+  private[compiler] var frozen: Boolean = false
 
-  def freeze(): Unit = frozen = true
+  def freeze(): Unit = {
+    frozen = true
+    // can't do this until SpecializationContext.current(runtime) removed
+//    nodes.values.foreach {
+//      case node: Node.Simple => node.markConst = false
+//      case _ => // do nothing
+//    }
+  }
+
+  private def opRepr(op: OperationRef): String = {
+    val origin = operation(op).map(_.origin).getOrElse(Origin(loader.load(op.fn).get.ops.head.origin.path, -1))
+    s"${origin.path.getFileName.toString}:${origin.line}"
+  }
 
   private[compiler] def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit = {
     // todo: print specialization context as well?
-    val origin = operation(op).map(_.origin).getOrElse(Origin(loader.load(op.fn).get.ops.head.origin.path, -1))
-    if (debugEnabled || force)
-      println(s"${runtime.stack.frameToString}, ${origin.path.getFileName.toString}:${origin.line}: $msg")
+    if (debugEnabled || force) println(s"${runtime.stack.frameToString}, ${opRepr(op)}: $msg")
   }
 
   private def operation(op: OperationRef): Option[ast.OperationWithSource] = {
@@ -65,13 +75,12 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
 
   private[compiler] def create(op: OperationRef): Node = {
     val ctx = SpecializationContext.current(runtime)
-
     debug(op, ctx, "start create")
 
     val nodeKey = (op, ctx)
     if (nodes.contains(nodeKey)) return nodes(nodeKey)
 
-    if (frozen) throw new IllegalStateException()
+    if (frozen) throw new IllegalStateException(s"nodes are frozen, can't create node for ${opRepr(op)} with ${runtime.stack.frameToString}")
 
     if (!registeredFns.contains(op.fn)) {
       registeredFns.add(op.fn)
@@ -245,14 +254,8 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
     }
 }
 
-case class SpecializationContext(stackSize: Int, consts: Map[Int, Byte]) {
-  override def toString: String =
-    s"spec[$stackSize, " +
-      s"(${constWithIndex.map(_._1).mkString(",")})," +
-      s"(${constWithIndex.map(_._2).mkString(",")})" +
-      s"]"
-
-  private def constWithIndex: Seq[(Int, Byte)] = consts.toList.sortBy(_._1)
+case class SpecializationContext(stackSize: Int, consts: Consts) {
+  override def toString: String = s"spec[$stackSize, $consts)]"
 }
 
 object SpecializationContext {
@@ -267,10 +270,14 @@ abstract class Node {
   val ctx: SpecializationContext
   val op: OperationRef
 
-  final def checkContext(): Boolean = ctx == SpecializationContext.current(compiler.runtime)
+  final def checkContext(): Unit =
+    if (!compiler.frozen && compiler.debugEnabled) {
+      assert(ctx == SpecializationContext.current(compiler.runtime))
+    }
 
-  final def run(): Unit = {
-    assert(checkContext())
+  final def run(): SpecializationContext = {
+    checkContext()
+
     var node = this
     while (!node.isInstanceOf[Node.Final]) {
       compiler.debug(node.op, ctx, "start run")
@@ -278,6 +285,8 @@ abstract class Node {
       compiler.debug(node.op, ctx, "finish run")
       node = nextNode
     }
+
+    node.ctx
   }
 
   protected def runInternal(): Node
@@ -291,7 +300,7 @@ abstract class Node {
 
 object Node {
   case class Simple(compiler: Compiler, ctx: SpecializationContext, op: OperationRef,
-                    impl: SimpleImpl, markConst: Boolean) extends Node {
+                    impl: SimpleImpl, var markConst: Boolean) extends Node {
     protected def runInternal(): Node = {
       impl.execute(compiler.runtime)
       if (markConst) impl.dst.markConst(compiler.runtime, impl.dstLength, impl.isConst)
@@ -340,7 +349,7 @@ object Node {
       assert(offset >= 0)
       val prevFrame = compiler.runtime.stack.frameOffset
       compiler.runtime.stack.offset(prevFrame + offset)
-      callNode().run()
+      val finalCtx = callNode().run()
       compiler.runtime.stack.offset(prevFrame)
       // !!! we can't cache nextLineNode because we can't guarantee that constantness stays the same between subcalls
       // actually it's symptom, real issue is something else
@@ -348,13 +357,24 @@ object Node {
       // in reality it's something around branches
       // or actually it's here, but importantly it's around main while (node != final) loop, because that's a loop which depends on actual run through branch instructions, so ctx of result node isn't guaranteed, but can be returned btw!!!
       // still weird i get result as const in fib example unless I add explicit `non_const` calls
-      compiler.create(OperationRef(op.fn, op.line + 1))
+      nextLineNode(finalCtx)
     }
 
     private var cachedCallNode: Node = null
     private def callNode(): Node = {
       if (cachedCallNode == null) cachedCallNode = compiler.create(OperationRef(target, 0))
       cachedCallNode
+    }
+
+    private val cachedNextLineNode = mutable.HashMap[SpecializationContext, Node]()
+    private def nextLineNode(ctx: SpecializationContext): Node = {
+      if (cachedNextLineNode.contains(ctx)) cachedNextLineNode(ctx) else {
+        // todo: not true because of offsets
+        //assert(SpecializationContext.current(compiler.runtime) == ctx)
+        val node = compiler.create(OperationRef(op.fn, op.line + 1))
+        cachedNextLineNode.put(ctx, node)
+        node
+      }
     }
   }
 }

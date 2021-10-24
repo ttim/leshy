@@ -13,6 +13,19 @@ final class Runtime {
   CommonSymbols.register(symbols)
 }
 
+case class Consts private[runtime] (constOffsetsAndData: Bytes) {
+  override def toString: String = {
+    val offsetsWithValues = (0 until length).map { index =>
+      val offset = constOffsetsAndData.asByteBuffer.getInt(index * 5)
+      val value = constOffsetsAndData.asByteBuffer.get(index * 5 + 4)
+      (offset, value)
+    }
+    s"[${offsetsWithValues.map(_._1).mkString(", ")}] -> [${offsetsWithValues.map(_._2).mkString(", ")}]"
+  }
+
+  def length: Int = constOffsetsAndData.length() / 5
+}
+
 class StackMemory {
   private val initialSize = 10
 
@@ -98,8 +111,14 @@ class StackMemory {
     marks.allEquals(absoluteOffset, length, 1)
   }
 
-  def stackFrameConsts(): Map[Int, Byte] =
-    marks.equalOffsets(frameOffset, size - frameOffset, 1).map { offset =>
-      (offset - frameOffset, memory.getByte(offset))
-    }.toMap
+  def stackFrameConsts(): Consts = {
+    val constOffsets = marks.equalOffsets(frameOffset, size - frameOffset, 1)
+    val offsetsAndData = Array.fill[Byte](constOffsets.length * 5)(0)
+    val mirror = ByteBuffer.wrap(offsetsAndData).order(ByteOrder.LITTLE_ENDIAN)
+    constOffsets.zipWithIndex.foreach { case (offset, index) =>
+      mirror.putInt(index * 5, offset - frameOffset)
+      mirror.put(index * 5 + 4, memory.getByte(offset))
+    }
+    Consts(Bytes.fromBytes(offsetsAndData))
+  }
 }
