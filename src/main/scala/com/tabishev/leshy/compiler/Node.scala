@@ -10,10 +10,12 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
+case class Description(op: OperationRef)
+
 sealed abstract class Node {
   val compiler: Compiler
   val ctx: SpecializationContext
-  val op: OperationRef
+  val description: Description
 
   final def checkContext(): Unit =
     if (!compiler.frozen && compiler.debugEnabled) {
@@ -25,9 +27,9 @@ sealed abstract class Node {
 
     var node = this
     while (!node.isInstanceOf[Node.Final]) {
-      compiler.debug(node.op, ctx, "start run")
+      compiler.debug(node.description.op, ctx, "start run")
       val nextNode = node.runInternal(runtime)
-      compiler.debug(node.op, ctx, "finish run")
+      compiler.debug(node.description.op, ctx, "finish run")
       node = nextNode
     }
 
@@ -38,46 +40,46 @@ sealed abstract class Node {
 }
 
 object Node {
-  final case class Run(compiler: Compiler, ctx: SpecializationContext, op: OperationRef,
-                       impl: Execution) extends Node {
+  final case class Run(compiler: Compiler, ctx: SpecializationContext, description: Description,
+                       impl: Execution, next: OperationRef) extends Node {
     private var computedNextLine: Node = null
 
     protected def runInternal(runtime: Runtime): Node = {
       impl.execute(runtime)
       if (!compiler.frozen) impl.markConsts(runtime)
-      nextLineNode()
+      nextNode()
     }
 
-    private def nextLineNode(): Node = {
+    private def nextNode(): Node = {
       if (computedNextLine == null)
-        computedNextLine = compiler.create(op.next, SpecializationContext.current(compiler.runtime))
+        computedNextLine = compiler.create(next, SpecializationContext.current(compiler.runtime))
       computedNextLine
     }
   }
 
-  final case class Branch(compiler: Compiler, ctx: SpecializationContext, op: OperationRef,
-                          impl: BranchExecution, target: OperationRef) extends Node {
-    private var computedNextLine: Node = null
-    private var computedTarget: Node = null
+  final case class Branch(compiler: Compiler, ctx: SpecializationContext, description: Description,
+                          impl: BranchExecution, ifTrue: OperationRef, ifFalse: OperationRef) extends Node {
+    private var computedIfTrue: Node = null
+    private var computedIfFalse: Node = null
 
     override protected def runInternal(runtime: Runtime): Node =
-      if (impl.execute(runtime)) targetNode() else nextLineNode()
+      if (impl.execute(runtime)) ifTrueNode() else ifFalseNode()
 
-    private def nextLineNode(): Node = {
-      if (computedNextLine == null) computedNextLine = compiler.create(op.next, ctx)
-      computedNextLine
+    private def ifTrueNode(): Node = {
+      if (computedIfTrue == null) computedIfTrue = compiler.create(ifTrue, ctx)
+      computedIfTrue
     }
 
-    private def targetNode(): Node = {
-      if (computedTarget == null) computedTarget = compiler.create(target, ctx)
-      computedTarget
+    private def ifFalseNode(): Node = {
+      if (computedIfFalse == null) computedIfFalse = compiler.create(ifFalse, ctx)
+      computedIfFalse
     }
   }
 
-  final case class Call(compiler: Compiler, ctx: SpecializationContext, op: OperationRef,
-                  offset: Int, target: String) extends Node {
+  final case class Call(compiler: Compiler, ctx: SpecializationContext, description: Description,
+                        offset: Int, target: String, next: OperationRef) extends Node {
     private var cachedCall: Node = null
-    private var cachedNextLine = Map[SpecializationContext, Node]()
+    private var cachedNextNode = Map[SpecializationContext, Node]()
 
     override protected def runInternal(runtime: Runtime): Node = {
       assert(offset >= 0)
@@ -86,7 +88,7 @@ object Node {
       val finalCtx = callNode().run(runtime)
       compiler.runtime.stack.offset(prevFrame)
       // depending on calculation/specializations being made by callee next line node might be different
-      nextLineNode(finalCtx)
+      nextNode(finalCtx)
     }
 
     private def callNode(): Node = {
@@ -97,16 +99,16 @@ object Node {
       cachedCall
     }
 
-    private def nextLineNode(calleeCtx: SpecializationContext): Node =
-      cachedNextLine.getOrElse(calleeCtx, {
+    private def nextNode(calleeCtx: SpecializationContext): Node =
+      cachedNextNode.getOrElse(calleeCtx, {
         val nextLineCtx = SpecializationContext.fnCall(ctx, offset, calleeCtx)
-        val node = compiler.create(OperationRef(op.fn, op.line + 1), nextLineCtx)
-        cachedNextLine = cachedNextLine.updated(calleeCtx, node)
+        val node = compiler.create(next, nextLineCtx)
+        cachedNextNode = cachedNextNode.updated(calleeCtx, node)
         node
       })
   }
 
-  final case class Final(compiler: Compiler, ctx: SpecializationContext, op: OperationRef) extends Node {
+  final case class Final(compiler: Compiler, ctx: SpecializationContext, description: Description) extends Node {
     protected def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
   }
 }
