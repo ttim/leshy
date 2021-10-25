@@ -87,7 +87,7 @@ object Node {
 
     override protected def runInternal(runtime: Runtime): Node = {
       assert(offset >= 0)
-      val prevFrame = compiler.runtime.stack.frameOffset
+      val prevFrame = compiler.runtime.stack.getFrameOffset()
       compiler.runtime.stack.offset(prevFrame + offset)
       val finalCtx = callNode().run(runtime)
       compiler.runtime.stack.offset(prevFrame)

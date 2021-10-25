@@ -13,7 +13,7 @@ final class Runtime {
   CommonSymbols.register(symbols)
 }
 
-case class Consts private (constOffsetsAndData: Bytes) {
+final case class Consts private (constOffsetsAndData: Bytes) {
   override def toString: String = {
     val sorted = asMap().toSeq.sortBy(_._1)
     s"[${sorted.map(_._1).mkString(", ")}] -> [${sorted.map(_._2).mkString(", ")}]"
@@ -49,19 +49,23 @@ object Consts {
   }
 }
 
-class StackMemory {
+final class StackMemory {
   private val initialSize = 1000
 
-  var memory: Memory = Memory.ofSize(initialSize, ro = false)
-  var marks: Memory = Memory.ofSize(initialSize, ro = false)
+  private var memory: Memory = Memory.ofSize(initialSize, ro = false)
+  private var marks: Memory = Memory.ofSize(initialSize, ro = false)
 
-  var size: Int = 0
-  var frameOffset: Int = 0
+  private var size: Int = 0
+  private var frameOffset: Int = 0
 
   def stackFrameSize(): Int = size - frameOffset
-  def getCurrentStackFrame(): Array[Byte] = memory.get(frameOffset, size - frameOffset)
+  def currentStackFrame(): Array[Byte] = memory.get(frameOffset, size - frameOffset)
 
-  private def calcAbsoluteOffset(offset: Int): Int =
+  def isEmpty(): Boolean = size == 0
+
+  def getFrameOffset(): Int = frameOffset
+
+  def absoluteOffset(offset: Int): Int =
     if (offset >= 0) {
       assert(offset < (size - frameOffset))
       frameOffset + offset
@@ -70,7 +74,7 @@ class StackMemory {
       size + offset
     }
 
-  def getRef(offset: Int): MemoryRef = new MemoryRef(memory, calcAbsoluteOffset(offset))
+  def getRef(offset: Int): MemoryRef = new MemoryRef(memory, absoluteOffset(offset))
 
   // offset >= 0 and guaranteed in range
   def getRefUnsafe(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + offset)
@@ -134,15 +138,15 @@ class StackMemory {
 
   // const actions
   def markConst(offset: Int, length: Int, isConst: Boolean): Unit = {
-    val absoluteOffset = calcAbsoluteOffset(offset)
-    assert(absoluteOffset + length <= size)
-    marks.fill(absoluteOffset, length, if (isConst) 1 else 0)
+    val absoluteOffsetCalculated = absoluteOffset(offset)
+    assert(absoluteOffsetCalculated + length <= size)
+    marks.fill(absoluteOffsetCalculated, length, if (isConst) 1 else 0)
   }
 
   def isConst(offset: Int, length: Int): Boolean = {
-    val absoluteOffset = calcAbsoluteOffset(offset)
-    assert(absoluteOffset + length <= size)
-    marks.allEquals(absoluteOffset, length, 1)
+    val absoluteOffsetCalculated = absoluteOffset(offset)
+    assert(absoluteOffsetCalculated + length <= size)
+    marks.allEquals(absoluteOffsetCalculated, length, 1)
   }
 
   def stackFrameConsts(): Consts =

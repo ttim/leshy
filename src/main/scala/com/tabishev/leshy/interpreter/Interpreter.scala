@@ -20,12 +20,12 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
     spec.output(run(spec.fn)(stack => spec.input(input, stack)))
 
   def run(name: String)(init: StackMemory => Unit): Bytes = {
-    assert(runtime.stack.size == 0)
+    assert(runtime.stack.isEmpty())
     init(runtime.stack)
     try {
       run(name, 0)
-      assert(runtime.stack.frameOffset == 0)
-      Bytes.fromBytes(runtime.stack.getCurrentStackFrame())
+      assert(runtime.stack.getFrameOffset() == 0)
+      Bytes.fromBytes(runtime.stack.currentStackFrame())
     } finally {
       runtime.stack.clean()
     }
@@ -66,9 +66,8 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
         val offsetChange = evalConst(offsetConst).asInt
         val target = evalSymbol(targetConst)
 
-        val prevOffset = runtime.stack.frameOffset
-        val newOffset = if (offsetChange >= 0) runtime.stack.frameOffset + offsetChange else runtime.stack.size + offsetChange
-        runtime.stack.offset(newOffset)
+        val prevOffset = runtime.stack.getFrameOffset()
+        runtime.stack.offset(runtime.stack.absoluteOffset(offsetChange))
         run(target.name, depth + 1)
         runtime.stack.offset(prevOffset)
         None

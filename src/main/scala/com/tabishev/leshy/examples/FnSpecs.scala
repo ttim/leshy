@@ -90,7 +90,8 @@ object FnSpecs {
     assert(compiler.run(Fibx8)(11) == 144)
 
     val start = System.currentTimeMillis()
-    assert(compiler.run(Fib8)(40) == 165580141)
+//    assert(compiler.run(Fib8)(40) == 165580141)
+    assert(compiler.run(Fibx8)(38) == 63245986)
     println((System.currentTimeMillis() - start)/1000.0)
   }
 
