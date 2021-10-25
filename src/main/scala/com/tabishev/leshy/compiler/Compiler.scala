@@ -18,7 +18,7 @@ final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugE
     frozen = true
   }
 
-  private[compiler] inline def debug(inline op: OperationRef, inline ctx: SpecializationContext, inline msg: String, force: Boolean = false): Unit =
+  private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
     if (debugEnabled || force) {
       val fnCtx = loader.load(op.fn).get
       println(s"${runtime.stack.frameToString}, ${op.toString(fnCtx)}: $msg")

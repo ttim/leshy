@@ -17,19 +17,17 @@ sealed abstract class Node {
   val ctx: SpecializationContext
   val description: Description
 
-  final def checkContext(): Unit =
-    if (!compiler.frozen && compiler.debugEnabled) {
-      assert(ctx == SpecializationContext.current(compiler.runtime))
-    }
+  // for perf purposes
+  private val debug: Boolean = compiler.debugEnabled
 
   final def run(runtime: Runtime): SpecializationContext = {
-    checkContext()
+    debugCheck(compiler.frozen || ctx == SpecializationContext.current(compiler.runtime))
 
     var node = this
     while (!node.isInstanceOf[Node.Final]) {
-      compiler.debug(node.description.op, ctx, "start run")
+      debug("start run")
       val nextNode = node.runInternal(runtime)
-      compiler.debug(node.description.op, ctx, "finish run")
+      debug("finish run")
       node = nextNode
     }
 
@@ -37,6 +35,12 @@ sealed abstract class Node {
   }
 
   protected def runInternal(runtime: Runtime): Node
+
+  private inline def debug(inline msg: => String): Unit =
+    if (debug) println(s"[$description, $ctx]: $msg")
+
+  private inline def debugCheck(inline cond: => Boolean): Unit =
+    if (debug) assert(cond)
 }
 
 object Node {
