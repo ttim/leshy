@@ -75,7 +75,7 @@ class StackMemory {
   // offset >= 0 and guaranteed in range
   def getRefUnsafe(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + offset)
 
-  def setFramesize(newFrameSize: Int, doConstMark: Boolean): Unit = {
+  def setFramesize(newFrameSize: Int): Unit = {
     assert(newFrameSize >= 0)
 
     val newSize = frameOffset + newFrameSize
@@ -88,7 +88,6 @@ class StackMemory {
       }
 
       memory.fill(size, newSize - size, 0)
-      if (doConstMark) marks.fill(size, newSize - size, 1)
       size = newSize
     } else if (newSize < size) {
       // shrink
@@ -96,14 +95,14 @@ class StackMemory {
     }
   }
 
-  def extend(extendSize: Int, doConstMark: Boolean = true): Unit = {
+  def extend(extendSize: Int): Unit = {
     assert(extendSize >= 0)
-    setFramesize(stackFrameSize() + extendSize, doConstMark)
+    setFramesize(stackFrameSize() + extendSize)
   }
 
   def shrink(shrinkSize: Int): Unit = {
     assert(shrinkSize >= 0)
-    setFramesize(stackFrameSize() - shrinkSize, doConstMark = false)
+    setFramesize(stackFrameSize() - shrinkSize)
   }
 
   def clean(): Unit = {
