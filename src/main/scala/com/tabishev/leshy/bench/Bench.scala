@@ -2,7 +2,7 @@ package com.tabishev.leshy.bench
 
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.compiler.Compiler
-import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl, LshNodeImpl, MemoryAccessImpl}
+import com.tabishev.leshy.examples.{ByteBufferImpl, FnSpecs, JavaImpl, MemoryAccessImpl}
 import com.tabishev.leshy.interpreter.Interpreter
 import com.tabishev.leshy.loader.FileLoader
 import org.openjdk.jmh.annotations.*
@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit
 object Bench {
   @State(Scope.Benchmark)
   class BenchState {
-    var interpreter: Interpreter = LshImpl.createInterpreter(debug = false)
-    val compiler: Compiler = LshNodeImpl.createCompiler(debug = false)
+    var interpreter: Interpreter = FnSpecs.createInterpreter(debug = false)
+    val compiler: Compiler = FnSpecs.createCompiler(debug = false)
   }
 }
 
@@ -35,19 +35,19 @@ class Bench {
 
   @Benchmark
   def interpretFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshImpl.ffactorial4(state.interpreter, 10001))
+    bh.consume(state.interpreter.run(FnSpecs.Ffactorial4)(10001))
 
   @Benchmark
   def interpretFactorial8(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshImpl.ffactorial8(state.interpreter, 10001))
+    bh.consume(state.interpreter.run(FnSpecs.Ffactorial8)(10001))
 
   @Benchmark
   def nodeFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshNodeImpl.ffactorial4(state.compiler, 10001))
+    bh.consume(state.compiler.run(FnSpecs.Ffactorial4)(10001))
 
   @Benchmark
   def nodeFactorial8(bh: Blackhole, state: Bench.BenchState): Unit =
-    bh.consume(LshNodeImpl.ffactorial8(state.compiler, 10001))
+    bh.consume(state.compiler.run(FnSpecs.Ffactorial8)(10001))
 
   @Benchmark
   def byteBufferFactorial4(bh: Blackhole, state: Bench.BenchState): Unit =

@@ -1,43 +1,43 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.examples.{ByteBufferImpl, JavaImpl, LshImpl, LshNodeImpl, MemoryAccessImpl}
+import com.tabishev.leshy.examples.{ByteBufferImpl, FnSpecs, JavaImpl, MemoryAccessImpl}
 import com.tabishev.leshy.interpreter.Interpreter
 import com.tabishev.leshy.loader.FileLoader
 
 import java.io.File
 
 class CorrectnessSpec extends munit.FunSuite {
-  val interpreter = LshImpl.createInterpreter(false)
-  val compiler = LshNodeImpl.createCompiler(false)
+  private val interpreter = FnSpecs.createInterpreter(false)
+  private val compiler = FnSpecs.createCompiler(false)
 
   val fib4: Seq[Int => Int] = Seq(
-    n => LshImpl.fib4(interpreter, n),
-    n => LshImpl.fibx4(interpreter, n),
-    n => LshNodeImpl.fib4(compiler, n),
-    n => LshNodeImpl.fibx4(compiler, n),
+    interpreter.run(FnSpecs.Fib4),
+    interpreter.run(FnSpecs.Fibx4),
+    compiler.run(FnSpecs.Fib4),
+    compiler.run(FnSpecs.Fibx4),
     n => JavaImpl.fib4(n)
   )
 
   val fib8: Seq[Int => Long] = Seq(
-    n => LshImpl.fib8(interpreter, n),
-    n => LshImpl.fibx8(interpreter, n),
-    n => LshNodeImpl.fib8(compiler, n),
-    n => LshNodeImpl.fibx8(compiler, n),
+    interpreter.run(FnSpecs.Fib8),
+    interpreter.run(FnSpecs.Fibx8),
+    compiler.run(FnSpecs.Fib8),
+    compiler.run(FnSpecs.Fibx8),
     n => JavaImpl.fib8(n)
   )
 
   val fact4: Seq[Int => Int] = Seq(
-    n => LshImpl.ffactorial4(interpreter, n),
-    n => LshNodeImpl.ffactorial4(compiler, n),
+    interpreter.run(FnSpecs.Ffactorial4),
+    compiler.run(FnSpecs.Ffactorial4),
     n => JavaImpl.ffactorial4(n),
     n => ByteBufferImpl.ffactorial4(n),
     n => MemoryAccessImpl.ffactorial4(n),
   )
 
   val fact8: Seq[Int => Long] = Seq(
-    n => LshImpl.ffactorial8(interpreter, n),
-    n => LshNodeImpl.ffactorial8(compiler, n),
+    interpreter.run(FnSpecs.Ffactorial8),
+    compiler.run(FnSpecs.Ffactorial8),
     n => JavaImpl.ffactorial8(n),
     n => ByteBufferImpl.ffactorial8(n),
     n => MemoryAccessImpl.ffactorial8(n)
