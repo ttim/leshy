@@ -56,6 +56,7 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
       case Operation.Extend(lengthAst) =>
         val length = evalConst(lengthAst).asInt
         runtime.stack.extend(length)
+        runtime.stack.markConst(-length, length, isConst = true)
         None
       case Operation.Shrink(lengthAst) =>
         val length = evalConst(lengthAst).asInt

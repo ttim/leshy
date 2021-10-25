@@ -7,7 +7,7 @@ import com.tabishev.leshy.runtime.{FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
 
-class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled: Boolean) {
+final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled: Boolean) {
   private val constInterpreter = ConstInterpreter(runtime)
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
@@ -16,10 +16,6 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
 
   def freeze(): Unit = {
     frozen = true
-    nodes.values.foreach {
-      case node: UpdatesConst => node.markConst = false
-      case _ => // do nothing
-    }
   }
 
   private[compiler] inline def debug(inline op: OperationRef, inline ctx: SpecializationContext, inline msg: String, force: Boolean = false): Unit =
@@ -34,7 +30,7 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
   def run(fn: String)(init: StackMemory => Unit): Bytes = {
     assert(runtime.stack.frameOffset == 0 && runtime.stack.size == 0)
     init(runtime.stack)
-    create(OperationRef(fn, 0), SpecializationContext.current(runtime)).run()
+    create(OperationRef(fn, 0), SpecializationContext.current(runtime)).run(runtime)
     assert(runtime.stack.frameOffset == 0)
     val output = Bytes.fromBytes(runtime.stack.getCurrentStackFrame())
     runtime.stack.shrink(output.length())

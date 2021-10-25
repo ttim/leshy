@@ -9,7 +9,7 @@ import scala.util.Try
 object NodeFactory {
   def create(compiler: Compiler, constInterpreter: ConstInterpreter,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    def simpleNode(impl: SimpleImpl): Node = Node.Simple(compiler, ctx, op, impl)
+    def simpleNode(impl: Execution): Node = Node.Run(compiler, ctx, op, impl)
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
@@ -19,10 +19,10 @@ object NodeFactory {
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
-          Node.SetStackSize(compiler, ctx, op, constInterpreter.frameSize() + length)
+          simpleNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() + length))
         case ast.Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
-          Node.SetStackSize(compiler, ctx, op, constInterpreter.frameSize() - length)
+          simpleNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() - length))
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offsetRaw = constInterpreter.evalConst(offsetAst).asInt
           val offset = if (offsetRaw >= 0) offsetRaw else constInterpreter.frameSize() + offsetRaw
@@ -37,11 +37,11 @@ object NodeFactory {
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
 
           val impl = (length, modifier) match {
-            case (4, "m") => Branch.more4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
-            case (4, "le") => Branch.lessOrEqual4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
+            case (4, "m") => BranchExecution.more4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
+            case (4, "le") => BranchExecution.lessOrEqual4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
 
-            case (8, "m") => Branch.more8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
-            case (8, "le") => Branch.lessOrEqual8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
+            case (8, "m") => BranchExecution.more8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
+            case (8, "le") => BranchExecution.lessOrEqual8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
 
             case _ =>
               throw new UnsupportedOperationException(length + " " + modifier)
@@ -89,7 +89,7 @@ object NodeFactory {
           simpleNode(impl)
         case ast.Operation.NotSpecialize(lengthAst, dstAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
-          simpleNode(Specialize.Mark(length, toOperand(dstAst), specialize = false))
+          simpleNode(Specialize.Mark(length, toOperand(dstAst), isConst = false))
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }
