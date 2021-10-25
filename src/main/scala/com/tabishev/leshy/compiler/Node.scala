@@ -41,7 +41,7 @@ abstract class Node {
   protected def nextLineNode(): Node = {
     if (computedNextNode == null)
       // todo: to other nodes apart from simple original context can be used
-      computedNextNode = compiler.create(OperationRef(op.fn, op.line + 1), SpecializationContext.current(compiler.runtime))
+      computedNextNode = compiler.create(op.next, SpecializationContext.current(compiler.runtime))
     computedNextNode
   }
 }
@@ -60,19 +60,8 @@ object Node {
     }
   }
 
-  case class Noop(compiler: Compiler, ctx: SpecializationContext, op: OperationRef) extends Node {
-    protected def runInternal(): Node = nextLineNode()
-  }
-
   case class Final(compiler: Compiler, ctx: SpecializationContext, op: OperationRef) extends Node {
     protected def runInternal(): Node = null
-  }
-
-  case class Throw(compiler: Compiler, ctx: SpecializationContext, op: OperationRef, ex: Try[Unit]) extends Node {
-    protected def runInternal(): Node = ex match {
-      case Success(_) => nextLineNode()
-      case Failure(exception) => throw exception
-    }
   }
 
   case class SetStackSize(compiler: Compiler, ctx: SpecializationContext, op: OperationRef, stackFrameSize: Int) extends Node with UpdatesConst {
