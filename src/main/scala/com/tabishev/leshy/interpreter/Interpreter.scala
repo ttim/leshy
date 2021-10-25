@@ -2,7 +2,7 @@ package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource}
 import com.tabishev.leshy.loader.{FileLoader, RoutineLoader}
-import com.tabishev.leshy.runtime.{CommonSymbols, Memory, MemoryRef, Runtime, RuntimeOps, StackMemory, Symbol}
+import com.tabishev.leshy.runtime.{CommonSymbols, Memory, MemoryRef, Runtime, RuntimeOps, FnSpec, StackMemory, Symbol}
 
 import java.io.File
 import java.nio.ByteBuffer
@@ -15,6 +15,9 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
 
   private val constInterpreter = ConstInterpreter(runtime)
   import constInterpreter._
+
+  def run[T, V](spec: FnSpec[T, V])(input: T): V =
+    spec.output(run(spec.fn)(stack => spec.input(input, stack)))
 
   def run(name: String)(init: StackMemory => Unit): Bytes = {
     assert(runtime.stack.size == 0)

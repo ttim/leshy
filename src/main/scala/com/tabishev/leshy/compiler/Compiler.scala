@@ -3,7 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.interpreter.ConstInterpreter
 import com.tabishev.leshy.loader.RoutineLoader
-import com.tabishev.leshy.runtime.{Runtime, StackMemory}
+import com.tabishev.leshy.runtime.{FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
 
@@ -27,6 +27,9 @@ class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled
       val fnCtx = loader.load(op.fn).get
       println(s"${runtime.stack.frameToString}, ${op.toString(fnCtx)}: $msg")
     }
+
+  def run[T, V](spec: FnSpec[T, V])(input: T): V =
+    spec.output(run(spec.fn)(stack => spec.input(input, stack)))
 
   def run(fn: String)(init: StackMemory => Unit): Bytes = {
     assert(runtime.stack.frameOffset == 0 && runtime.stack.size == 0)
