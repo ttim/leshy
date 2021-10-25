@@ -29,9 +29,8 @@ object NodeFactory {
           val target = constInterpreter.evalSymbol(targetAst).name
           Node.Call(compiler, ctx, op, offset, target)
         case ast.Operation.CheckSize(lengthAst) =>
-          Node.Throw(compiler, ctx, op, Try {
-            assert(constInterpreter.evalConst(lengthAst).asInt == constInterpreter.frameSize())
-          })
+          assert(constInterpreter.evalConst(lengthAst).asInt == constInterpreter.frameSize())
+          create(compiler, constInterpreter, ctx, op.next, fn)
         case ast.Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
           val modifier = constInterpreter.evalSymbol(modifierAst).name
@@ -51,7 +50,7 @@ object NodeFactory {
           Node.Branch(compiler, ctx, op, impl, target)
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
-          Node.Branch(compiler, ctx, op, Branch.Always, target)
+          create(compiler, constInterpreter, ctx, target, fn)
         case ast.Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
           val dst = toOperand(dstAst)
