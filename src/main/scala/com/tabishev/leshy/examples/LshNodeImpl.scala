@@ -84,7 +84,7 @@ object LshNodeImpl {
     assert(fibx8(compiler, 11) == 144)
 
     val start = System.currentTimeMillis()
-    assert(fibx8(compiler, 38) == 63245986)
-    println((System.currentTimeMillis() - start)/1000)
+    assert(fib8(compiler, 40) == 165580141)
+    println((System.currentTimeMillis() - start)/1000.0)
   }
 }
