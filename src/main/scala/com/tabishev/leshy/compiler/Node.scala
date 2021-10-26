@@ -14,6 +14,7 @@ trait NodeSupplier {
   def create(ctx: SpecializationContext): Node
 }
 
+// todo: move context out of here and make it non changeable
 final case class NodeOptions(debug: Boolean, checkContext: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
 
 sealed abstract class Node {
@@ -41,7 +42,7 @@ sealed abstract class Node {
 
 object Node {
   final case class Run(options: NodeOptions, markConsts: Boolean, impl: Execution, next: NodeSupplier) extends Node {
-    private var computedNextLine: Node = null
+    private var computedNext: Node = null
 
     protected def runInternal(runtime: Runtime): Node = {
       impl.execute(runtime)
@@ -50,9 +51,15 @@ object Node {
     }
 
     private def nextNode(runtime: Runtime): Node = {
-      if (computedNextLine == null)
-        computedNextLine = next.create(SpecializationContext.current(runtime))
-      computedNextLine
+      if (computedNext == null)
+        computedNext = next.create(SpecializationContext.current(runtime))
+      computedNext
+    }
+
+    // need to restore context if not computed is a bit weird still but whatever
+    def updated(options: NodeOptions = this.options, markConsts: Boolean = this.markConsts, replaces: (Node | NodeSupplier) => NodeSupplier): Node.Run = {
+      val next = if (computedNext != null) replaces(computedNext) else replaces(this.next)
+      Node.Run(options, markConsts, impl, next)
     }
   }
 
@@ -71,6 +78,12 @@ object Node {
     private def ifFalseNode(): Node = {
       if (computedIfFalse == null) computedIfFalse = ifFalse.create(options.ctx)
       computedIfFalse
+    }
+
+    def updated(options: NodeOptions = this.options, replaces: (Node | NodeSupplier) => NodeSupplier): Node.Branch = {
+      val ifTrue = if (computedIfTrue != null) replaces(computedIfTrue) else replaces(this.ifTrue)
+      val ifFalse = if (computedIfFalse != null) replaces(computedIfFalse) else replaces(this.ifFalse)
+      Node.Branch(options, impl, ifTrue, ifFalse)
     }
   }
 
@@ -98,14 +111,33 @@ object Node {
 
     private def nextNode(calleeCtx: SpecializationContext): Node =
       cachedNextNode.getOrElse(calleeCtx, {
-        val nextLineCtx = SpecializationContext.fnCall(options.ctx, offset, calleeCtx)
-        val node = next.create(nextLineCtx)
+        val nextCtx = SpecializationContext.fnCall(options.ctx, offset, calleeCtx)
+        val node = next.create(nextCtx)
         cachedNextNode = cachedNextNode.updated(calleeCtx, node)
         node
       })
+
+    def updated(options: NodeOptions = this.options, replace: (Node | NodeSupplier) => NodeSupplier): Node.Call = {
+      val updatedCall = if (cachedCall != null) replace(cachedCall) else replace(this.call)
+
+      val nextCtxToSupplier = cachedNextNode.map { case (calleeCtx, node) =>
+        val nextCtx = SpecializationContext.fnCall(this.options.ctx, this.offset, calleeCtx)
+        (nextCtx, replace(node))
+      }
+      val updatedNext = new NodeSupplier {
+        override def create(ctx: SpecializationContext): Node = {
+          val supplier = nextCtxToSupplier.getOrElse(ctx, next)
+          supplier.create(ctx)
+        }
+      }
+
+      Node.Call(options, offset, updatedCall, updatedNext)
+    }
   }
 
   final case class Final(options: NodeOptions) extends Node {
     protected def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
+
+    def updated(options: NodeOptions = this.options): Node.Final = Final(options)
   }
 }
