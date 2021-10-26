@@ -106,10 +106,9 @@ object Node {
 
     override protected def runInternal(runtime: Runtime): Node = {
       assert(offset >= 0)
-      val prevFrame = runtime.stack.getFrameOffset()
-      runtime.stack.offset(prevFrame + offset)
+      runtime.stack.moveFrame(offset)
       val finalCtx = callNode().run(runtime)
-      runtime.stack.offset(prevFrame)
+      runtime.stack.moveFrame(-offset)
       // depending on calculation/specializations being made by callee next line node might be different
       nextNode(finalCtx)
     }

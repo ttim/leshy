@@ -65,16 +65,10 @@ final class StackMemory {
 
   def getFrameOffset(): Int = frameOffset
 
-  def absoluteOffset(offset: Int): Int =
-    if (offset >= 0) {
-      assert(offset < (size - frameOffset))
-      frameOffset + offset
-    } else {
-      assert((-offset) <= (size - frameOffset))
-      size + offset
-    }
+  def canonicalizeOffset(offset: Int): Int =
+    if (offset >= 0) offset else stackFrameSize() + offset
 
-  def getRef(offset: Int): MemoryRef = new MemoryRef(memory, absoluteOffset(offset))
+  def getRef(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + canonicalizeOffset(offset))
 
   // offset >= 0 and guaranteed in range
   def getRefUnsafe(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + offset)
@@ -120,10 +114,7 @@ final class StackMemory {
     markConst(size - bytes.length(), bytes.length(), isConst)
   }
 
-  def offset(newOffset: Int): Unit = {
-    assert(frameOffset >= 0)
-    this.frameOffset = newOffset
-  }
+  def moveFrame(offset: Int): Unit = frameOffset += offset
 
   def frameToString: String = {
     import scala.io.AnsiColor.RED
@@ -137,16 +128,16 @@ final class StackMemory {
   }
 
   // const actions
-  def markConst(offset: Int, length: Int, isConst: Boolean): Unit = {
-    val absoluteOffsetCalculated = absoluteOffset(offset)
-    assert(absoluteOffsetCalculated + length <= size)
-    marks.fill(absoluteOffsetCalculated, length, if (isConst) 1 else 0)
+  def markConst(rawOffset: Int, length: Int, isConst: Boolean): Unit = {
+    val offset = canonicalizeOffset(rawOffset)
+    assert(offset + length <= stackFrameSize())
+    marks.fill(frameOffset + offset, length, if (isConst) 1 else 0)
   }
 
-  def isConst(offset: Int, length: Int): Boolean = {
-    val absoluteOffsetCalculated = absoluteOffset(offset)
-    assert(absoluteOffsetCalculated + length <= size)
-    marks.allEquals(absoluteOffsetCalculated, length, 1)
+  def isConst(rawOffset: Int, length: Int): Boolean = {
+    val offset = canonicalizeOffset(rawOffset)
+    assert(offset + length <= stackFrameSize())
+    marks.allEquals(frameOffset + offset, length, 1)
   }
 
   def stackFrameConsts(): Consts =
