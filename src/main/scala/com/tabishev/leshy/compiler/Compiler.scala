@@ -16,6 +16,15 @@ final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugE
 
   def freeze(): Unit = {
     frozen = true
+
+    // stop const marking & ctx checking in all nodes
+    nodes.values.foreach { node =>
+      node.checkContext = false
+      node match {
+        case n: Node.Run => n.markConsts = false
+        case _ => // do nothing
+      }
+    }
   }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
