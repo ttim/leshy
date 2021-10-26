@@ -18,7 +18,6 @@ private class NodeHolder extends NodeSupplier {
 
 final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean) {
   private val constInterpreter = ConstInterpreter(runtime)
-  private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
   def run[T, V](spec: FnSpec[T, V])(input: T): V =
@@ -43,11 +42,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     if (nodes.contains(nodeKey)) return nodes(nodeKey)
 
     val contextFn = loader.load(op.fn).get
-
-    if (!registeredFns.contains(op.fn)) {
-      registeredFns.add(op.fn)
-      runtime.symbols.register(contextFn)
-    }
+    runtime.symbols.register(contextFn)
 
     val node = NodeFactory.create(this, constInterpreter, ctx, op, contextFn)
 

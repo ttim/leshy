@@ -54,4 +54,6 @@ case class Fn(
                name: String,
                ops: Seq[OperationWithSource],
                labels: Map[String, Int], // label name to offset
-             )
+             ) {
+  override val hashCode: Int = super.hashCode()
+}
