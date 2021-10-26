@@ -11,8 +11,6 @@ import scala.collection.mutable
 
 class Interpreter(loader: FnLoader, debug: Boolean) {
   private val runtime = new Runtime()
-  private val loadedFunctions = mutable.HashMap[String, Fn]()
-
   private val constInterpreter = ConstInterpreter(runtime)
   import constInterpreter._
 
@@ -32,11 +30,8 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
   }
 
   private def run(name: String, depth: Int): Unit = {
-    val fn = loadedFunctions.getOrElse(name, {
-      val loaded = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
-      runtime.symbols.register(loaded)
-      loaded
-    })
+    val fn = loader.load(name).get
+    runtime.symbols.register(fn)
 
     var i = 0
     while (i < fn.ops.length) {

@@ -18,6 +18,8 @@ class Symbols {
   private val symbolsById: mutable.Map[Int, Symbol] = mutable.HashMap()
   private var nextSymbol: Int = 1
 
+  private val loadedFns: mutable.Map[String, Fn] = mutable.HashMap()
+
   def register(name: String): Symbol =
     if (symbolsByName.contains(name)) symbolsByName(name) else {
       val symbol = Symbol(name, nextSymbol)
@@ -29,9 +31,12 @@ class Symbols {
       symbol
     }
 
-  def register(fn: Fn): Unit = {
-    register(fn.name)
-    fn.labels.foreach { case (name, _) => register(name) }
+  def register(fn: Fn): Unit = loadedFns.get(fn.name) match {
+    case Some(registeredFn) =>
+      assert(fn == registeredFn)
+    case None =>
+      register(fn.name)
+      fn.labels.foreach { case (name, _) => register(name) }
   }
 
   def resolve(name: String): Symbol = symbolsByName(name)
