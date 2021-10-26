@@ -1,7 +1,7 @@
 package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource}
-import com.tabishev.leshy.loader.{FileLoader, RoutineLoader}
+import com.tabishev.leshy.loader.{FileLoader, FnLoader}
 import com.tabishev.leshy.runtime.{CommonSymbols, Memory, MemoryRef, Runtime, RuntimeOps, FnSpec, StackMemory, Symbol}
 
 import java.io.File
@@ -9,7 +9,7 @@ import java.nio.ByteBuffer
 import java.util
 import scala.collection.mutable
 
-class Interpreter(loader: RoutineLoader, debug: Boolean) {
+class Interpreter(loader: FnLoader, debug: Boolean) {
   private val runtime = new Runtime()
   private val loadedFunctions = mutable.HashMap[String, Fn]()
 

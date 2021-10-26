@@ -2,7 +2,7 @@ package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.interpreter.ConstInterpreter
-import com.tabishev.leshy.loader.RoutineLoader
+import com.tabishev.leshy.loader.FnLoader
 import com.tabishev.leshy.runtime.{FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
@@ -16,7 +16,7 @@ private class NodeHolder extends NodeSupplier {
   }
 }
 
-final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled: Boolean) {
+final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean) {
   private val constInterpreter = ConstInterpreter(runtime)
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
