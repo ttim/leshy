@@ -12,19 +12,9 @@ final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugE
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
-  private[compiler] var frozen: Boolean = false
-
-  def freeze(): Unit = {
-    frozen = true
-
-    // stop const marking & ctx checking in all nodes
-    nodes.values.foreach { node =>
-      node.checkContext = false
-      node match {
-        case n: Node.Run => n.markConsts = false
-        case _ => // do nothing
-      }
-    }
+  def optimize(): Unit = {
+     // as result of optimize we want to disable checkContext option for all nodes, and const marking,
+     // but restore mark context in cases when next node isn't yet supplied
   }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
@@ -47,8 +37,7 @@ final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugE
   }
 
   private[compiler] def create(op: OperationRef, ctx: SpecializationContext): Node = {
-    if (!frozen) // & debug?
-      assert(ctx == SpecializationContext.current(runtime))
+    assert(ctx == SpecializationContext.current(runtime))
 
     debug(op, ctx, "start create")
 
@@ -56,7 +45,6 @@ final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugE
     if (nodes.contains(nodeKey)) return nodes(nodeKey)
 
     val contextFn = loader.load(op.fn).get
-    if (frozen) throw new IllegalStateException(s"nodes are frozen, can't create node for ${op.toString(contextFn)} with ${runtime.stack.frameToString}")
 
     if (!registeredFns.contains(op.fn)) {
       registeredFns.add(op.fn)

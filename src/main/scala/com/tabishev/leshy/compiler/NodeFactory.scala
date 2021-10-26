@@ -9,11 +9,11 @@ import scala.util.Try
 object NodeFactory {
   def create(compiler: Compiler, constInterpreter: ConstInterpreter,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val options = NodeOptions(compiler.debugEnabled, op, ctx)
+    val options = NodeOptions(compiler.debugEnabled, checkContext = true, op, ctx)
 
     def nodeSupplier(op: OperationRef): NodeSupplier = ctx => compiler.create(op, ctx)
 
-    def executeNode(execution: Execution): Node = Node.Run(options, execution, nodeSupplier(op.next))
+    def executeNode(execution: Execution): Node = Node.Run(options, markConsts = true, execution, nodeSupplier(op.next))
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)

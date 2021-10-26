@@ -14,16 +14,13 @@ trait NodeSupplier {
   def create(ctx: SpecializationContext): Node
 }
 
-final case class NodeOptions(debug: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
+final case class NodeOptions(debug: Boolean, checkContext: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
 
 sealed abstract class Node {
   val options: NodeOptions
 
-  // todo: more to NodeOptions and make it val
-  private[compiler] var checkContext: Boolean = true
-
   final def run(runtime: Runtime): SpecializationContext = {
-    if (checkContext) assert(options.ctx == SpecializationContext.current(runtime))
+    if (options.checkContext) assert(options.ctx == SpecializationContext.current(runtime))
 
     var node = this
     while (!node.isInstanceOf[Node.Final]) {
@@ -43,10 +40,8 @@ sealed abstract class Node {
 }
 
 object Node {
-  final case class Run(options: NodeOptions, impl: Execution, next: NodeSupplier) extends Node {
+  final case class Run(options: NodeOptions, markConsts: Boolean, impl: Execution, next: NodeSupplier) extends Node {
     private var computedNextLine: Node = null
-    // todo: make it val and arg to `Run`
-    private[compiler] var markConsts: Boolean = true
 
     protected def runInternal(runtime: Runtime): Node = {
       impl.execute(runtime)

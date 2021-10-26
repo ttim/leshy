@@ -26,7 +26,7 @@ object FnSpecs {
       instance.run(spec)(10)
     }
 
-    instance.freeze()
+    instance.optimize()
     instance
   }
 
