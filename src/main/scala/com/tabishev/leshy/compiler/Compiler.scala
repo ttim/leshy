@@ -46,8 +46,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
 
     if (!registeredFns.contains(op.fn)) {
       registeredFns.add(op.fn)
-      runtime.symbols.register(op.fn)
-      contextFn.labels.foreach { case (label, _) => runtime.symbols.register(label) }
+      runtime.symbols.register(contextFn)
     }
 
     val node = NodeFactory.create(this, constInterpreter, ctx, op, contextFn)
