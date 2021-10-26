@@ -91,7 +91,7 @@ object NodeFactory {
           executeNode(impl)
         case ast.Operation.NotSpecialize(lengthAst, dstAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
-          executeNode(Specialize.Mark(length, toOperand(dstAst), isConst = false))
+          executeNode(Mark.NotSpecialize(length, toOperand(dstAst)))
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }
