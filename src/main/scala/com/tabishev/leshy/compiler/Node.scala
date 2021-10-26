@@ -41,7 +41,7 @@ sealed abstract class Node {
 }
 
 object Node {
-  final case class Run(options: NodeOptions, markConsts: Boolean, impl: Execution, next: NodeSupplier) extends Node {
+  final class Run(val options: NodeOptions, val markConsts: Boolean, val impl: Execution, val next: NodeSupplier) extends Node {
     private var computedNext: Node = null
 
     protected def runInternal(runtime: Runtime): Node = {
@@ -63,7 +63,7 @@ object Node {
     }
   }
 
-  final case class Branch(options: NodeOptions, impl: BranchExecution, ifTrue: NodeSupplier, ifFalse: NodeSupplier) extends Node {
+  final class Branch(val options: NodeOptions, val impl: BranchExecution, val ifTrue: NodeSupplier, val ifFalse: NodeSupplier) extends Node {
     private var computedIfTrue: Node = null
     private var computedIfFalse: Node = null
 
@@ -87,7 +87,7 @@ object Node {
     }
   }
 
-  final case class Call(options: NodeOptions, offset: Int, call: NodeSupplier, next: NodeSupplier) extends Node {
+  final class Call(val options: NodeOptions, val offset: Int, val call: NodeSupplier, val next: NodeSupplier) extends Node {
     private var cachedCall: Node = null
     private var cachedNextNode = Map[SpecializationContext, Node]()
 
@@ -135,7 +135,7 @@ object Node {
     }
   }
 
-  final case class Final(options: NodeOptions) extends Node {
+  final class Final(val options: NodeOptions) extends Node {
     protected def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
 
     def updated(options: NodeOptions = this.options): Node.Final = Final(options)
