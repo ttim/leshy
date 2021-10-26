@@ -21,37 +21,6 @@ final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugE
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
-  def optimize(): Unit = {
-    val optimized: Map[Node, NodeHolder] = nodes.values.map { node => (node, new NodeHolder()) }.toMap
-    val replaces: (Node | NodeSupplier) => NodeSupplier = {
-      case node: Node => optimized(node)
-      case supplier: NodeSupplier => ???
-    }
-
-    optimized.foreach { case (node, holder) =>
-      holder.node = optimize(node, replaces)
-    }
-
-    nodes.mapValuesInPlace { case (_, node) => optimized(node).node }
-  }
-
-  // disables check context & mark consts
-  private def optimize(node: Node, replaces: (Node | NodeSupplier) => NodeSupplier): Node = {
-    val optimizedOptions = node.options.copy(checkContext = false)
-    node match {
-      case run: Node.Run => run.updated(optimizedOptions, markConsts = false, replaces)
-      case branch: Node.Branch => branch.updated(optimizedOptions, replaces)
-      case call: Node.Call => call.updated(optimizedOptions, replaces)
-      case finalNode: Node.Final => finalNode.updated(optimizedOptions)
-    }
-  }
-
-  private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
-    if (debugEnabled || force) {
-      val fnCtx = loader.load(op.fn).get
-      println(s"${runtime.stack.frameToString}, ${op.toString(fnCtx)}: $msg")
-    }
-
   def run[T, V](spec: FnSpec[T, V])(input: T): V =
     spec.output(run(spec.fn)(stack => spec.input(input, stack)))
 
@@ -91,4 +60,19 @@ final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugE
 
     node
   }
+
+  def optimize(): Unit = {
+    transform(DontMarkConsts)
+  }
+
+  private def transform(transform: Transform): Unit = {
+    val transformed = Transform.apply(nodes.values.toSeq, transform)
+    nodes.mapValuesInPlace { case (_, node) => transformed(node) }
+  }
+
+  private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
+    if (debugEnabled || force) {
+      val fnCtx = loader.load(op.fn).get
+      println(s"${runtime.stack.frameToString}, ${op.toString(fnCtx)}: $msg")
+    }
 }

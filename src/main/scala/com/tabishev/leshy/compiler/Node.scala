@@ -14,7 +14,15 @@ trait NodeSupplier {
   def create(ctx: SpecializationContext): Node
 }
 
-// todo: move context out of here and make it non changeable
+object NodeSupplier {
+  case class Const(node: Node) extends NodeSupplier {
+    override def create(ctx: SpecializationContext): Node = {
+      assert(ctx == node.options.ctx)
+      node
+    }
+  }
+}
+
 final case class NodeOptions(debug: Boolean, checkContext: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
 
 sealed abstract class Node {
