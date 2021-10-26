@@ -8,18 +8,18 @@ sealed abstract class Execution {
 }
 
 sealed abstract class NonConstExecution extends Execution {
+  val length: Int
   val dst: MemoryOperand
-  val dstLength: Int
 
-  final def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, dstLength, isConst = false)
+  final def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, length, isConst = false)
 }
 
 sealed abstract class NonConstExecution4 extends NonConstExecution {
-  final val dstLength: Int = 4
+  final val length: Int = 4
 }
 
 sealed abstract class NonConstExecution8 extends NonConstExecution {
-  final val dstLength: Int = 8
+  final val length: Int = 8
 }
 
 object Const {
@@ -36,7 +36,7 @@ object Const {
 
 object Mark {
   // Specialize can't implemented simalry because execution assumes spec ctx not changing between runs
-  final case class NotSpecialize(dstLength: Int, dst: MemoryOperand) extends NonConstExecution {
+  final case class NotSpecialize(length: Int, dst: MemoryOperand) extends NonConstExecution {
     override def execute(runtime: Runtime): Unit = ()
   }
 }
