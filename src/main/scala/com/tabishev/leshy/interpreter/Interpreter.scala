@@ -34,8 +34,7 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
   private def run(name: String, depth: Int): Unit = {
     val fn = loadedFunctions.getOrElse(name, {
       val loaded = loader.load(name).getOrElse(throw new IllegalArgumentException(s"can't load $name"))
-      runtime.symbols.register(loaded.name)
-      loaded.labels.foreach { case (name, _) => runtime.symbols.register(name) }
+      runtime.symbols.register(loaded)
       loaded
     })
 

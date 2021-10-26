@@ -1,6 +1,6 @@
 package com.tabishev.leshy.runtime
 
-import com.tabishev.leshy.ast.Bytes
+import com.tabishev.leshy.ast.{Bytes, Fn}
 
 import scala.collection.mutable
 
@@ -28,6 +28,11 @@ class Symbols {
 
       symbol
     }
+
+  def register(fn: Fn): Unit = {
+    register(fn.name)
+    fn.labels.foreach { case (name, _) => register(name) }
+  }
 
   def resolve(name: String): Symbol = symbolsByName(name)
   def resolveBytes(bytes: Bytes): Symbol = symbolsById(bytes.asInt)
