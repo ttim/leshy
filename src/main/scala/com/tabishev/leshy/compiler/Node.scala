@@ -10,6 +10,10 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
+trait NodeSupplier {
+  def create(ctx: SpecializationContext): Node
+}
+
 case class Description(op: OperationRef)
 
 sealed abstract class Node {
@@ -45,24 +49,24 @@ sealed abstract class Node {
 
 object Node {
   final case class Run(compiler: Compiler, ctx: SpecializationContext, description: Description,
-                       impl: Execution, next: OperationRef) extends Node {
+                       impl: Execution, next: NodeSupplier) extends Node {
     private var computedNextLine: Node = null
 
     protected def runInternal(runtime: Runtime): Node = {
       impl.execute(runtime)
       if (!compiler.frozen) impl.markConsts(runtime)
-      nextNode()
+      nextNode(runtime)
     }
 
-    private def nextNode(): Node = {
+    private def nextNode(runtime: Runtime): Node = {
       if (computedNextLine == null)
-        computedNextLine = compiler.create(next, SpecializationContext.current(compiler.runtime))
+        computedNextLine = next.create(SpecializationContext.current(runtime))
       computedNextLine
     }
   }
 
   final case class Branch(compiler: Compiler, ctx: SpecializationContext, description: Description,
-                          impl: BranchExecution, ifTrue: OperationRef, ifFalse: OperationRef) extends Node {
+                          impl: BranchExecution, ifTrue: NodeSupplier, ifFalse: NodeSupplier) extends Node {
     private var computedIfTrue: Node = null
     private var computedIfFalse: Node = null
 
@@ -70,18 +74,18 @@ object Node {
       if (impl.execute(runtime)) ifTrueNode() else ifFalseNode()
 
     private def ifTrueNode(): Node = {
-      if (computedIfTrue == null) computedIfTrue = compiler.create(ifTrue, ctx)
+      if (computedIfTrue == null) computedIfTrue = ifTrue.create(ctx)
       computedIfTrue
     }
 
     private def ifFalseNode(): Node = {
-      if (computedIfFalse == null) computedIfFalse = compiler.create(ifFalse, ctx)
+      if (computedIfFalse == null) computedIfFalse = ifFalse.create(ctx)
       computedIfFalse
     }
   }
 
   final case class Call(compiler: Compiler, ctx: SpecializationContext, description: Description,
-                        offset: Int, target: String, next: OperationRef) extends Node {
+                        offset: Int, call: NodeSupplier, next: NodeSupplier) extends Node {
     private var cachedCall: Node = null
     private var cachedNextNode = Map[SpecializationContext, Node]()
 
@@ -98,7 +102,7 @@ object Node {
     private def callNode(): Node = {
       if (cachedCall == null) {
         val callCtx = SpecializationContext.offset(ctx, offset)
-        cachedCall = compiler.create(OperationRef(target, 0), callCtx)
+        cachedCall = call.create(callCtx)
       }
       cachedCall
     }
@@ -106,7 +110,7 @@ object Node {
     private def nextNode(calleeCtx: SpecializationContext): Node =
       cachedNextNode.getOrElse(calleeCtx, {
         val nextLineCtx = SpecializationContext.fnCall(ctx, offset, calleeCtx)
-        val node = compiler.create(next, nextLineCtx)
+        val node = next.create(nextLineCtx)
         cachedNextNode = cachedNextNode.updated(calleeCtx, node)
         node
       })
