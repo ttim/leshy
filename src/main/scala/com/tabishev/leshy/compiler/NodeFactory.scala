@@ -9,17 +9,17 @@ import scala.util.Try
 object NodeFactory {
   def create(compiler: Compiler, constInterpreter: ConstInterpreter,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val description = Description(op)
+    val options = NodeOptions(compiler.debugEnabled, op, ctx)
 
     def nodeSupplier(op: OperationRef): NodeSupplier = ctx => compiler.create(op, ctx)
 
-    def executeNode(execution: Execution): Node = Node.Run(compiler, ctx, description, execution, nodeSupplier(op.next))
+    def executeNode(execution: Execution): Node = Node.Run(options, execution, nodeSupplier(op.next))
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
 
     op.resolve(fn) match {
-      case None => Node.Final(compiler, ctx, description)
+      case None => Node.Final(options)
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
@@ -31,7 +31,7 @@ object NodeFactory {
           val offsetRaw = constInterpreter.evalConst(offsetAst).asInt
           val offset = if (offsetRaw >= 0) offsetRaw else constInterpreter.frameSize() + offsetRaw
           val target = constInterpreter.evalSymbol(targetAst).name
-          Node.Call(compiler, ctx, description, offset, nodeSupplier(OperationRef(target, 0)), nodeSupplier(op.next))
+          Node.Call(options, offset, nodeSupplier(OperationRef(target, 0)), nodeSupplier(op.next))
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalConst(lengthAst).asInt == constInterpreter.frameSize())
           create(compiler, constInterpreter, ctx, op.next, fn)
@@ -51,7 +51,7 @@ object NodeFactory {
               throw new UnsupportedOperationException(length + " " + modifier)
           }
 
-          Node.Branch(compiler, ctx, description, impl, nodeSupplier(target), nodeSupplier(op.next))
+          Node.Branch(options, impl, nodeSupplier(target), nodeSupplier(op.next))
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, constInterpreter, ctx, target, fn)
