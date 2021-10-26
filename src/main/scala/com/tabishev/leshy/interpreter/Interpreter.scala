@@ -65,11 +65,10 @@ class Interpreter(loader: RoutineLoader, debug: Boolean) {
       case Operation.Call(offsetConst, targetConst) =>
         val offsetChange = evalConst(offsetConst).asInt
         val target = evalSymbol(targetConst)
-
-        val prevOffset = runtime.stack.getFrameOffset()
-        runtime.stack.offset(runtime.stack.absoluteOffset(offsetChange))
+        val offset = runtime.stack.canonicalizeOffset(offsetChange)
+        runtime.stack.moveFrame(offset)
         run(target.name, depth + 1)
-        runtime.stack.offset(prevOffset)
+        runtime.stack.moveFrame(-offset)
         None
       case Operation.CheckSize(length) =>
         assert(evalConst(length).asInt == runtime.stack.stackFrameSize())
