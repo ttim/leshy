@@ -7,14 +7,43 @@ import com.tabishev.leshy.runtime.{FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
 
+private class NodeHolder extends NodeSupplier {
+  var node: Node = null
+
+  override def create(ctx: SpecializationContext): Node = {
+    assert(node != null)
+    node
+  }
+}
+
 final class Compiler(val loader: RoutineLoader, val runtime: Runtime, val debugEnabled: Boolean) {
   private val constInterpreter = ConstInterpreter(runtime)
   private val registeredFns = mutable.HashSet[String]()
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
   def optimize(): Unit = {
-     // as result of optimize we want to disable checkContext option for all nodes, and const marking,
-     // but restore mark context in cases when next node isn't yet supplied
+    val optimized: Map[Node, NodeHolder] = nodes.values.map { node => (node, new NodeHolder()) }.toMap
+    val replaces: (Node | NodeSupplier) => NodeSupplier = {
+      case node: Node => optimized(node)
+      case supplier: NodeSupplier => ???
+    }
+
+    optimized.foreach { case (node, holder) =>
+      holder.node = optimize(node, replaces)
+    }
+
+    nodes.mapValuesInPlace { case (_, node) => optimized(node).node }
+  }
+
+  // disables check context & mark consts
+  private def optimize(node: Node, replaces: (Node | NodeSupplier) => NodeSupplier): Node = {
+    val optimizedOptions = node.options.copy(checkContext = false)
+    node match {
+      case run: Node.Run => run.updated(optimizedOptions, markConsts = false, replaces)
+      case branch: Node.Branch => branch.updated(optimizedOptions, replaces)
+      case call: Node.Call => call.updated(optimizedOptions, replaces)
+      case finalNode: Node.Final => finalNode.updated(optimizedOptions)
+    }
   }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
