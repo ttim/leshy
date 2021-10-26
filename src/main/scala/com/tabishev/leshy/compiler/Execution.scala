@@ -34,11 +34,10 @@ object Const {
   }
 }
 
-object Specialize {
-  final case class Mark(length: Int, dst: MemoryOperand, isConst: Boolean) extends Execution {
-    // do nothing apart from marking purposes which is done in node
+object Mark {
+  // Specialize can't implemented simalry because execution assumes spec ctx not changing between runs
+  final case class NotSpecialize(dstLength: Int, dst: MemoryOperand) extends NonConstExecution {
     override def execute(runtime: Runtime): Unit = ()
-    override def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, length, isConst)
   }
 }
 
