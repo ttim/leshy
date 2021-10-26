@@ -3,7 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast
 import com.tabishev.leshy.ast.{Address, Bytes, Fn, OperationWithSource, Origin}
 import com.tabishev.leshy.interpreter.ConstInterpreter
-import com.tabishev.leshy.loader.RoutineLoader
+import com.tabishev.leshy.loader.FnLoader
 import com.tabishev.leshy.runtime.{CommonSymbols, Consts, MemoryRef, Runtime, StackMemory}
 
 import java.util.concurrent.atomic.AtomicReference
