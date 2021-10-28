@@ -21,7 +21,7 @@ class CorrectnessSpec extends munit.FunSuite {
     implementationsAgree(inputs = 1 to 1000, impls = Implementations.Fact8)
   }
 
-  private def implementationsAgree[A, B](inputs: Seq[A], impls: Seq[(String, A => B)]): Unit =
+  private def implementationsAgree[A, B](inputs: Seq[A], impls: Map[String, A => B]): Unit =
     inputs.foreach { input =>
       val outputs = impls.map { (_, impl) => impl(input) }
       assert(outputs.forall(_ == outputs.head), s"different outputs for $input: $outputs")
