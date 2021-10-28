@@ -2,48 +2,48 @@ package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.runtime.{MemoryRef, Runtime}
 
-abstract class BranchExecution {
+sealed abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean
 }
 
 object BranchExecution {
-  case class Const(value: Boolean) extends BranchExecution {
+  final case class Const(value: Boolean) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = value
   }
 
-  case class MoreMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class MoreMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getInt() > op2.materialize(runtime).getInt()
   }
 
-  case class MoreMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
+  final case class MoreMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() > op2
   }
 
-  case class MoreMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class MoreMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getLong() > op2.materialize(runtime).getLong()
   }
 
-  case class MoreMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
+  final case class MoreMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() > op2
   }
 
-  case class LessOrEqualMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class LessOrEqualMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getInt() <= op2.materialize(runtime).getInt()
   }
 
-  case class LessOrEqualMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
+  final case class LessOrEqualMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() <= op2
   }
 
-  case class LessOrEqualMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class LessOrEqualMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getLong() <= op2.materialize(runtime).getLong()
   }
 
-  case class LessOrEqualMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
+  final case class LessOrEqualMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() <= op2
   }
 
