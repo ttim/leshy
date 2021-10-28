@@ -7,15 +7,9 @@ abstract class BranchExecution {
 }
 
 object BranchExecution {
-  case object Always extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean = true
+  case class Const(value: Boolean) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean = value
   }
-
-  case object Never extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean = false
-  }
-
-  def fromFlag(flag: Boolean): BranchExecution = if (flag) Always else Never
 
   case class MoreMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
@@ -58,7 +52,7 @@ object BranchExecution {
       case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM4(op1, op2)
       case (op1: MemoryOperand, op2: Int) => MoreMC4(op1, op2)
       case (op1: Int, op2: MemoryOperand) => LessOrEqualMC4(op2, op1)
-      case (op1: Int, op2: Int) => fromFlag(op1 > op2)
+      case (op1: Int, op2: Int) => Const(op1 > op2)
     }
 
   def more8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
@@ -66,7 +60,7 @@ object BranchExecution {
       case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM8(op1, op2)
       case (op1: MemoryOperand, op2: Long) => MoreMC8(op1, op2)
       case (op1: Long, op2: MemoryOperand) => LessOrEqualMC8(op2, op1)
-      case (op1: Long, op2: Long) => fromFlag(op1 > op2)
+      case (op1: Long, op2: Long) => Const(op1 > op2)
     }
 
   def lessOrEqual4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int): BranchExecution =
@@ -74,7 +68,7 @@ object BranchExecution {
       case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM4(op2, op1)
       case (op1: MemoryOperand, op2: Int) => LessOrEqualMC4(op1, op2)
       case (op1: Int, op2: MemoryOperand) => MoreMC4(op2, op1)
-      case (op1: Int, op2: Int) => fromFlag(op1 <= op2)
+      case (op1: Int, op2: Int) => Const(op1 <= op2)
     }
 
   def lessOrEqual8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
@@ -82,6 +76,6 @@ object BranchExecution {
       case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM8(op2, op1)
       case (op1: MemoryOperand, op2: Long) => LessOrEqualMC8(op1, op2)
       case (op1: Long, op2: MemoryOperand) => MoreMC8(op2, op1)
-      case (op1: Long, op2: Long) => fromFlag(op1 <= op2)
+      case (op1: Long, op2: Long) => Const(op1 <= op2)
     }
 }
