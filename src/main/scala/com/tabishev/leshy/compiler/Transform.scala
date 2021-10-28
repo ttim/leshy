@@ -1,40 +1,50 @@
 package com.tabishev.leshy.compiler
 
+import scala.collection.mutable
+
 trait Transform {
-  def transformNodeInScope(node: Node, replaces: (Node | NodeSupplier) => NodeSupplier): Node
-  def transformNodeOutOfScope(node: Node): Node
-  def transformNodeSupplier(nodeSupplier: NodeSupplier): NodeSupplier
+  def transformInScope(node: Node, replace: GenericNode => GenericNode): Node
+  def transformOutOfScope(node: Node): Node
 }
 
 object Transform {
   def apply(nodes: Seq[Node], transform: Transform): Map[Node, Node] = {
-    val optimized: Map[Node, NodeHolder] = nodes.map { node => (node, new NodeHolder()) }.toMap
-    val replaces: (Node | NodeSupplier) => NodeSupplier = {
-      case node: Node => optimized.getOrElse(node, NodeSupplier.Const(transform.transformNodeOutOfScope(node)))
-      case supplier: NodeSupplier => transform.transformNodeSupplier(supplier)
+    val genericNodes = mutable.ArrayBuffer[(GenericNode, GenericNode)]()
+
+    val replacements : Map[Node, Node] = nodes.map { node =>
+      node -> transform.transformInScope(node, { original =>
+        val specialize = original.specialize.andThen(transform.transformOutOfScope)
+        val replacement = new GenericNode(specialize, mutable.HashMap())
+        genericNodes.addOne(original -> replacement)
+        replacement
+      })
+    }.toMap
+
+    genericNodes.foreach { case (from, to) =>
+      from.specialized.foreach { case (ctx, node) =>
+        val replacement = replacements.getOrElse(node, transform.transformOutOfScope(node))
+        to.specialized.addOne(ctx -> replacement)
+      }
     }
 
-    optimized.foreach { case (node, holder) =>
-      holder.node = transform.transformNodeInScope(node, replaces)
-    }
-
-    optimized.map { case (node, holder) => (node, holder.node) }
+    replacements
   }
 }
 
 object DontMarkConsts extends Transform {
-  override def transformNodeInScope(node: Node, replaces: (Node | NodeSupplier) => NodeSupplier): Node = {
-    // we need to disable context checks, otherwise it's going to fail
-    val optimizedOptions = node.options.copy(checkContext = false)
+  override def transformInScope(node: Node, replace: GenericNode => GenericNode): Node = {
+    val optimizedOptions = node.options.copy(maintainContext = false)
     node match {
-      case run: Node.Run => run.updated(optimizedOptions, markConsts = false, replaces)
-      case branch: Node.Branch => branch.updated(optimizedOptions, replaces)
-      case call: Node.Call => call.updated(optimizedOptions, replaces)
-      case finalNode: Node.Final => finalNode.updated(optimizedOptions)
+      case Node.Run(_, impl, next) =>
+        Node.Run(optimizedOptions, impl, replace(next))
+      case Node.Branch(_, impl, ifTrue, ifFalse) =>
+        Node.Branch(optimizedOptions, impl, replace(ifTrue), replace(ifFalse))
+      case Node.Call(_, offset, call, next) =>
+        Node.Call(optimizedOptions, offset, replace(call), replace(next))
+      case Node.Final(_) =>
+        Node.Final(optimizedOptions)
     }
   }
 
-  override def transformNodeOutOfScope(node: Node): Node = ???
-
-  override def transformNodeSupplier(nodeSupplier: NodeSupplier): NodeSupplier = ???
+  override def transformOutOfScope(node: Node): Node = ???
 }

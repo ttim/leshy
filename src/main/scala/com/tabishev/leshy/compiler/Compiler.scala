@@ -7,15 +7,6 @@ import com.tabishev.leshy.runtime.{FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
 
-private class NodeHolder extends NodeSupplier {
-  var node: Node = null
-
-  override def create(ctx: SpecializationContext): Node = {
-    assert(node != null)
-    node
-  }
-}
-
 final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean) {
   private val constInterpreter = ConstInterpreter(runtime)
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
@@ -34,8 +25,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   }
 
   private[compiler] def create(op: OperationRef, ctx: SpecializationContext): Node = {
-    assert(ctx == SpecializationContext.current(runtime))
-
     debug(op, ctx, "start create")
 
     val nodeKey = (op, ctx)

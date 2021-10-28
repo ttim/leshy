@@ -96,5 +96,6 @@ final class MemoryRef(val memory: Memory, val offset: Int) {
 
   def getInt(): Int = memory.getInt(offset)
   def getLong(): Long = memory.getLong(offset)
+  def getByte(): Byte = memory.getByte(offset)
   def get(length: Int): Array[Byte] = memory.get(offset, length)
 }

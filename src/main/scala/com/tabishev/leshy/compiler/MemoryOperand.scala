@@ -1,6 +1,5 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.ast.{Fn, OperationWithSource, Origin}
 import com.tabishev.leshy.runtime.{MemoryRef, Runtime}
 
 enum MemoryOperand {
