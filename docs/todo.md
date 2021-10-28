@@ -5,6 +5,7 @@
   - Good parts: better security. You can't jump to any other place anymore (at least without protecting stack firstly)
   - Bad parts: more complicated, more concepts?
 - Interesting to see how stack based bytes array of 4 elements gets compiled when used from for loop
+- Make node specialization independent of runtime
 
 # Goals
 - Implement c compiler where most of work (such as offset calculation) made using specialization abilities

@@ -1,19 +1,21 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast
-import com.tabishev.leshy.ast.{Bytes, Fn, OperationWithSource}
+import com.tabishev.leshy.ast.{Bytes, Fn}
 import com.tabishev.leshy.interpreter.ConstInterpreter
 
+import scala.annotation.tailrec
 import scala.util.Try
 
 object NodeFactory {
+  @tailrec
   def create(compiler: Compiler, constInterpreter: ConstInterpreter,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val options = NodeOptions(compiler.debugEnabled, checkContext = true, op, ctx)
+    val options = Node.Options(compiler.debugEnabled, maintainContext = true, op, ctx)
 
-    def nodeSupplier(op: OperationRef): NodeSupplier = ctx => compiler.create(op, ctx)
+    def node(op: OperationRef): GenericNode = GenericNode.of(ctx => compiler.create(op, ctx))
 
-    def executeNode(execution: Execution): Node = Node.Run(options, markConsts = true, execution, nodeSupplier(op.next))
+    def executeNode(execution: Execution): Node = Node.Run(options, execution, node(op.next))
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
@@ -31,7 +33,7 @@ object NodeFactory {
           val offsetRaw = constInterpreter.evalConst(offsetAst).asInt
           val offset = if (offsetRaw >= 0) offsetRaw else constInterpreter.frameSize() + offsetRaw
           val target = constInterpreter.evalSymbol(targetAst).name
-          Node.Call(options, offset, nodeSupplier(OperationRef(target, 0)), nodeSupplier(op.next))
+          Node.Call(options, offset, node(OperationRef(target, 0)), node(op.next))
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalConst(lengthAst).asInt == constInterpreter.frameSize())
           create(compiler, constInterpreter, ctx, op.next, fn)
@@ -51,7 +53,7 @@ object NodeFactory {
               throw new UnsupportedOperationException(length + " " + modifier)
           }
 
-          Node.Branch(options, impl, nodeSupplier(target), nodeSupplier(op.next))
+          Node.Branch(options, impl, node(target), node(op.next))
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, constInterpreter, ctx, target, fn)

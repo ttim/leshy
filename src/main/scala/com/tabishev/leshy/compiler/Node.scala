@@ -1,42 +1,46 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.ast
-import com.tabishev.leshy.ast.{Address, Bytes, Fn, OperationWithSource, Origin}
-import com.tabishev.leshy.interpreter.ConstInterpreter
-import com.tabishev.leshy.loader.FnLoader
-import com.tabishev.leshy.runtime.{CommonSymbols, Consts, MemoryRef, Runtime, StackMemory}
-
-import java.util.concurrent.atomic.AtomicReference
+import com.tabishev.leshy.runtime.Runtime
 import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
 
-trait NodeSupplier {
-  def create(ctx: SpecializationContext): Node
+final class GenericNode(
+                         val specialize: SpecializationContext => Node,
+                         val specialized: mutable.Map[SpecializationContext, Node],
+                       ) {
+  def create(ctx: SpecializationContext): Node = specialized.getOrElseUpdate(ctx, specialize(ctx))
 }
 
-object NodeSupplier {
-  case class Const(node: Node) extends NodeSupplier {
-    override def create(ctx: SpecializationContext): Node = {
-      assert(ctx == node.options.ctx)
-      node
-    }
+object GenericNode {
+  def specialized(map: mutable.HashMap[SpecializationContext, Node]): GenericNode =
+    new GenericNode(_ => throw new IllegalArgumentException, map)
+
+  def const(node: Node): GenericNode = specialized(mutable.HashMap(node.options.ctx -> node))
+
+  def holder(): GenericNode = specialized(mutable.HashMap())
+
+  def of(fn: SpecializationContext => Node): GenericNode =
+    new GenericNode(fn, mutable.HashMap[SpecializationContext, Node]())
+
+  def merge(node: GenericNode, replaces: Map[SpecializationContext, Node]): GenericNode = {
+    val resultNodes = mutable.HashMap[SpecializationContext, Node]()
+    resultNodes.addAll(node.specialized)
+    resultNodes.addAll(replaces)
+    new GenericNode(node.specialize, resultNodes)
   }
 }
 
-final case class NodeOptions(debug: Boolean, checkContext: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
-
 sealed abstract class Node {
-  val options: NodeOptions
+  val options: Node.Options
 
   // this improves perf by ~10%
-  private val checkContext = options.checkContext
+  private val maintainContext = options.maintainContext
   private val debug = options.debug
   private val ctx = options.ctx
 
   final def run(runtime: Runtime): SpecializationContext = {
-    if (checkContext) assert(options.ctx == SpecializationContext.current(runtime))
+    if (maintainContext) assert(ctx == SpecializationContext.current(runtime))
 
-    var node = this
+    var node: Node = this
     while (!node.isInstanceOf[Node.Final]) {
       debug("start run")
       val nextNode = node.runInternal(runtime)
@@ -54,29 +58,28 @@ sealed abstract class Node {
 }
 
 object Node {
-  final class Run(val options: NodeOptions, val markConsts: Boolean, val impl: Execution, val next: NodeSupplier) extends Node {
+  final case class Options(debug: Boolean, maintainContext: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
+
+  final case class Run(options: Options, impl: Execution, next: GenericNode) extends Node {
     private var computedNext: Node = null
+    private val maintainContext: Boolean = options.maintainContext
 
-    protected def runInternal(runtime: Runtime): Node = {
-      impl.execute(runtime)
-      if (markConsts) impl.markConsts(runtime)
-      nextNode(runtime)
-    }
-
-    private def nextNode(runtime: Runtime): Node = {
-      if (computedNext == null)
+    protected def runInternal(runtime: Runtime): Node =
+      if (computedNext != null) {
+        impl.execute(runtime)
+        // the only node which marks consts is Node.Run, so it's the only one where we need to check for `maintainContext`
+        if (maintainContext) impl.markConsts(runtime)
+        computedNext
+      } else {
+        options.ctx.restore(runtime)
+        impl.execute(runtime)
+        impl.markConsts(runtime)
         computedNext = next.create(SpecializationContext.current(runtime))
-      computedNext
-    }
-
-    // need to restore context if not computed is a bit weird still but whatever
-    def updated(options: NodeOptions = this.options, markConsts: Boolean = this.markConsts, replaces: (Node | NodeSupplier) => NodeSupplier): Node.Run = {
-      val next = if (computedNext != null) replaces(computedNext) else replaces(this.next)
-      Node.Run(options, markConsts, impl, next)
-    }
+        computedNext
+      }
   }
 
-  final class Branch(val options: NodeOptions, val impl: BranchExecution, val ifTrue: NodeSupplier, val ifFalse: NodeSupplier) extends Node {
+  final case class Branch(options: Options, impl: BranchExecution, ifTrue: GenericNode, ifFalse: GenericNode) extends Node {
     private var computedIfTrue: Node = null
     private var computedIfFalse: Node = null
 
@@ -92,15 +95,9 @@ object Node {
       if (computedIfFalse == null) computedIfFalse = ifFalse.create(options.ctx)
       computedIfFalse
     }
-
-    def updated(options: NodeOptions = this.options, replaces: (Node | NodeSupplier) => NodeSupplier): Node.Branch = {
-      val ifTrue = if (computedIfTrue != null) replaces(computedIfTrue) else replaces(this.ifTrue)
-      val ifFalse = if (computedIfFalse != null) replaces(computedIfFalse) else replaces(this.ifFalse)
-      Node.Branch(options, impl, ifTrue, ifFalse)
-    }
   }
 
-  final class Call(val options: NodeOptions, val offset: Int, val call: NodeSupplier, val next: NodeSupplier) extends Node {
+  final case class Call(options: Options, offset: Int, call: GenericNode, next: GenericNode) extends Node {
     private var cachedCall: Node = null
     private var cachedNextNode = Map[SpecializationContext, Node]()
 
@@ -128,28 +125,9 @@ object Node {
         cachedNextNode = cachedNextNode.updated(calleeCtx, node)
         node
       })
-
-    def updated(options: NodeOptions = this.options, replace: (Node | NodeSupplier) => NodeSupplier): Node.Call = {
-      val updatedCall = if (cachedCall != null) replace(cachedCall) else replace(this.call)
-
-      val nextCtxToSupplier = cachedNextNode.map { case (calleeCtx, node) =>
-        val nextCtx = SpecializationContext.fnCall(this.options.ctx, this.offset, calleeCtx)
-        (nextCtx, replace(node))
-      }
-      val updatedNext = new NodeSupplier {
-        override def create(ctx: SpecializationContext): Node = {
-          val supplier = nextCtxToSupplier.getOrElse(ctx, next)
-          supplier.create(ctx)
-        }
-      }
-
-      Node.Call(options, offset, updatedCall, updatedNext)
-    }
   }
 
-  final class Final(val options: NodeOptions) extends Node {
+  final case class Final(options: Options) extends Node {
     protected def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
-
-    def updated(options: NodeOptions = this.options): Node.Final = Final(options)
   }
 }

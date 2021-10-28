@@ -1,6 +1,6 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.runtime.{MemoryRef, Runtime}
+import com.tabishev.leshy.runtime.Runtime
 
 sealed abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean
