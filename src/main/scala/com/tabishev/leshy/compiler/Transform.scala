@@ -1,5 +1,6 @@
 package com.tabishev.leshy.compiler
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 trait Transform {
@@ -32,6 +33,7 @@ object Transform {
 }
 
 object DontMarkConsts extends Transform {
+  @tailrec
   override def transformInScope(node: Node, replace: GenericNode => GenericNode): Node = {
     val optimizedOptions = node.options.copy(maintainContext = false)
     node match {
@@ -43,8 +45,10 @@ object DontMarkConsts extends Transform {
         Node.Call(optimizedOptions, offset, replace(call), replace(next))
       case Node.Final(_) =>
         Node.Final(optimizedOptions)
+      case Node.RestoreCtx(_, next) =>
+        transformInScope(next, replace)
     }
   }
 
-  override def transformOutOfScope(node: Node): Node = ???
+  override def transformOutOfScope(node: Node): Node = Node.RestoreCtx(node.options, node)
 }

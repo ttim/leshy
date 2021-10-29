@@ -130,4 +130,11 @@ object Node {
   final case class Final(options: Options) extends Node {
     protected def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
   }
+
+  final case class RestoreCtx(options: Options, next: Node) extends Node {
+    override protected def runInternal(runtime: Runtime): Node = {
+      options.ctx.restore(runtime)
+      next
+    }
+  }
 }
