@@ -15,7 +15,7 @@ final class Runtime {
 
   def append(bytes: Bytes, isConst: Boolean): Unit = {
     stack.append(bytes)
-    consts.markConst(-bytes.length(), bytes.length(), isConst)
+    consts.markConst(FrameOffset.nonNegative(stack.frameSize() - bytes.length()), bytes.length(), isConst)
   }
 }
 
@@ -23,7 +23,6 @@ final class StackMemory {
   private val initialSize = 1000
 
   private[runtime] var memory: Memory = Memory.ofSize(initialSize, ro = false)
-  private[runtime] var marks: Memory = Memory.ofSize(initialSize, ro = false)
 
   private var size: Int = 0
   private var frameOffset: Int = 0
@@ -35,13 +34,9 @@ final class StackMemory {
 
   def getFrameOffset(): Int = frameOffset
 
-  def canonicalizeOffset(offset: Int): Int =
-    if (offset >= 0) offset else frameSize() + offset
+  def offset(offset: Int): FrameOffset = FrameOffset.maybeNegative(offset, frameSize())
 
-  def getRef(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + canonicalizeOffset(offset))
-
-  // offset >= 0 and guaranteed in range
-  def getRefUnsafe(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + offset)
+  def getRef(offset: FrameOffset): MemoryRef = new MemoryRef(memory, frameOffset + offset.get)
 
   def setFramesize(newFrameSize: Int): Unit = {
     assert(newFrameSize >= 0)
@@ -52,7 +47,6 @@ final class StackMemory {
       if (newSize > memory.size) {
         val memoryExtendSize = Math.min(memory.size, newSize - memory.size)
         memory = memory.extended(memoryExtendSize, ro = false)
-        marks = marks.extended(memoryExtendSize, ro = false)
       }
 
       memory.fill(size, newSize - size, 0)
@@ -85,14 +79,14 @@ final class StackMemory {
 
   def moveFrame(offset: Int): Unit = frameOffset += offset
 
-  def frameToString: String = {
+  def frameToString(consts: Consts): String = {
     import scala.io.AnsiColor.RED
     import scala.io.AnsiColor.RESET
 
     val frameData = memory.get(frameOffset, size - frameOffset)
-    val frameMarks = marks.get(frameOffset, size - frameOffset)
-    frameData.zip(frameMarks).map { case (byte, mark) =>
-      if (mark == 0) byte.toString else RED + byte.toString + RESET
+    val constsMap = consts.asMap()
+    frameData.zipWithIndex.map { case (byte, index) =>
+      if (!constsMap.contains(index)) byte.toString else RED + byte.toString + RESET
     }.mkString(", ")
   }
 }

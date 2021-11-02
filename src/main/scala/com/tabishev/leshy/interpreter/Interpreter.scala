@@ -2,7 +2,7 @@ package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource}
 import com.tabishev.leshy.loader.{FileLoader, FnLoader}
-import com.tabishev.leshy.runtime.{CommonSymbols, Memory, MemoryRef, Runtime, RuntimeOps, FnSpec, StackMemory, Symbol}
+import com.tabishev.leshy.runtime.{CommonSymbols, FnSpec, FrameOffset, Memory, MemoryRef, Runtime, RuntimeOps, StackMemory, Symbol}
 
 import java.io.File
 import java.nio.ByteBuffer
@@ -45,24 +45,23 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
   }
 
   private def run(op: OperationWithSource, depth: Int): Option[Symbol] = {
-    if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString}: ${op.op}")
+    if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString(runtime.consts.get())}: ${op.op}")
     op.op match {
       case Operation.Extend(lengthAst) =>
         val length = evalConst(lengthAst).asInt
         runtime.stack.extend(length)
-        runtime.consts.markConst(-length, length, isConst = true)
+        runtime.consts.markConst(FrameOffset.nonNegative(runtime.stack.frameSize() - length), length, isConst = true)
         None
       case Operation.Shrink(lengthAst) =>
         val length = evalConst(lengthAst).asInt
         runtime.stack.shrink(length)
         None
       case Operation.Call(offsetConst, targetConst) =>
-        val offsetChange = evalConst(offsetConst).asInt
+        val newOffset = runtime.stack.offset(evalConst(offsetConst).asInt)
         val target = evalSymbol(targetConst)
-        val offset = runtime.stack.canonicalizeOffset(offsetChange)
-        runtime.stack.moveFrame(offset)
+        runtime.stack.moveFrame(newOffset.get)
         run(target.name, depth + 1)
-        runtime.stack.moveFrame(-offset)
+        runtime.stack.moveFrame(-newOffset.get)
         None
       case Operation.CheckSize(length) =>
         assert(evalConst(length).asInt == runtime.stack.frameSize())
@@ -121,7 +120,7 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
 
   private def addressRef(address: Address): MemoryRef = address match {
     case Address.Stack(address) =>
-      runtime.stack.getRef(evalConst(address).asInt)
+      runtime.stack.getRef(runtime.stack.offset(evalConst(address).asInt))
     case _ =>
       throw new UnsupportedOperationException(s"unsupported address: $address")
   }
