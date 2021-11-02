@@ -20,7 +20,7 @@ case class SpecializationContext private (id: Int) {
     val (size, consts) = get()
     assert(runtime.stack.frameSize() == size)
     MemoryOperand.Stack(FrameOffset.Zero).markConst(runtime, size, isConst = false)
-    consts.asMap().foreach { case (offsetRaw, value) =>
+    consts.asMap.foreach { case (offsetRaw, value) =>
       val offset = FrameOffset.nonNegative(offsetRaw)
       assert(runtime.stack.getRef(offset).getByte() == value)
       MemoryOperand.Stack(offset).markConst(runtime, 1, isConst = true)
@@ -55,7 +55,7 @@ object SpecializationContext {
 
   def offset(caller: SpecializationContext, offset: Int): SpecializationContext = {
     val (size, consts) = caller.get()
-    val calleeConsts = consts.asMap().collect {
+    val calleeConsts = consts.asMap.collect {
       case (callerOffset, value) if callerOffset >= offset => (callerOffset - offset, value)
     }
     SpecializationContext.from(size - offset, Consts.fromMap(calleeConsts))
