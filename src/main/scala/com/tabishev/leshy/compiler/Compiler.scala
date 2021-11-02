@@ -14,9 +14,9 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   def run[T, V](spec: FnSpec[T, V])(input: T): V =
     spec.output(run(spec.fn)(stack => spec.input(input, stack)))
 
-  def run(fn: String)(init: StackMemory => Unit): Bytes = {
+  def run(fn: String)(init: Runtime => Unit): Bytes = {
     assert(runtime.stack.isEmpty())
-    init(runtime.stack)
+    init(runtime)
     create(OperationRef(fn, 0), SpecializationContext.current(runtime)).run(runtime)
     assert(runtime.stack.getFrameOffset() == 0)
     val output = Bytes.fromBytes(runtime.stack.currentStackFrame())

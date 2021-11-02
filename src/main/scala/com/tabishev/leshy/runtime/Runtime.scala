@@ -9,56 +9,26 @@ import scala.collection.mutable
 final class Runtime {
   val stack = new StackMemory()
   val symbols = new Symbols()
+  val consts = new ConstsHolder(stack)
 
   CommonSymbols.register(symbols)
-}
 
-final case class Consts private (constOffsetsAndData: Bytes) {
-  override def toString: String = {
-    val sorted = asMap().toSeq.sortBy(_._1)
-    s"[${sorted.map(_._1).mkString(", ")}] -> [${sorted.map(_._2).mkString(", ")}]"
-  }
-
-  def length: Int = constOffsetsAndData.length() / 5
-
-  def asMap(): Map[Int, Byte] = (0 until length).map { index =>
-    val offset = constOffsetsAndData.asByteBuffer.getInt(index * 5)
-    val value = constOffsetsAndData.asByteBuffer.get(index * 5 + 4)
-    (offset, value)
-  }.toMap
-
-  override def equals(obj: Any): Boolean = obj.isInstanceOf[Consts] &&
-    obj.asInstanceOf[Consts].constOffsetsAndData == constOffsetsAndData
-}
-
-object Consts {
-  def fromMap(offsetToValue: Map[Int, Byte]): Consts = {
-    val offsetsAndData = Array.fill[Byte](offsetToValue.size * 5)(0)
-    val mirror = ByteBuffer.wrap(offsetsAndData).order(ByteOrder.LITTLE_ENDIAN)
-    offsetToValue.toSeq.sortBy(_._1).zipWithIndex.foreach { case ((offset, value), index) =>
-      mirror.putInt(index * 5, offset)
-      mirror.put(index * 5 + 4, value)
-    }
-    Consts(Bytes.fromBytes(offsetsAndData))
-  }
-
-  def fnCall(callsite: Consts, offset: Int, calleeResult: Consts): Consts = {
-    val caller = callsite.asMap().filter(_._1 < offset)
-    val callee = calleeResult.asMap().map { (calleeOffset, result) => (calleeOffset + offset, result) }
-    Consts.fromMap(caller ++ callee)
+  def append(bytes: Bytes, isConst: Boolean): Unit = {
+    stack.append(bytes)
+    consts.markConst(-bytes.length(), bytes.length(), isConst)
   }
 }
 
 final class StackMemory {
   private val initialSize = 1000
 
-  private var memory: Memory = Memory.ofSize(initialSize, ro = false)
-  private var marks: Memory = Memory.ofSize(initialSize, ro = false)
+  private[runtime] var memory: Memory = Memory.ofSize(initialSize, ro = false)
+  private[runtime] var marks: Memory = Memory.ofSize(initialSize, ro = false)
 
   private var size: Int = 0
   private var frameOffset: Int = 0
 
-  def stackFrameSize(): Int = size - frameOffset
+  def frameSize(): Int = size - frameOffset
   def currentStackFrame(): Array[Byte] = memory.get(frameOffset, size - frameOffset)
 
   def isEmpty(): Boolean = size == 0
@@ -66,7 +36,7 @@ final class StackMemory {
   def getFrameOffset(): Int = frameOffset
 
   def canonicalizeOffset(offset: Int): Int =
-    if (offset >= 0) offset else stackFrameSize() + offset
+    if (offset >= 0) offset else frameSize() + offset
 
   def getRef(offset: Int): MemoryRef = new MemoryRef(memory, frameOffset + canonicalizeOffset(offset))
 
@@ -95,12 +65,12 @@ final class StackMemory {
 
   def extend(extendSize: Int): Unit = {
     assert(extendSize >= 0)
-    setFramesize(stackFrameSize() + extendSize)
+    setFramesize(frameSize() + extendSize)
   }
 
   def shrink(shrinkSize: Int): Unit = {
     assert(shrinkSize >= 0)
-    setFramesize(stackFrameSize() - shrinkSize)
+    setFramesize(frameSize() - shrinkSize)
   }
 
   def clean(): Unit = {
@@ -108,10 +78,9 @@ final class StackMemory {
     frameOffset = 0
   }
 
-  def append(bytes: Bytes, isConst: Boolean): Unit = {
+  def append(bytes: Bytes): Unit = {
     extend(bytes.length())
     memory.putBytes(size - bytes.length(), bytes)
-    markConst(size - bytes.length(), bytes.length(), isConst)
   }
 
   def moveFrame(offset: Int): Unit = frameOffset += offset
@@ -126,22 +95,4 @@ final class StackMemory {
       if (mark == 0) byte.toString else RED + byte.toString + RESET
     }.mkString(", ")
   }
-
-  // const actions
-  def markConst(rawOffset: Int, length: Int, isConst: Boolean): Unit = {
-    val offset = canonicalizeOffset(rawOffset)
-    assert(offset + length <= stackFrameSize())
-    marks.fill(frameOffset + offset, length, if (isConst) 1 else 0)
-  }
-
-  def isConst(rawOffset: Int, length: Int): Boolean = {
-    val offset = canonicalizeOffset(rawOffset)
-    assert(offset + length <= stackFrameSize())
-    marks.allEquals(frameOffset + offset, length, 1)
-  }
-
-  def stackFrameConsts(): Consts =
-    Consts.fromMap(marks.equalOffsets(frameOffset, size - frameOffset, 1).map { offset =>
-      (offset - frameOffset, memory.getByte(offset))
-    }.toMap)
 }

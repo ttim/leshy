@@ -45,7 +45,7 @@ object Stack {
   final case class SetSize(oldSize: Int, newSize: Int) extends Execution {
     override def execute(runtime: Runtime): Unit = runtime.stack.setFramesize(newSize)
     override def markConsts(runtime: Runtime): Unit =
-      if (newSize > oldSize) runtime.stack.markConst(oldSize, newSize - oldSize, isConst = true)
+      if (newSize > oldSize) runtime.consts.markConst(oldSize, newSize - oldSize, isConst = true)
   }
 }
 

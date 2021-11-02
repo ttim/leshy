@@ -18,7 +18,7 @@ case class SpecializationContext private (id: Int) {
 
   def restore(runtime: Runtime): Unit = {
     val (size, consts) = get()
-    assert(runtime.stack.stackFrameSize() == size)
+    assert(runtime.stack.frameSize() == size)
     MemoryOperand.Stack(0).markConst(runtime, size, isConst = false)
     consts.asMap().foreach { case (offset, value) =>
       assert(runtime.stack.getRef(offset).getByte() == value)
@@ -44,7 +44,7 @@ object SpecializationContext {
   }
 
   def current(runtime: Runtime): SpecializationContext =
-    SpecializationContext.from(runtime.stack.stackFrameSize(), runtime.stack.stackFrameConsts())
+    SpecializationContext.from(runtime.stack.frameSize(), runtime.consts.get())
 
   def fnCall(caller: SpecializationContext, offset: Int, callee: SpecializationContext): SpecializationContext = {
     val (_, callerConsts) = caller.get()
