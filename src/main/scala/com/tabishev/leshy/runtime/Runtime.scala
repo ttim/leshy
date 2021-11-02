@@ -84,9 +84,8 @@ final class StackMemory {
     import scala.io.AnsiColor.RESET
 
     val frameData = memory.get(frameOffset, size - frameOffset)
-    val constsMap = consts.asMap()
     frameData.zipWithIndex.map { case (byte, index) =>
-      if (!constsMap.contains(index)) byte.toString else RED + byte.toString + RESET
+      if (!consts.asMap.contains(index)) byte.toString else RED + byte.toString + RESET
     }.mkString(", ")
   }
 }
