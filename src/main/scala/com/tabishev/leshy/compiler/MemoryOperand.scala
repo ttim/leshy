@@ -13,7 +13,7 @@ enum MemoryOperand {
 
   def markConst(runtime: Runtime, length: Int, isConst: Boolean) = this match {
     case MemoryOperand.Stack(offset) =>
-      runtime.stack.markConst(offset, length, isConst)
+      runtime.consts.markConst(offset, length, isConst)
     case MemoryOperand.Native(offset) =>
     // do nothing
   }

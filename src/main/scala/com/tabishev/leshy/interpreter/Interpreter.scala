@@ -17,9 +17,9 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
   def run[T, V](spec: FnSpec[T, V])(input: T): V =
     spec.output(run(spec.fn)(stack => spec.input(input, stack)))
 
-  def run(name: String)(init: StackMemory => Unit): Bytes = {
+  def run(name: String)(init: Runtime => Unit): Bytes = {
     assert(runtime.stack.isEmpty())
-    init(runtime.stack)
+    init(runtime)
     try {
       run(name, 0)
       assert(runtime.stack.getFrameOffset() == 0)
@@ -50,7 +50,7 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
       case Operation.Extend(lengthAst) =>
         val length = evalConst(lengthAst).asInt
         runtime.stack.extend(length)
-        runtime.stack.markConst(-length, length, isConst = true)
+        runtime.consts.markConst(-length, length, isConst = true)
         None
       case Operation.Shrink(lengthAst) =>
         val length = evalConst(lengthAst).asInt
@@ -65,7 +65,7 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
         runtime.stack.moveFrame(-offset)
         None
       case Operation.CheckSize(length) =>
-        assert(evalConst(length).asInt == runtime.stack.stackFrameSize())
+        assert(evalConst(length).asInt == runtime.stack.frameSize())
         None
       case Operation.Branch(modifier, length, op1, op2, target) =>
         val lengthE = evalConst(length).asInt
