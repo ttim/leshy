@@ -1,6 +1,6 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.runtime.{Consts, Runtime}
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime}
 
 import scala.collection.mutable
 
@@ -19,8 +19,9 @@ case class SpecializationContext private (id: Int) {
   def restore(runtime: Runtime): Unit = {
     val (size, consts) = get()
     assert(runtime.stack.frameSize() == size)
-    MemoryOperand.Stack(0).markConst(runtime, size, isConst = false)
-    consts.asMap().foreach { case (offset, value) =>
+    MemoryOperand.Stack(FrameOffset.Zero).markConst(runtime, size, isConst = false)
+    consts.asMap().foreach { case (offsetRaw, value) =>
+      val offset = FrameOffset.nonNegative(offsetRaw)
       assert(runtime.stack.getRef(offset).getByte() == value)
       MemoryOperand.Stack(offset).markConst(runtime, 1, isConst = true)
     }

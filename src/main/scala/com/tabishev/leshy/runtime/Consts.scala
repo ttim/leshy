@@ -6,21 +6,21 @@ import java.nio.{ByteBuffer, ByteOrder}
 
 // shouldn't depend on stack
 final class ConstsHolder(val stack: StackMemory) {
-  def isConst(rawOffset: Int, length: Int): Boolean = {
-    val offset = stack.canonicalizeOffset(rawOffset)
-    assert(offset + length <= stack.frameSize())
-    stack.marks.allEquals(stack.getFrameOffset() + offset, length, 1)
+  private val marks: Memory = Memory.ofSize(100000, ro = false)
+
+  def isConst(offset: FrameOffset, length: Int): Boolean = {
+    assert(offset.get + length <= stack.frameSize())
+    marks.allEquals(stack.getFrameOffset() + offset.get, length, 1)
   }
 
   def get(): Consts =
-    Consts.fromMap(stack.marks.equalOffsets(stack.getFrameOffset(), stack.frameSize(), 1).map { offset =>
+    Consts.fromMap(marks.equalOffsets(stack.getFrameOffset(), stack.frameSize(), 1).map { offset =>
       (offset - stack.getFrameOffset(), stack.memory.getByte(offset))
     }.toMap)
 
-  def markConst(rawOffset: Int, length: Int, isConst: Boolean): Unit = {
-    val offset = stack.canonicalizeOffset(rawOffset)
-    assert(offset + length <= stack.frameSize())
-    stack.marks.fill(stack.getFrameOffset() + offset, length, if (isConst) 1 else 0)
+  def markConst(offset: FrameOffset, length: Int, isConst: Boolean): Unit = {
+    assert(offset.get + length <= stack.frameSize())
+    marks.fill(stack.getFrameOffset() + offset.get, length, if (isConst) 1 else 0)
   }
 }
 

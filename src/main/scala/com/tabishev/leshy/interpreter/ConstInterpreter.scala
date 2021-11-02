@@ -1,7 +1,7 @@
 package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const}
-import com.tabishev.leshy.runtime.{StackMemory, Symbol, Symbols, Runtime}
+import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory, Symbol, Symbols}
 
 final case class ConstInterpreter(runtime: Runtime) {
   def frameSize(): Int = runtime.stack.frameSize()
@@ -12,7 +12,7 @@ final case class ConstInterpreter(runtime: Runtime) {
     case Const.Symbol(name) =>
       runtime.symbols.resolve(name).asBytes
     case Const.Stack(fromBytes, lengthBytes) =>
-      val from = fromBytes.asInt
+      val from = runtime.stack.offset(fromBytes.asInt)
       val length = lengthBytes.asInt
       assert(runtime.consts.isConst(from, length))
       Bytes.fromBytes(runtime.stack.getRef(from).get(length))
@@ -27,7 +27,7 @@ final case class ConstInterpreter(runtime: Runtime) {
     case Address.Native(_) =>
       None
     case Address.Stack(offsetAst) =>
-      val offset = evalConst(offsetAst).asInt
+      val offset = runtime.stack.offset(evalConst(offsetAst).asInt)
       if (runtime.consts.isConst(offset, length)) {
         Some(Bytes.fromBytes(runtime.stack.getRef(offset).get(length)))
       } else None
@@ -36,8 +36,9 @@ final case class ConstInterpreter(runtime: Runtime) {
   }
 
   def markConst(dst: Address, length: Int, isConst: Boolean): Unit = dst match {
-    case Address.Stack(offset) =>
-      runtime.consts.markConst(evalConst(offset).asInt, length, isConst)
+    case Address.Stack(offsetAst) =>
+      val offset = runtime.stack.offset(evalConst(offsetAst).asInt)
+      runtime.consts.markConst(offset, length, isConst)
     case Address.Native(_) =>
     // do nothing
     case Address.StackOffset(_, _, _) =>

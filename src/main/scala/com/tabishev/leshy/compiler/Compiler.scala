@@ -56,6 +56,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
     if (debugEnabled || force) {
       val fnCtx = loader.load(op.fn).get
-      println(s"${runtime.stack.frameToString}, ${op.toString(fnCtx)}: $msg")
+      println(s"${runtime.stack.frameToString(runtime.consts.get())}, ${op.toString(fnCtx)}: $msg")
     }
 }

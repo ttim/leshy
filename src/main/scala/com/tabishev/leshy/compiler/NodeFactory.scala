@@ -3,6 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast
 import com.tabishev.leshy.ast.{Bytes, Fn}
 import com.tabishev.leshy.interpreter.ConstInterpreter
+import com.tabishev.leshy.runtime.FrameOffset
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -107,9 +108,7 @@ object NodeFactory {
 
   private def toOperandFn(constInterpreter: ConstInterpreter, address: ast.Address): MemoryOperand = address match {
     case ast.Address.Stack(offsetAst) =>
-      val rawOffset = constInterpreter.evalConst(offsetAst).asInt
-      val offset = if (rawOffset < 0) constInterpreter.frameSize() + rawOffset else rawOffset
-      MemoryOperand.Stack(offset)
+      MemoryOperand.Stack(FrameOffset.maybeNegative(constInterpreter.evalConst(offsetAst).asInt, constInterpreter.frameSize()))
     case ast.Address.StackOffset(_, _, _) =>
       ???
     case ast.Address.Native(_) =>

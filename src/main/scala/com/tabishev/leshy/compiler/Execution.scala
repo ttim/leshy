@@ -1,6 +1,6 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.runtime.Runtime
+import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
@@ -45,7 +45,7 @@ object Stack {
   final case class SetSize(oldSize: Int, newSize: Int) extends Execution {
     override def execute(runtime: Runtime): Unit = runtime.stack.setFramesize(newSize)
     override def markConsts(runtime: Runtime): Unit =
-      if (newSize > oldSize) runtime.consts.markConst(oldSize, newSize - oldSize, isConst = true)
+      if (newSize > oldSize) runtime.consts.markConst(FrameOffset.nonNegative(oldSize), newSize - oldSize, isConst = true)
   }
 }
 
