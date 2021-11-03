@@ -12,11 +12,6 @@ final class Runtime {
   val consts = new ConstsHolder()
 
   CommonSymbols.register(symbols)
-
-  def append(bytes: Bytes, isConst: Boolean): Unit = {
-    stack.append(bytes)
-    if (isConst) consts.markConsts(FrameOffset.nonNegative(stack.frameSize() - bytes.length()), bytes.get())
-  }
 }
 
 final class StackMemory {

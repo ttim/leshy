@@ -4,7 +4,7 @@ import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.compiler.Compiler
 import com.tabishev.leshy.interpreter.Interpreter
 import com.tabishev.leshy.loader.FileLoader
-import com.tabishev.leshy.runtime.{FnSpec, Runtime}
+import com.tabishev.leshy.runtime.{FnSpec, Input, Runtime}
 
 import java.io.File
 
@@ -30,12 +30,12 @@ object FnSpecs {
     instance
   }
 
-  val Fib4: FnSpec[Int, Int] = FnSpec("fib4", { (input, stack) =>
-    stack.append(Bytes.fromInt(input), isConst = false)
+  val Fib4: FnSpec[Int, Int] = FnSpec("fib4", { input =>
+    Input.add(Bytes.fromInt(input), isConst = false)
   }, _.asInt)
 
-  val Fib8: FnSpec[Int, Long] = FnSpec("fib8", { (input, stack) =>
-    stack.append(Bytes.fromInt(input), isConst = false)
+  val Fib8: FnSpec[Int, Long] = FnSpec("fib8", { input =>
+    Input.add(Bytes.fromInt(input), isConst = false)
   }, _.asLong)
 
   val Fibx4: FnSpec[Int, Int] = fibx(4).map(_.asInt)
@@ -47,9 +47,10 @@ object FnSpecs {
   val Ffactorial8: FnSpec[Int, Long] = ffactorial(8).map(_.asLong)
 
   private def fibx(length: Int): FnSpec[Int, Bytes] =
-    FnSpec("fibx", { (input, stack) =>
-      stack.append(Bytes.fromInt(length), isConst = true)
-      stack.append(Bytes.fromInt(input), isConst = false)
+    FnSpec("fibx", { input =>
+      Input
+        .add(Bytes.fromInt(length), isConst = true)
+        .add(Bytes.fromInt(input), isConst = false)
     }, { output =>
       assert(output.get().length == (4 + length))
       assert(output.slice(0, 4).asInt == length)
@@ -57,9 +58,10 @@ object FnSpecs {
     })
 
   private def ffactorial(length: Int): FnSpec[Int, Bytes] =
-    FnSpec("ffactorial", { (input, stack) =>
-      stack.append(Bytes.fromInt(length), isConst = true)
-      stack.append(Bytes.fromInt(input), isConst = false)
+    FnSpec("ffactorial", { input =>
+      Input
+        .add(Bytes.fromInt(length), isConst = true)
+        .add(Bytes.fromInt(input), isConst = false)
     }, { output =>
       assert(output.get().length == (4 + length))
       assert(output.slice(0, 4).asInt == length)

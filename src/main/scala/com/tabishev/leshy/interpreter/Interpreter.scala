@@ -14,16 +14,16 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
   private val constInterpreter = ConstInterpreter(runtime)
   import constInterpreter._
 
-  def run[T, V](spec: FnSpec[T, V])(input: T): V =
-    spec.output(run(spec.fn)(stack => spec.input(input, stack)))
+  def run[T, V](spec: FnSpec[T, V])(input: T): V = {
+    val inputObj = spec.input(input)
 
-  def run(name: String)(init: Runtime => Unit): Bytes = {
     assert(runtime.stack.isEmpty())
-    init(runtime)
+    runtime.stack.append(inputObj.bytes)
+    runtime.consts.set(inputObj.consts)
     try {
-      run(name, 0)
+      run(spec.fn, 0)
       assert(runtime.stack.getFrameOffset() == 0)
-      Bytes.fromBytes(runtime.stack.currentStackFrame())
+      spec.output(Bytes.fromBytes(runtime.stack.currentStackFrame()))
     } finally {
       runtime.stack.clean()
       runtime.consts.set(Consts.Empty)

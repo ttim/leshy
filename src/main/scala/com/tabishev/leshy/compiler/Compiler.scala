@@ -11,18 +11,17 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   private val constInterpreter = ConstInterpreter(runtime)
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
-  def run[T, V](spec: FnSpec[T, V])(input: T): V =
-    spec.output(run(spec.fn)(stack => spec.input(input, stack)))
-
-  def run(fn: String)(init: Runtime => Unit): Bytes = {
+  def run[T, V](spec: FnSpec[T, V])(input: T): V = {
     assert(runtime.stack.isEmpty())
-    init(runtime)
-    create(OperationRef(fn, 0), SpecializationContext.current(runtime)).run(runtime)
+    val inputObj = spec.input(input)
+    runtime.stack.append(inputObj.bytes)
+    runtime.consts.set(inputObj.consts)
+    create(OperationRef(spec.fn, 0), SpecializationContext.current(runtime)).run(runtime)
     assert(runtime.stack.getFrameOffset() == 0)
     val output = Bytes.fromBytes(runtime.stack.currentStackFrame())
     runtime.stack.shrink(output.length())
     runtime.consts.set(Consts.Empty)
-    output
+    spec.output(output)
   }
 
   private[compiler] def create(op: OperationRef, ctx: SpecializationContext): Node = {
