@@ -14,8 +14,8 @@ object FnSpecs {
     "src/main/lsh/factorial.lsh"
   )
 
-  def createInterpreter(debug: Boolean, updateConsts: Boolean): Interpreter =
-    new Interpreter(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), debug, updateConsts)
+  def createInterpreter(debug: Boolean, checkConsts: Boolean): Interpreter =
+    new Interpreter(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), debug, checkConsts)
 
   def createCompiler(debug: Boolean): Compiler = {
     val loader = FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath))

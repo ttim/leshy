@@ -10,7 +10,7 @@ import java.nio.ByteBuffer
 import java.util
 import scala.collection.mutable
 
-class Interpreter(loader: FnLoader, debug: Boolean, updateConsts: Boolean) extends ConstInterpreter {
+class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extends ConstInterpreter {
   private val runtime = new Runtime()
   private var consts = Consts.Empty
 
@@ -150,10 +150,10 @@ class Interpreter(loader: FnLoader, debug: Boolean, updateConsts: Boolean) exten
   override def get(from: FrameOffset, length: Int): Array[Byte] = runtime.stack.getRef(from).get(length)
 
   override def isConst(from: FrameOffset, length: Int): Boolean =
-    !updateConsts || consts.isConst(from, length)
+    !checkConsts || consts.isConst(from, length)
 
   private def updateConsts(fn: Consts => Consts): Consts =
-    if (updateConsts) {
+    if (checkConsts) {
       val prev = consts
       consts = fn(consts)
       prev

@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS)
 @State(Scope.Benchmark)
 class FibBench {
-  @Param(Array("interpreter", "interpreter/generic", "compiler", "compiler/generic", "native"))
+  @Param(Array("interpreter", "interpreter/no-check", "interpreter/generic", "interpreter/generic/no-check", "compiler", "compiler/generic", "native"))
   var impl: String = _
 
   @Benchmark
