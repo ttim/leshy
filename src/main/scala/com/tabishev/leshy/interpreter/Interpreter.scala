@@ -50,64 +50,63 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
     if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString(consts)}: ${op.op}")
     op.op match {
       case Operation.Extend(lengthAst) =>
-        val length = evalConst(lengthAst).asInt
+        val length = evalLength(lengthAst)
         runtime.stack.extend(length)
         updateConsts(_.markConsts(FrameOffset.nonNegative(runtime.stack.frameSize() - length), Array.fill(length)(0)))
         None
       case Operation.Shrink(lengthAst) =>
-        val length = evalConst(lengthAst).asInt
-        runtime.stack.shrink(length)
+        runtime.stack.shrink(evalLength(lengthAst))
         None
-      case Operation.Call(offsetConst, targetConst) =>
-        val newOffset = evalOffset(offsetConst)
-        val target = evalSymbol(targetConst)
+      case Operation.Call(offsetAst, targetAst) =>
+        val newOffset = evalOffset(offsetAst)
+        val target = evalSymbol(targetAst)
         runtime.stack.moveFrame(newOffset.get)
         val callerConsts = updateConsts(_.call(newOffset))
         run(target.name, depth + 1)
         updateConsts { callee => callerConsts.returnFromCall(newOffset, callee) }
         runtime.stack.moveFrame(-newOffset.get)
         None
-      case Operation.CheckSize(length) =>
-        assert(evalConst(length).asInt == runtime.stack.frameSize())
+      case Operation.CheckSize(lengthAst) =>
+        assert(evalLength(lengthAst) == runtime.stack.frameSize())
         None
-      case Operation.Branch(modifier, length, op1, op2, target) =>
-        val lengthE = evalConst(length).asInt
-        val modifierE = evalSymbol(modifier)
-        val op1Ref = constOrAddressRef(op1, lengthE)
-        val op2Ref = constOrAddressRef(op2, lengthE)
-        val flag = modifierE.name match {
-          case "eq" => RuntimeOps.equals(lengthE, op1Ref, op2Ref)
-          case "neq" => !RuntimeOps.equals(lengthE, op1Ref, op2Ref)
-          case "le" => RuntimeOps.less(lengthE, op1Ref, op2Ref, orEqual = true)
-          case "m" => !RuntimeOps.less(lengthE, op1Ref, op2Ref, orEqual = true)
-          case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifierE''")
+      case Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
+        val length = evalLength(lengthAst)
+        val modifier = evalSymbol(modifierAst)
+        val op1 = constOrAddressRef(op1Ast, length)
+        val op2 = constOrAddressRef(op2Ast, length)
+        val flag = modifier.name match {
+          case "eq" => RuntimeOps.equals(length, op1, op2)
+          case "neq" => !RuntimeOps.equals(length, op1, op2)
+          case "le" => RuntimeOps.less(length, op1, op2, orEqual = true)
+          case "m" => !RuntimeOps.less(length, op1, op2, orEqual = true)
+          case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifier''")
         }
-        if (flag) Some(evalSymbol(target)) else None
-      case Operation.Jump(target) =>
-        Some(evalSymbol(target))
-      case Operation.Add(length, op1, op2, dst) =>
-        val lengthE = evalConst(length).asInt
-        RuntimeOps.add(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
-        markConst(dst, lengthE, isConst = checkConst(op1, lengthE) && checkConst(op2, lengthE))
+        if (flag) Some(evalSymbol(targetAst)) else None
+      case Operation.Jump(targetAst) =>
+        Some(evalSymbol(targetAst))
+      case Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
+        val length = evalLength(lengthAst)
+        RuntimeOps.add(length, constOrAddressRef(op1Ast, length), constOrAddressRef(op2Ast, length), addressRef(dstAst))
+        markConst(dstAst, length, isConst = checkConst(op1Ast, length) && checkConst(op2Ast, length))
         None
-      case Operation.Mult(length, op1, op2, dst) =>
-        val lengthE = evalConst(length).asInt
-        RuntimeOps.mult(lengthE, constOrAddressRef(op1, lengthE), constOrAddressRef(op2, lengthE), addressRef(dst))
-        markConst(dst, lengthE, isConst = checkConst(op1, lengthE) && checkConst(op2, lengthE))
+      case Operation.Mult(lengthAst, op1Ast, op2Ast, dstAst) =>
+        val length = evalLength(lengthAst)
+        RuntimeOps.mult(length, constOrAddressRef(op1Ast, length), constOrAddressRef(op2Ast, length), addressRef(dstAst))
+        markConst(dstAst, length, isConst = checkConst(op1Ast, length) && checkConst(op2Ast, length))
         None
-      case Operation.Neg(length, op, dst) =>
-        val lengthE = evalConst(length).asInt
-        RuntimeOps.neg(lengthE, constOrAddressRef(op, lengthE), addressRef(dst))
-        markConst(dst, lengthE, isConst = checkConst(op, lengthE))
+      case Operation.Neg(lengthAst, opAst, dstAst) =>
+        val length = evalLength(lengthAst)
+        RuntimeOps.neg(length, constOrAddressRef(opAst, length), addressRef(dstAst))
+        markConst(dstAst, length, isConst = checkConst(opAst, length))
         None
       case Operation.NotSpecialize(lengthAst, dstAst) =>
-        val length = evalConst(lengthAst).asInt
+        val length = evalLength(lengthAst)
         markConst(dstAst, length, isConst = false)
         None
-      case Operation.Set(length, src, dst) =>
-        val lengthE = evalConst(length).asInt
-        RuntimeOps.set(lengthE, constOrAddressRef(src, lengthE), constOrAddressRef(dst, lengthE))
-        markConst(dst, lengthE, isConst = checkConst(src, lengthE))
+      case Operation.Set(lengthAst, srcAst, dstAst) =>
+        val length = evalLength(lengthAst)
+        RuntimeOps.set(length, constOrAddressRef(srcAst, length), constOrAddressRef(dstAst, length))
+        markConst(dstAst, length, isConst = checkConst(srcAst, length))
         None
       case _ =>
         throw new IllegalArgumentException(s"unsupported operation '$op''")
@@ -123,8 +122,8 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
     }
 
   private def addressRef(address: Address): MemoryRef = address match {
-    case Address.Stack(address) =>
-      runtime.stack.getRef(evalOffset(address))
+    case Address.Stack(offset) =>
+      runtime.stack.getRef(evalOffset(offset))
     case _ =>
       throw new UnsupportedOperationException(s"unsupported address: $address")
   }
