@@ -69,7 +69,7 @@ object FnSpecs {
   private def testInterpreter(): Unit = {
     val start = System.currentTimeMillis()
     println(createInterpreter(false).run(Fib4)(30))
-    println(createInterpreter(true).run(Ffactorial8)(17))
+    println(createInterpreter( true).run(Ffactorial8)(17))
     println((System.currentTimeMillis() - start)/1000.0)
   }
 

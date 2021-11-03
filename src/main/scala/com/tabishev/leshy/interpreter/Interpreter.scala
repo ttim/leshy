@@ -60,7 +60,9 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
         val newOffset = runtime.stack.offset(evalConst(offsetConst).asInt)
         val target = evalSymbol(targetConst)
         runtime.stack.moveFrame(newOffset.get)
+        val prevConsts = runtime.consts.call(newOffset.get)
         run(target.name, depth + 1)
+        runtime.consts.returnFromCall(newOffset.get, prevConsts)
         runtime.stack.moveFrame(-newOffset.get)
         None
       case Operation.CheckSize(length) =>
