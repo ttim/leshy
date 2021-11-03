@@ -26,20 +26,20 @@ object NodeFactory {
       case None => Node.Final(options)
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           executeNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() + length))
         case ast.Operation.Shrink(lengthAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           executeNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() - length))
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
           Node.Call(options, offset, node(OperationRef(target, 0)), node(op.next))
         case ast.Operation.CheckSize(lengthAst) =>
-          assert(constInterpreter.evalConst(lengthAst).asInt == constInterpreter.frameSize())
+          assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
           create(compiler, symbols, ctx, op.next, fn)
         case ast.Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           val modifier = constInterpreter.evalSymbol(modifierAst).name
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
 
@@ -59,7 +59,7 @@ object NodeFactory {
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, symbols, ctx, target, fn)
         case ast.Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Sum.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
@@ -68,7 +68,7 @@ object NodeFactory {
           }
           executeNode(impl)
         case ast.Operation.Mult(lengthAst, op1Ast, op2Ast, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Mult.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
@@ -77,7 +77,7 @@ object NodeFactory {
           }
           executeNode(impl)
         case ast.Operation.Neg(lengthAst, opAst, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Negate.length4(toIntOrOperand(opAst), dst)
@@ -86,7 +86,7 @@ object NodeFactory {
           }
           executeNode(impl)
         case ast.Operation.Set(lengthAst, srcAst, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
             case 4 => Set.length4(toIntOrOperand(srcAst), dst)
@@ -95,7 +95,7 @@ object NodeFactory {
           }
           executeNode(impl)
         case ast.Operation.NotSpecialize(lengthAst, dstAst) =>
-          val length = constInterpreter.evalConst(lengthAst).asInt
+          val length = constInterpreter.evalLength(lengthAst)
           executeNode(Mark.NotSpecialize(length, toOperand(dstAst)))
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")

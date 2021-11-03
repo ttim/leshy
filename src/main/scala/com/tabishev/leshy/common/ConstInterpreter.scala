@@ -12,6 +12,8 @@ trait ConstInterpreter {
 
   final def evalOffset(const: Const): FrameOffset = frameOffset(evalConst(const).asInt)
 
+  final def evalLength(const: Const): Int = evalConst(const).asInt
+
   final def evalConst(const: Const): Bytes = const match {
     case Const.Literal(bytes) =>
       bytes
@@ -41,8 +43,7 @@ trait ConstInterpreter {
       ???
   }
 
-  final def evalSymbol(const: Const): Symbol =
-    symbols().resolveBytes(evalConst(const))
+  final def evalSymbol(const: Const): Symbol = symbols().resolveById(evalConst(const).asInt)
 
   private def frameOffset(rawOffset: Int): FrameOffset = FrameOffset.maybeNegative(rawOffset, frameSize())
 }
