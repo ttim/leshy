@@ -5,8 +5,8 @@ import com.tabishev.leshy.examples.Implementations
 import java.io.File
 
 class CorrectnessSpec extends munit.FunSuite {
-  private val fibMax = 15 // 25
-  private val ffactMax = 100 // 1000
+  private val fibMax = 15
+  private val ffactMax = 500
 
   test("fib4 works") {
     implementationsAgree(inputs = 1 to fibMax, impls = Implementations.Fib4)

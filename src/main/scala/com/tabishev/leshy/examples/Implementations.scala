@@ -1,7 +1,7 @@
 package com.tabishev.leshy.examples
 
 object Implementations {
-  private val interpreter = FnSpecs.createInterpreter(false)
+  private val interpreter = FnSpecs.createInterpreter(debug = false, updateConsts = true)
   private val compiler = FnSpecs.createCompiler(false)
 
   val Fib4: Map[String, Int => Int] = Map(

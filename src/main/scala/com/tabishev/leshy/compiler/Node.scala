@@ -1,6 +1,7 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.runtime.Runtime
+import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
+
 import scala.collection.mutable
 
 final class GenericNode(
@@ -37,8 +38,6 @@ sealed abstract class Node {
   private val ctx = options.ctx
 
   final def run(runtime: Runtime): SpecializationContext = {
-//    if (maintainContext) assert(ctx == SpecializationContext.current(runtime))
-
     var node: Node = this
     while (!node.isInstanceOf[Node.Final]) {
       debug("start run")
@@ -93,15 +92,14 @@ object Node {
     }
   }
 
-  final case class Call(options: Options, offset: Int, call: GenericNode, next: GenericNode) extends Node {
+  final case class Call(options: Options, offset: FrameOffset, call: GenericNode, next: GenericNode) extends Node {
     private var cachedCall: Node = null
     private var cachedNextNode = Map[SpecializationContext, Node]()
 
     override protected def runInternal(runtime: Runtime): Node = {
-      assert(offset >= 0)
-      runtime.stack.moveFrame(offset)
+      runtime.stack.moveFrame(offset.get)
       val finalCtx = callNode().run(runtime)
-      runtime.stack.moveFrame(-offset)
+      runtime.stack.moveFrame(-offset.get)
       // depending on calculation/specializations being made by callee next line node might be different
       nextNode(finalCtx)
     }
