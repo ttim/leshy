@@ -10,7 +10,6 @@ object FrameOffset {
     FrameOffset(offset)
   }
 
-  def maybeNegative(offset: Int, frameSize: Int): FrameOffset = {
-    if (offset >= 0) FrameOffset(offset) else FrameOffset(frameSize + offset)
-  }
+  def maybeNegative(offset: Int, frameSize: Int): FrameOffset =
+    if (offset >= 0) nonNegative(offset) else nonNegative(frameSize + offset)
 }

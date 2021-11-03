@@ -4,7 +4,7 @@ import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime}
 
 enum MemoryOperand {
   case Stack(offset: FrameOffset)
-  case Native(stackOffset: Int)
+  case Native(stackOffset: FrameOffset)
 
   def materialize(runtime: Runtime): MemoryRef = this match {
     case MemoryOperand.Stack(offset) => runtime.stack.getRef(offset)
