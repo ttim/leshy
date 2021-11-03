@@ -1,7 +1,7 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.interpreter.ConstInterpreter
+import com.tabishev.leshy.common.ConstInterpreter
 import com.tabishev.leshy.loader.FnLoader
 import com.tabishev.leshy.runtime.{Consts, FnSpec, Runtime, StackMemory}
 

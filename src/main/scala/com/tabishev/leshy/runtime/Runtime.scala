@@ -79,7 +79,7 @@ final class StackMemory {
 
     val frameData = memory.get(frameOffset, size - frameOffset)
     frameData.zipWithIndex.map { case (byte, index) =>
-      if (!consts.asMap.contains(index)) byte.toString else RED + byte.toString + RESET
+      if (!consts.offsetToValue.contains(index)) byte.toString else RED + byte.toString + RESET
     }.mkString(", ")
   }
 }

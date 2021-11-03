@@ -1,6 +1,6 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.interpreter.ConstInterpreter
+import com.tabishev.leshy.common.ConstInterpreter
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime, Symbols}
 
 import scala.collection.mutable
@@ -34,18 +34,15 @@ object SpecializationContext {
     }
   }
 
-  def fnCall(caller: SpecializationContext, offset: Int, callee: SpecializationContext): SpecializationContext = {
+  def fnCall(caller: SpecializationContext, offset: FrameOffset, callee: SpecializationContext): SpecializationContext = {
     val (_, callerConsts) = caller.get()
     val (calleeSize, calleeConsts) = callee.get()
-    SpecializationContext.from(offset + calleeSize, Consts.returnFromCall(callerConsts, offset, calleeConsts))
+    SpecializationContext.from(offset.get + calleeSize, callerConsts.returnFromCall(offset, calleeConsts))
   }
 
-  def offset(caller: SpecializationContext, offset: Int): SpecializationContext = {
+  def offset(caller: SpecializationContext, offset: FrameOffset): SpecializationContext = {
     val (size, consts) = caller.get()
-    val calleeConsts = consts.asMap.collect {
-      case (callerOffset, value) if callerOffset >= offset => (callerOffset - offset, value)
-    }
-    SpecializationContext.from(size - offset, Consts.fromMap(calleeConsts))
+    SpecializationContext.from(size - offset.get, consts.call(offset))
   }
 }
 

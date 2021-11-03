@@ -2,7 +2,7 @@ package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast
 import com.tabishev.leshy.ast.{Bytes, Fn}
-import com.tabishev.leshy.interpreter.ConstInterpreter
+import com.tabishev.leshy.common.ConstInterpreter
 import com.tabishev.leshy.runtime.{FrameOffset, Symbols}
 
 import scala.annotation.tailrec
@@ -33,7 +33,7 @@ object NodeFactory {
           executeNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() - length))
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offsetRaw = constInterpreter.evalConst(offsetAst).asInt
-          val offset = if (offsetRaw >= 0) offsetRaw else constInterpreter.frameSize() + offsetRaw
+          val offset = constInterpreter.frameOffset(offsetRaw)
           val target = constInterpreter.evalSymbol(targetAst).name
           Node.Call(options, offset, node(OperationRef(target, 0)), node(op.next))
         case ast.Operation.CheckSize(lengthAst) =>

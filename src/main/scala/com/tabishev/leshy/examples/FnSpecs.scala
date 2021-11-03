@@ -14,8 +14,8 @@ object FnSpecs {
     "src/main/lsh/factorial.lsh"
   )
 
-  def createInterpreter(debug: Boolean): Interpreter =
-    new Interpreter(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), debug)
+  def createInterpreter(debug: Boolean, updateConsts: Boolean): Interpreter =
+    new Interpreter(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), debug, updateConsts)
 
   def createCompiler(debug: Boolean): Compiler = {
     val loader = FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath))
@@ -70,8 +70,8 @@ object FnSpecs {
 
   private def testInterpreter(): Unit = {
     val start = System.currentTimeMillis()
-    println(createInterpreter(false).run(Fib4)(30))
-    println(createInterpreter( true).run(Ffactorial8)(17))
+    println(createInterpreter(false, true).run(Fib4)(30))
+    println(createInterpreter(true, true).run(Ffactorial8)(17))
     println((System.currentTimeMillis() - start)/1000.0)
   }
 

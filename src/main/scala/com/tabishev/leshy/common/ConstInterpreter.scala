@@ -1,7 +1,7 @@
-package com.tabishev.leshy.interpreter
+package com.tabishev.leshy.common
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const}
-import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime, StackMemory, Symbol, Symbols}
+import com.tabishev.leshy.runtime.{FrameOffset, Symbol, Symbols}
 
 trait ConstInterpreter {
   def frameSize(): Int
@@ -26,7 +26,7 @@ trait ConstInterpreter {
     tryConst(constOrAddress, length).isDefined
 
   final def tryConst(constOrAddress: Const | Address, length: Int): Option[Bytes] = constOrAddress match {
-    case const : Const =>
+    case const: Const =>
       Some(evalConst(const).expand(length))
     case Address.Native(_) =>
       None
