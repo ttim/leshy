@@ -38,7 +38,7 @@ sealed abstract class Node {
   private val ctx = options.ctx
 
   final def run(runtime: Runtime): SpecializationContext = {
-    if (maintainContext) assert(ctx == SpecializationContext.current(runtime))
+//    if (maintainContext) assert(ctx == SpecializationContext.current(runtime))
 
     var node: Node = this
     while (!node.isInstanceOf[Node.Final]) {

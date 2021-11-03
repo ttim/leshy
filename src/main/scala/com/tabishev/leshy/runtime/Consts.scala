@@ -3,23 +3,33 @@ package com.tabishev.leshy.runtime
 import com.tabishev.leshy.ast.Bytes
 
 import java.nio.{ByteBuffer, ByteOrder}
+import scala.collection.mutable
 
 // shouldn't depend on stack
-final class ConstsHolder(val stack: StackMemory) {
-  private val marks: Memory = Memory.ofSize(100000, ro = false)
+final class ConstsHolder(stack: StackMemory) {
+  private var consts: Consts = Consts.fromMap(Map())
 
   def isConst(offset: FrameOffset, length: Int): Boolean =
     get().isConst(offset, length)
 
-  def get(): Consts =
-    Consts.fromMap(marks.equalOffsets(stack.getFrameOffset(), stack.frameSize(), 1).map { offset =>
-      (offset - stack.getFrameOffset(), stack.memory.getByte(offset))
-    }.toMap)
+  def get(): Consts = consts
 
-  def markConst(offset: FrameOffset, length: Int, isConst: Boolean): Unit = {
-    assert(offset.get + length <= stack.frameSize())
-    marks.fill(stack.getFrameOffset() + offset.get, length, if (isConst) 1 else 0)
+  def set(consts: Consts): Unit = this.consts = consts
+
+  def call(offset: Int): Consts = {
+    val prevConsts = consts
+    consts = Consts.call(consts, offset)
+    prevConsts
   }
+
+  def returnFromCall(offset: Int, prev: Consts): Unit =
+    consts = Consts.returnFromCall(prev, offset, consts)
+
+  def markConst(offset: FrameOffset, length: Int, isConst: Boolean): Unit =
+    if (isConst)
+      consts = consts.markConsts(offset, stack.getRef(offset).get(length))
+    else
+      consts = consts.unmarkConsts(offset, length)
 }
 
 final case class Consts private (constOffsetsAndData: Bytes) {
@@ -41,6 +51,20 @@ final case class Consts private (constOffsetsAndData: Bytes) {
 
   def isConst(offset: FrameOffset, length: Int): Boolean =
     (0 until length).forall { index => asMap.contains(offset.get + index) }
+
+  def markConsts(offset: FrameOffset, bytes: Array[Byte]): Consts = {
+    val result = mutable.HashMap.from(asMap)
+    bytes.indices.foreach { index =>
+      result.put(offset.get + index, bytes(index))
+    }
+    Consts.fromMap(result.toMap)
+  }
+
+  def unmarkConsts(offset: FrameOffset, length: Int): Consts = {
+    val result = mutable.HashMap.from(asMap)
+    (0 until length).foreach { index => result.remove(offset.get + index) }
+    Consts.fromMap(result.toMap)
+  }
 }
 
 object Consts {
@@ -54,9 +78,13 @@ object Consts {
     Consts(Bytes.fromBytes(offsetsAndData))
   }
 
-  def fnCall(callsite: Consts, offset: Int, calleeResult: Consts): Consts = {
+  def returnFromCall(callsite: Consts, offset: Int, calleeResult: Consts): Consts = {
     val caller = callsite.asMap.filter(_._1 < offset)
     val callee = calleeResult.asMap.map { (calleeOffset, result) => (calleeOffset + offset, result) }
     Consts.fromMap(caller ++ callee)
   }
+
+  def call(callsite: Consts, offset: Int): Consts = Consts.fromMap(
+    callsite.asMap.filter(_._1 >= offset).map { (calleeOffset, result) => (calleeOffset - offset, result) }
+  )
 }
