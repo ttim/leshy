@@ -15,7 +15,7 @@ final class Runtime {
 
   def append(bytes: Bytes, isConst: Boolean): Unit = {
     stack.append(bytes)
-    consts.markConst(FrameOffset.nonNegative(stack.frameSize() - bytes.length()), bytes.length(), isConst)
+    if (isConst) consts.markConsts(FrameOffset.nonNegative(stack.frameSize() - bytes.length()), bytes.get())
   }
 }
 
