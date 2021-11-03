@@ -2,34 +2,44 @@ package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource}
 import com.tabishev.leshy.loader.{FileLoader, FnLoader}
-import com.tabishev.leshy.runtime.{CommonSymbols, Consts, FnSpec, FrameOffset, Memory, MemoryRef, Runtime, RuntimeOps, StackMemory, Symbol}
+import com.tabishev.leshy.runtime.{CommonSymbols, Consts, ConstsHolder, FnSpec, FrameOffset, Memory, MemoryRef, Runtime, RuntimeOps, StackMemory, Symbol, Symbols}
 
 import java.io.File
 import java.nio.ByteBuffer
 import java.util
 import scala.collection.mutable
 
-class Interpreter(loader: FnLoader, debug: Boolean) {
+class Interpreter(loader: FnLoader, debug: Boolean) extends ConstInterpreter {
   private val runtime = new Runtime()
-  private val constInterpreter = ConstInterpreter(runtime)
-  import constInterpreter._
+  private val consts = new ConstsHolder
 
   def run[T, V](spec: FnSpec[T, V])(input: T): V = {
     val inputObj = spec.input(input)
 
     assert(runtime.stack.isEmpty())
     runtime.stack.append(inputObj.bytes)
-    runtime.consts.set(inputObj.consts)
+    consts.set(inputObj.consts)
     try {
       run(spec.fn, 0)
       assert(runtime.stack.getFrameOffset() == 0)
       spec.output(Bytes.fromBytes(runtime.stack.currentStackFrame()))
     } finally {
       runtime.stack.clean()
-      runtime.consts.set(Consts.Empty)
+      consts.set(Consts.Empty)
     }
   }
 
+
+  // impl for const interpreter
+  override def frameSize(): Int = runtime.stack.frameSize()
+
+  override def symbols(): Symbols = runtime.symbols
+
+  override def isConst(from: FrameOffset, length: Int): Boolean = consts.isConst(from, length)
+
+  override def get(from: FrameOffset, length: Int): Array[Byte] = runtime.stack.getRef(from).get(length)
+
+  // for rest
   private def run(name: String, depth: Int): Unit = {
     val fn = loader.load(name).get
     runtime.symbols.register(fn)
@@ -46,12 +56,12 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
   }
 
   private def run(op: OperationWithSource, depth: Int): Option[Symbol] = {
-    if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString(runtime.consts.get())}: ${op.op}")
+    if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString(consts.get())}: ${op.op}")
     op.op match {
       case Operation.Extend(lengthAst) =>
         val length = evalConst(lengthAst).asInt
         runtime.stack.extend(length)
-        runtime.consts.markConsts(FrameOffset.nonNegative(runtime.stack.frameSize() - length), Array.fill(length)(0))
+        consts.markConsts(FrameOffset.nonNegative(runtime.stack.frameSize() - length), Array.fill(length)(0))
         None
       case Operation.Shrink(lengthAst) =>
         val length = evalConst(lengthAst).asInt
@@ -61,9 +71,9 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
         val newOffset = runtime.stack.offset(evalConst(offsetConst).asInt)
         val target = evalSymbol(targetConst)
         runtime.stack.moveFrame(newOffset.get)
-        val prevConsts = runtime.consts.call(newOffset.get)
+        val prevConsts = consts.call(newOffset.get)
         run(target.name, depth + 1)
-        runtime.consts.returnFromCall(newOffset.get, prevConsts)
+        consts.returnFromCall(newOffset.get, prevConsts)
         runtime.stack.moveFrame(-newOffset.get)
         None
       case Operation.CheckSize(length) =>
@@ -126,5 +136,18 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
       runtime.stack.getRef(runtime.stack.offset(evalConst(address).asInt))
     case _ =>
       throw new UnsupportedOperationException(s"unsupported address: $address")
+  }
+
+  private def markConst(dst: Address, length: Int, isConst: Boolean): Unit = dst match {
+    case Address.Stack(offsetAst) =>
+      val offset = runtime.stack.offset(evalConst(offsetAst).asInt)
+      if (isConst)
+        consts.markConsts(offset, runtime.stack.getRef(offset).get(length))
+      else
+        consts.unmarkConsts(offset, length)
+    case Address.Native(_) =>
+      // do nothing
+    case Address.StackOffset(_, _, _) =>
+      ???
   }
 }

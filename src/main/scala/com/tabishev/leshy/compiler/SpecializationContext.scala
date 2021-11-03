@@ -1,6 +1,7 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime}
+import com.tabishev.leshy.interpreter.ConstInterpreter
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime, Symbols}
 
 import scala.collection.mutable
 
@@ -15,12 +16,6 @@ case class SpecializationContext private (id: Int) {
     obj.asInstanceOf[SpecializationContext].id == id
 
   def get(): (Int, Consts) = SpecializationContext.idToContext(id)
-
-  def restore(runtime: Runtime): Unit = {
-    val (size, consts) = get()
-    assert(runtime.stack.frameSize() == size)
-    runtime.consts.set(consts)
-  }
 }
 
 object SpecializationContext {
@@ -39,9 +34,6 @@ object SpecializationContext {
     }
   }
 
-  def current(runtime: Runtime): SpecializationContext =
-    SpecializationContext.from(runtime.stack.frameSize(), runtime.consts.get())
-
   def fnCall(caller: SpecializationContext, offset: Int, callee: SpecializationContext): SpecializationContext = {
     val (_, callerConsts) = caller.get()
     val (calleeSize, calleeConsts) = callee.get()
@@ -55,4 +47,13 @@ object SpecializationContext {
     }
     SpecializationContext.from(size - offset, Consts.fromMap(calleeConsts))
   }
+}
+
+case class SpecializationContextConstInterpreter(sym: Symbols, ctx: SpecializationContext) extends ConstInterpreter {
+  private val (size, consts) = ctx.get()
+
+  override def frameSize(): Int = size
+  override def symbols(): Symbols = sym
+  override def isConst(from: FrameOffset, length: Int): Boolean = consts.isConst(from, length)
+  override def get(from: FrameOffset, length: Int): Array[Byte] = consts.get(from, length)
 }

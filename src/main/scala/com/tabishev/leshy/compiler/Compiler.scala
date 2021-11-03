@@ -8,19 +8,17 @@ import com.tabishev.leshy.runtime.{Consts, FnSpec, Runtime, StackMemory}
 import scala.collection.mutable
 
 final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean) {
-  private val constInterpreter = ConstInterpreter(runtime)
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
   def run[T, V](spec: FnSpec[T, V])(input: T): V = {
     assert(runtime.stack.isEmpty())
     val inputObj = spec.input(input)
     runtime.stack.append(inputObj.bytes)
-    runtime.consts.set(inputObj.consts)
-    create(OperationRef(spec.fn, 0), SpecializationContext.current(runtime)).run(runtime)
+    val initialContext = SpecializationContext.from(runtime.stack.frameSize(), inputObj.consts)
+    create(OperationRef(spec.fn, 0), initialContext).run(runtime)
     assert(runtime.stack.getFrameOffset() == 0)
     val output = Bytes.fromBytes(runtime.stack.currentStackFrame())
     runtime.stack.shrink(output.length())
-    runtime.consts.set(Consts.Empty)
     spec.output(output)
   }
 
@@ -33,7 +31,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     val contextFn = loader.load(op.fn).get
     runtime.symbols.register(contextFn)
 
-    val node = NodeFactory.create(this, constInterpreter, ctx, op, contextFn)
+    val node = NodeFactory.create(this, runtime.symbols, ctx, op, contextFn)
 
     nodes.put(nodeKey, node)
 
@@ -54,6 +52,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
     if (debugEnabled || force) {
       val fnCtx = loader.load(op.fn).get
-      println(s"${runtime.stack.frameToString(runtime.consts.get())}, ${op.toString(fnCtx)}: $msg")
+      println(s"${runtime.stack.frameToString(ctx.get()._2)}, ${op.toString(fnCtx)}: $msg")
     }
 }

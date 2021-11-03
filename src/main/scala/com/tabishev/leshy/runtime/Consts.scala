@@ -51,6 +51,9 @@ final case class Consts private (constOffsetsAndData: Bytes) {
   def isConst(offset: FrameOffset, length: Int): Boolean =
     (0 until length).forall { index => asMap.contains(offset.get + index) }
 
+  def get(offset: FrameOffset, length: Int): Array[Byte] =
+    (0 until length).map { index => asMap(offset.get + index) }.toArray
+
   def markConsts(offset: FrameOffset, bytes: Array[Byte]): Consts = {
     val result = mutable.HashMap.from(asMap)
     bytes.indices.foreach { index =>
