@@ -3,16 +3,17 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast
 import com.tabishev.leshy.ast.{Bytes, Fn}
 import com.tabishev.leshy.interpreter.ConstInterpreter
-import com.tabishev.leshy.runtime.FrameOffset
+import com.tabishev.leshy.runtime.{FrameOffset, Symbols}
 
 import scala.annotation.tailrec
 import scala.util.Try
 
 object NodeFactory {
   @tailrec
-  def create(compiler: Compiler, constInterpreter: ConstInterpreter,
+  def create(compiler: Compiler, symbols: Symbols,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
     val options = Node.Options(compiler.debugEnabled, op, ctx)
+    val constInterpreter = SpecializationContextConstInterpreter(symbols, ctx)
 
     def node(op: OperationRef): GenericNode = GenericNode.of(ctx => compiler.create(op, ctx))
 
@@ -20,9 +21,6 @@ object NodeFactory {
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
-
-    // todo: hack, remove
-    compiler.runtime.consts.set(ctx.get()._2)
 
     op.resolve(fn) match {
       case None => Node.Final(options)
@@ -40,7 +38,7 @@ object NodeFactory {
           Node.Call(options, offset, node(OperationRef(target, 0)), node(op.next))
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalConst(lengthAst).asInt == constInterpreter.frameSize())
-          create(compiler, constInterpreter, ctx, op.next, fn)
+          create(compiler, symbols, ctx, op.next, fn)
         case ast.Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
           val modifier = constInterpreter.evalSymbol(modifierAst).name
@@ -60,7 +58,7 @@ object NodeFactory {
           Node.Branch(options, impl, node(target), node(op.next))
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
-          create(compiler, constInterpreter, ctx, target, fn)
+          create(compiler, symbols, ctx, target, fn)
         case ast.Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalConst(lengthAst).asInt
           val dst = toOperand(dstAst)

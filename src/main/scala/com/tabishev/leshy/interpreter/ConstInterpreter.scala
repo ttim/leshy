@@ -1,53 +1,46 @@
 package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const}
-import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory, Symbol, Symbols}
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime, StackMemory, Symbol, Symbols}
 
-final case class ConstInterpreter(runtime: Runtime) {
-  def frameSize(): Int = runtime.stack.frameSize()
+trait ConstInterpreter {
+  def frameSize(): Int
+  def symbols(): Symbols
 
-  def evalConst(const: Const): Bytes = const match {
+  def isConst(from: FrameOffset, length: Int): Boolean
+  def get(from: FrameOffset, length: Int): Array[Byte]
+
+  final def evalConst(const: Const): Bytes = const match {
     case Const.Literal(bytes) =>
       bytes
     case Const.Symbol(name) =>
-      runtime.symbols.resolve(name).asBytes
+      symbols().resolve(name).asBytes
     case Const.Stack(fromBytes, lengthBytes) =>
-      val from = runtime.stack.offset(fromBytes.asInt)
+      val from = frameOffset(fromBytes.asInt)
       val length = lengthBytes.asInt
-      assert(runtime.consts.isConst(from, length))
-      Bytes.fromBytes(runtime.stack.getRef(from).get(length))
+      assert(isConst(from, length))
+      Bytes.fromBytes(get(from, length))
   }
 
-  def checkConst(constOrAddress: Const | Address, length: Int): Boolean =
+  final def checkConst(constOrAddress: Const | Address, length: Int): Boolean =
     tryConst(constOrAddress, length).isDefined
 
-  def tryConst(constOrAddress: Const | Address, length: Int): Option[Bytes] = constOrAddress match {
+  final def tryConst(constOrAddress: Const | Address, length: Int): Option[Bytes] = constOrAddress match {
     case const : Const =>
       Some(evalConst(const).expand(length))
     case Address.Native(_) =>
       None
     case Address.Stack(offsetAst) =>
-      val offset = runtime.stack.offset(evalConst(offsetAst).asInt)
-      if (runtime.consts.isConst(offset, length)) {
-        Some(Bytes.fromBytes(runtime.stack.getRef(offset).get(length)))
+      val offset = frameOffset(evalConst(offsetAst).asInt)
+      if (isConst(offset, length)) {
+        Some(Bytes.fromBytes(get(offset, length)))
       } else None
     case Address.StackOffset(_, _, _) =>
       ???
   }
 
-  def markConst(dst: Address, length: Int, isConst: Boolean): Unit = dst match {
-    case Address.Stack(offsetAst) =>
-      val offset = runtime.stack.offset(evalConst(offsetAst).asInt)
-      if (isConst)
-        runtime.consts.markConsts(offset, runtime.stack.getRef(offset).get(length))
-      else
-        runtime.consts.unmarkConsts(offset, length)
-    case Address.Native(_) =>
-    // do nothing
-    case Address.StackOffset(_, _, _) =>
-      ???
-  }
+  final def evalSymbol(const: Const): Symbol =
+    symbols().resolveBytes(evalConst(const))
 
-  def evalSymbol(const: Const): Symbol =
-    runtime.symbols.resolveBytes(evalConst(const))
+  final def frameOffset(rawOffset: Int): FrameOffset = FrameOffset.maybeNegative(rawOffset, frameSize())
 }
