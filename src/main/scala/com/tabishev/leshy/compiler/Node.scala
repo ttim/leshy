@@ -33,7 +33,6 @@ sealed abstract class Node {
   val options: Node.Options
 
   // this improves perf by ~10%
-  private val maintainContext = options.maintainContext
   private val debug = options.debug
   private val ctx = options.ctx
 
@@ -58,23 +57,20 @@ sealed abstract class Node {
 }
 
 object Node {
-  final case class Options(debug: Boolean, maintainContext: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
+  final case class Options(debug: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
 
   final case class Run(options: Options, impl: Execution, next: GenericNode) extends Node {
     private var computedNext: Node = null
-    private val maintainContext: Boolean = options.maintainContext
 
     protected def runInternal(runtime: Runtime): Node =
       if (computedNext != null) {
         impl.execute(runtime)
-        // the only node which marks consts is Node.Run, so it's the only one where we need to check for `maintainContext`
-        if (maintainContext) impl.markConsts(runtime)
         computedNext
       } else {
-        options.ctx.restore(runtime)
         impl.execute(runtime)
-        impl.markConsts(runtime)
-        computedNext = next.create(SpecializationContext.current(runtime))
+        val (_, prevConsts) = options.ctx.get()
+        val nextContext = SpecializationContext.from(runtime.stack.frameSize(), impl.markConsts(prevConsts))
+        computedNext = next.create(nextContext)
         computedNext
       }
   }

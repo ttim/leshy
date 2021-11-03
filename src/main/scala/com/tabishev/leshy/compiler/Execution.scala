@@ -1,18 +1,18 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime}
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
-  def markConsts(runtime: Runtime): Unit
+  def markConsts(consts: Consts): Consts
 }
 
 sealed abstract class NonConstExecution extends Execution {
   val length: Int
   val dst: MemoryOperand
 
-  final def markConsts(runtime: Runtime): Unit = dst.unmarkConst(runtime, length)
+  final def markConsts(consts: Consts): Consts = dst.unmarkConst(consts, length)
 }
 
 sealed abstract class NonConstExecution4 extends NonConstExecution {
@@ -26,12 +26,12 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
-    override def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, Bytes.fromInt(value).get())
+    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
   }
 
   final case class Write8(value: Long, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
-    override def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, Bytes.fromLong(value).get())
+    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
   }
 }
 
@@ -45,8 +45,11 @@ object Mark {
 object Stack {
   final case class SetSize(oldSize: Int, newSize: Int) extends Execution {
     override def execute(runtime: Runtime): Unit = runtime.stack.setFramesize(newSize)
-    override def markConsts(runtime: Runtime): Unit =
-      if (newSize > oldSize) runtime.consts.markConsts(FrameOffset.nonNegative(oldSize), Array.fill[Byte](newSize - oldSize)(0))
+    override def markConsts(consts: Consts): Consts =
+      if (newSize > oldSize)
+        consts.markConsts(FrameOffset.nonNegative(oldSize), Array.fill[Byte](newSize - oldSize)(0))
+      else
+        consts.unmarkConsts(FrameOffset.nonNegative(newSize), oldSize - newSize)
   }
 }
 

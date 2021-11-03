@@ -1,6 +1,6 @@
 package com.tabishev.leshy.compiler
 
-import com.tabishev.leshy.runtime.{FrameOffset, MemoryRef, Runtime}
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime}
 
 enum MemoryOperand {
   case Stack(offset: FrameOffset)
@@ -11,17 +11,19 @@ enum MemoryOperand {
     case MemoryOperand.Native(offset) => ???
   }
 
-  def markConst(runtime: Runtime, bytes: Array[Byte]) = this match {
+  def markConst(consts: Consts, bytes: Array[Byte]): Consts = this match {
     case MemoryOperand.Stack(offset) =>
-      runtime.consts.markConsts(offset, bytes)
+      consts.markConsts(offset, bytes)
     case MemoryOperand.Native(offset) =>
       // do nothing
+      consts
   }
 
-  def unmarkConst(runtime: Runtime, length: Int) = this match {
+  def unmarkConst(consts: Consts, length: Int): Consts = this match {
     case MemoryOperand.Stack(offset) =>
-      runtime.consts.unmarkConsts(offset, length)
+      consts.unmarkConsts(offset, length)
     case MemoryOperand.Native(offset) =>
-    // do nothing
+      // do nothing
+      consts
   }
 }
