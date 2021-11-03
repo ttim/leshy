@@ -5,9 +5,8 @@ import com.tabishev.leshy.ast.Bytes
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable
 
-// shouldn't depend on stack
-final class ConstsHolder(stack: StackMemory) {
-  private var consts: Consts = Consts.fromMap(Map())
+final class ConstsHolder() {
+  private var consts: Consts = Consts.Empty
 
   def isConst(offset: FrameOffset, length: Int): Boolean =
     get().isConst(offset, length)
@@ -68,6 +67,8 @@ final case class Consts private (constOffsetsAndData: Bytes) {
 }
 
 object Consts {
+  val Empty: Consts = fromMap(Map())
+
   def fromMap(offsetToValue: Map[Int, Byte]): Consts = {
     val offsetsAndData = Array.fill[Byte](offsetToValue.size * 5)(0)
     val mirror = ByteBuffer.wrap(offsetsAndData).order(ByteOrder.LITTLE_ENDIAN)

@@ -12,7 +12,7 @@ object NodeFactory {
   @tailrec
   def create(compiler: Compiler, constInterpreter: ConstInterpreter,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val options = Node.Options(compiler.debugEnabled, maintainContext = true, op, ctx)
+    val options = Node.Options(compiler.debugEnabled, op, ctx)
 
     def node(op: OperationRef): GenericNode = GenericNode.of(ctx => compiler.create(op, ctx))
 
@@ -20,6 +20,9 @@ object NodeFactory {
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
+
+    // todo: hack, remove
+    compiler.runtime.consts.set(ctx.get()._2)
 
     op.resolve(fn) match {
       case None => Node.Final(options)

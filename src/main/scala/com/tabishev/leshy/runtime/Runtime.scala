@@ -9,7 +9,7 @@ import scala.collection.mutable
 final class Runtime {
   val stack = new StackMemory()
   val symbols = new Symbols()
-  val consts = new ConstsHolder(stack)
+  val consts = new ConstsHolder()
 
   CommonSymbols.register(symbols)
 

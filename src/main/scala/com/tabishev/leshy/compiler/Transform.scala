@@ -31,24 +31,3 @@ object Transform {
     replacements
   }
 }
-
-object DontMarkConsts extends Transform {
-  @tailrec
-  override def transformInScope(node: Node, replace: GenericNode => GenericNode): Node = {
-    val optimizedOptions = node.options.copy(maintainContext = false)
-    node match {
-      case Node.Run(_, impl, next) =>
-        Node.Run(optimizedOptions, impl, replace(next))
-      case Node.Branch(_, impl, ifTrue, ifFalse) =>
-        Node.Branch(optimizedOptions, impl, replace(ifTrue), replace(ifFalse))
-      case Node.Call(_, offset, call, next) =>
-        Node.Call(optimizedOptions, offset, replace(call), replace(next))
-      case Node.Final(_) =>
-        Node.Final(optimizedOptions)
-      case Node.RestoreCtx(_, next) =>
-        transformInScope(next, replace)
-    }
-  }
-
-  override def transformOutOfScope(node: Node): Node = Node.RestoreCtx(node.options, node)
-}

@@ -2,7 +2,7 @@ package com.tabishev.leshy.interpreter
 
 import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource}
 import com.tabishev.leshy.loader.{FileLoader, FnLoader}
-import com.tabishev.leshy.runtime.{CommonSymbols, FnSpec, FrameOffset, Memory, MemoryRef, Runtime, RuntimeOps, StackMemory, Symbol}
+import com.tabishev.leshy.runtime.{CommonSymbols, Consts, FnSpec, FrameOffset, Memory, MemoryRef, Runtime, RuntimeOps, StackMemory, Symbol}
 
 import java.io.File
 import java.nio.ByteBuffer
@@ -26,6 +26,7 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
       Bytes.fromBytes(runtime.stack.currentStackFrame())
     } finally {
       runtime.stack.clean()
+      runtime.consts.set(Consts.Empty)
     }
   }
 

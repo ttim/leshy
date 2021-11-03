@@ -3,7 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.interpreter.ConstInterpreter
 import com.tabishev.leshy.loader.FnLoader
-import com.tabishev.leshy.runtime.{FnSpec, Runtime, StackMemory}
+import com.tabishev.leshy.runtime.{Consts, FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
 
@@ -21,6 +21,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     assert(runtime.stack.getFrameOffset() == 0)
     val output = Bytes.fromBytes(runtime.stack.currentStackFrame())
     runtime.stack.shrink(output.length())
+    runtime.consts.set(Consts.Empty)
     output
   }
 
@@ -44,9 +45,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     node
   }
 
-  def optimize(): Unit = {
-    transform(DontMarkConsts)
-  }
+  def optimize(): Unit = ()
 
   private def transform(transform: Transform): Unit = {
     val transformed = Transform.apply(nodes.values.toSeq, transform)
