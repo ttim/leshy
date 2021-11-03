@@ -10,6 +10,8 @@ trait ConstInterpreter {
   def isConst(from: FrameOffset, length: Int): Boolean
   def get(from: FrameOffset, length: Int): Array[Byte]
 
+  final def evalOffset(const: Const): FrameOffset = frameOffset(evalConst(const).asInt)
+
   final def evalConst(const: Const): Bytes = const match {
     case Const.Literal(bytes) =>
       bytes
@@ -31,7 +33,7 @@ trait ConstInterpreter {
     case Address.Native(_) =>
       None
     case Address.Stack(offsetAst) =>
-      val offset = frameOffset(evalConst(offsetAst).asInt)
+      val offset = evalOffset(offsetAst)
       if (isConst(offset, length)) {
         Some(Bytes.fromBytes(get(offset, length)))
       } else None
@@ -42,5 +44,5 @@ trait ConstInterpreter {
   final def evalSymbol(const: Const): Symbol =
     symbols().resolveBytes(evalConst(const))
 
-  final def frameOffset(rawOffset: Int): FrameOffset = FrameOffset.maybeNegative(rawOffset, frameSize())
+  private def frameOffset(rawOffset: Int): FrameOffset = FrameOffset.maybeNegative(rawOffset, frameSize())
 }

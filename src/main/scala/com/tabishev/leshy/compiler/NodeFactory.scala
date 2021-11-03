@@ -32,8 +32,7 @@ object NodeFactory {
           val length = constInterpreter.evalConst(lengthAst).asInt
           executeNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() - length))
         case ast.Operation.Call(offsetAst, targetAst) =>
-          val offsetRaw = constInterpreter.evalConst(offsetAst).asInt
-          val offset = constInterpreter.frameOffset(offsetRaw)
+          val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
           Node.Call(options, offset, node(OperationRef(target, 0)), node(op.next))
         case ast.Operation.CheckSize(lengthAst) =>
@@ -109,7 +108,7 @@ object NodeFactory {
 
   private def toOperandFn(constInterpreter: ConstInterpreter, address: ast.Address): MemoryOperand = address match {
     case ast.Address.Stack(offsetAst) =>
-      MemoryOperand.Stack(FrameOffset.maybeNegative(constInterpreter.evalConst(offsetAst).asInt, constInterpreter.frameSize()))
+      MemoryOperand.Stack(constInterpreter.evalOffset(offsetAst))
     case ast.Address.StackOffset(_, _, _) =>
       ???
     case ast.Address.Native(_) =>

@@ -59,7 +59,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
         runtime.stack.shrink(length)
         None
       case Operation.Call(offsetConst, targetConst) =>
-        val newOffset = runtime.stack.offset(evalConst(offsetConst).asInt)
+        val newOffset = evalOffset(offsetConst)
         val target = evalSymbol(targetConst)
         runtime.stack.moveFrame(newOffset.get)
         val callerConsts = updateConsts(_.call(newOffset))
@@ -124,7 +124,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
 
   private def addressRef(address: Address): MemoryRef = address match {
     case Address.Stack(address) =>
-      runtime.stack.getRef(runtime.stack.offset(evalConst(address).asInt))
+      runtime.stack.getRef(evalOffset(address))
     case _ =>
       throw new UnsupportedOperationException(s"unsupported address: $address")
   }
@@ -132,7 +132,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
   // const related logic
   private def markConst(dst: Address, length: Int, isConst: Boolean): Unit = dst match {
     case Address.Stack(offsetAst) =>
-      val offset = runtime.stack.offset(evalConst(offsetAst).asInt)
+      val offset = evalOffset(offsetAst)
       if (isConst)
         updateConsts(_.markConsts(offset, runtime.stack.getRef(offset).get(length)))
       else

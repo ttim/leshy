@@ -28,8 +28,6 @@ final class StackMemory {
 
   def getFrameOffset(): Int = frameOffset
 
-  def offset(offset: Int): FrameOffset = FrameOffset.maybeNegative(offset, frameSize())
-
   def getRef(offset: FrameOffset): MemoryRef = new MemoryRef(memory, frameOffset + offset.get)
 
   def setFramesize(newFrameSize: Int): Unit = {
