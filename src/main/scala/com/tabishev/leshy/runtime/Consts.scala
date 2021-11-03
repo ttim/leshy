@@ -25,11 +25,11 @@ final class ConstsHolder(stack: StackMemory) {
   def returnFromCall(offset: Int, prev: Consts): Unit =
     consts = Consts.returnFromCall(prev, offset, consts)
 
-  def markConst(offset: FrameOffset, length: Int, isConst: Boolean): Unit =
-    if (isConst)
-      consts = consts.markConsts(offset, stack.getRef(offset).get(length))
-    else
-      consts = consts.unmarkConsts(offset, length)
+  def markConsts(offset: FrameOffset, bytes: Array[Byte]): Unit =
+    consts = consts.markConsts(offset, bytes)
+
+  def unmarkConsts(offset: FrameOffset, length: Int): Unit =
+    consts = consts.unmarkConsts(offset, length)
 }
 
 final case class Consts private (constOffsetsAndData: Bytes) {

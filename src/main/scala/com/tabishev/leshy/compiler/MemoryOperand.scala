@@ -11,9 +11,16 @@ enum MemoryOperand {
     case MemoryOperand.Native(offset) => ???
   }
 
-  def markConst(runtime: Runtime, length: Int, isConst: Boolean) = this match {
+  def markConst(runtime: Runtime, bytes: Array[Byte]) = this match {
     case MemoryOperand.Stack(offset) =>
-      runtime.consts.markConst(offset, length, isConst)
+      runtime.consts.markConsts(offset, bytes)
+    case MemoryOperand.Native(offset) =>
+      // do nothing
+  }
+
+  def unmarkConst(runtime: Runtime, length: Int) = this match {
+    case MemoryOperand.Stack(offset) =>
+      runtime.consts.unmarkConsts(offset, length)
     case MemoryOperand.Native(offset) =>
     // do nothing
   }

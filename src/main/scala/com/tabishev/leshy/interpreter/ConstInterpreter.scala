@@ -38,7 +38,10 @@ final case class ConstInterpreter(runtime: Runtime) {
   def markConst(dst: Address, length: Int, isConst: Boolean): Unit = dst match {
     case Address.Stack(offsetAst) =>
       val offset = runtime.stack.offset(evalConst(offsetAst).asInt)
-      runtime.consts.markConst(offset, length, isConst)
+      if (isConst)
+        runtime.consts.markConsts(offset, runtime.stack.getRef(offset).get(length))
+      else
+        runtime.consts.unmarkConsts(offset, length)
     case Address.Native(_) =>
     // do nothing
     case Address.StackOffset(_, _, _) =>

@@ -1,5 +1,6 @@
 package com.tabishev.leshy.compiler
 
+import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
 
 sealed abstract class Execution {
@@ -11,7 +12,7 @@ sealed abstract class NonConstExecution extends Execution {
   val length: Int
   val dst: MemoryOperand
 
-  final def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, length, isConst = false)
+  final def markConsts(runtime: Runtime): Unit = dst.unmarkConst(runtime, length)
 }
 
 sealed abstract class NonConstExecution4 extends NonConstExecution {
@@ -25,12 +26,12 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
-    override def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, 4, isConst = true)
+    override def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, Bytes.fromInt(value).get())
   }
 
   final case class Write8(value: Long, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
-    override def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, 8, isConst = true)
+    override def markConsts(runtime: Runtime): Unit = dst.markConst(runtime, Bytes.fromLong(value).get())
   }
 }
 
@@ -45,7 +46,7 @@ object Stack {
   final case class SetSize(oldSize: Int, newSize: Int) extends Execution {
     override def execute(runtime: Runtime): Unit = runtime.stack.setFramesize(newSize)
     override def markConsts(runtime: Runtime): Unit =
-      if (newSize > oldSize) runtime.consts.markConst(FrameOffset.nonNegative(oldSize), newSize - oldSize, isConst = true)
+      if (newSize > oldSize) runtime.consts.markConsts(FrameOffset.nonNegative(oldSize), Array.fill[Byte](newSize - oldSize)(0))
   }
 }
 

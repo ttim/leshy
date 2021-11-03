@@ -50,7 +50,7 @@ class Interpreter(loader: FnLoader, debug: Boolean) {
       case Operation.Extend(lengthAst) =>
         val length = evalConst(lengthAst).asInt
         runtime.stack.extend(length)
-        runtime.consts.markConst(FrameOffset.nonNegative(runtime.stack.frameSize() - length), length, isConst = true)
+        runtime.consts.markConsts(FrameOffset.nonNegative(runtime.stack.frameSize() - length), Array.fill(length)(0))
         None
       case Operation.Shrink(lengthAst) =>
         val length = evalConst(lengthAst).asInt
