@@ -17,7 +17,24 @@ object NodeFactory {
 
     def node(op: OperationRef): GenericNode = GenericNode.of(ctx => compiler.create(op, ctx))
 
-    def executeNode(execution: Execution): Node = Node.Run(options, execution, node(op.next))
+    def executeNode(execution: Execution): Node = {
+      val (stackSize, prevConsts) = ctx.get()
+      val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(prevConsts))
+      val nextOptions = Node.Options(compiler.debugEnabled, op.next, nextCtx)
+      val nextNode = Node.LazyNode(nextOptions, () => compiler.create(op.next, nextCtx))
+      Node.Run(options, execution, nextNode)
+    }
+    def targetNode(target: OperationRef): Node = {
+      val targetOptions = Node.Options(compiler.debugEnabled, target, ctx)
+      Node.LazyNode(targetOptions, () => compiler.create(target, ctx))
+    }
+    def callNode(fn: String, offset: FrameOffset): Node = {
+      val target = OperationRef(fn, 0)
+      val callCtx = SpecializationContext.offset(options.ctx, offset)
+      val callOptions = Node.Options(compiler.debugEnabled, target, callCtx)
+      Node.LazyNode(callOptions, () => compiler.create(target, callCtx))
+    }
+
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
@@ -34,7 +51,7 @@ object NodeFactory {
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
-          Node.Call(options, offset, node(OperationRef(target, 0)), node(op.next))
+          Node.Call(options, offset, callNode(target, offset), node(op.next))
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
           create(compiler, symbols, ctx, op.next, fn)
@@ -54,7 +71,7 @@ object NodeFactory {
               throw new UnsupportedOperationException(length + " " + modifier)
           }
 
-          Node.Branch(options, impl, node(target), node(op.next))
+          Node.Branch(options, impl, targetNode(target), targetNode(op.next))
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, symbols, ctx, target, fn)

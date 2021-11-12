@@ -5,7 +5,9 @@ import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime}
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
+
   def markConsts(consts: Consts): Consts
+  def stackSize(before: Int): Int = before
 }
 
 sealed abstract class NonConstExecution extends Execution {
@@ -50,6 +52,11 @@ object Stack {
         consts.markConsts(FrameOffset.nonNegative(oldSize), Array.fill[Byte](newSize - oldSize)(0))
       else
         consts.unmarkConsts(FrameOffset.nonNegative(newSize), oldSize - newSize)
+
+    override def stackSize(before: Int): Int = {
+      assert(before == oldSize)
+      newSize
+    }
   }
 }
 

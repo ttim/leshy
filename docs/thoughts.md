@@ -6,3 +6,4 @@
 - Everything starts with core values / ideas of the project. I need to think this through.
   Seems like simplicity / no registers / specialization / focus on high level organization
   (as code caching etc, and symbols abstraction) is more important for me
+- Nodes should be reasonably efficient in interpreting but not *that* efficient, they are only intermediate step

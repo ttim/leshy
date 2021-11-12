@@ -55,61 +55,44 @@ sealed abstract class Node {
     if (debug) println(s"[${options.srcOp}, ${options.ctx}]: $msg")
 }
 
+// todo: add asserts on compatibility of contexts
+// or maybe there is no context in node?!? and it's just part of node factory on how to create them?!
+// ^ seems correct
 object Node {
   final case class Options(debug: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
 
-  final case class Run(options: Options, impl: Execution, next: GenericNode) extends Node {
-    private var computedNext: Node = null
+  final case class LazyNode(options: Options, node: () => Node) extends Node {
+    private var computed: Node = null
 
-    protected def runInternal(runtime: Runtime): Node =
-      if (computedNext != null) {
-        impl.execute(runtime)
-        computedNext
-      } else {
-        impl.execute(runtime)
-        val (_, prevConsts) = options.ctx.get()
-        val nextContext = SpecializationContext.from(runtime.stack.frameSize(), impl.markConsts(prevConsts))
-        computedNext = next.create(nextContext)
-        computedNext
-      }
+    override protected def runInternal(runtime: Runtime): Node = {
+      if (computed == null) computed = node()
+      computed
+    }
+
+    def computedNode(): Option[Node] = Option(computed)
   }
 
-  final case class Branch(options: Options, impl: BranchExecution, ifTrue: GenericNode, ifFalse: GenericNode) extends Node {
-    private var computedIfTrue: Node = null
-    private var computedIfFalse: Node = null
+  final case class Run(options: Options, impl: Execution, var next: Node) extends Node {
+    protected def runInternal(runtime: Runtime): Node = {
+      impl.execute(runtime)
+      next
+    }
+  }
 
+  final case class Branch(options: Options, impl: BranchExecution, var ifTrue: Node, var ifFalse: Node) extends Node {
     override protected def runInternal(runtime: Runtime): Node =
-      if (impl.execute(runtime)) ifTrueNode() else ifFalseNode()
-
-    private def ifTrueNode(): Node = {
-      if (computedIfTrue == null) computedIfTrue = ifTrue.create(options.ctx)
-      computedIfTrue
-    }
-
-    private def ifFalseNode(): Node = {
-      if (computedIfFalse == null) computedIfFalse = ifFalse.create(options.ctx)
-      computedIfFalse
-    }
+      if (impl.execute(runtime)) ifTrue else ifFalse
   }
 
-  final case class Call(options: Options, offset: FrameOffset, call: GenericNode, next: GenericNode) extends Node {
-    private var cachedCall: Node = null
+  final case class Call(options: Options, offset: FrameOffset, var call: Node, next: GenericNode) extends Node {
     private var cachedNextNode = Map[SpecializationContext, Node]()
 
     override protected def runInternal(runtime: Runtime): Node = {
       runtime.stack.moveFrame(offset.get)
-      val finalCtx = callNode().run(runtime)
+      val finalCtx = call.run(runtime)
       runtime.stack.moveFrame(-offset.get)
       // depending on calculation/specializations being made by callee next line node might be different
       nextNode(finalCtx)
-    }
-
-    private def callNode(): Node = {
-      if (cachedCall == null) {
-        val callCtx = SpecializationContext.offset(options.ctx, offset)
-        cachedCall = call.create(callCtx)
-      }
-      cachedCall
     }
 
     private def nextNode(calleeCtx: SpecializationContext): Node =
