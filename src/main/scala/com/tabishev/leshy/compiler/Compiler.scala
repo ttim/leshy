@@ -42,7 +42,27 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     node
   }
 
-  def optimize(): Unit = ()
+  def optimize(): Unit = {
+    nodes.values.foreach {
+      case run: Node.Run =>
+        inlineLazyNode(() => run.next, node => run.next = node)
+      case branch: Node.Branch =>
+        inlineLazyNode(() => branch.ifTrue, node => branch.ifTrue = node)
+        inlineLazyNode(() => branch.ifFalse, node => branch.ifFalse = node)
+      case call: Node.Call =>
+        inlineLazyNode(() => call.call, node => call.call = node)
+      case _ => // do nothing
+    }
+  }
+
+  private def inlineLazyNode(get: () => Node, set: Node => Unit): Unit =
+    get() match {
+      case next: Node.LazyNode => next.computedNode() match {
+        case Some(computed) => set(computed)
+        case None => // do nothing
+      }
+      case _ => // do nothing
+    }
 
   private def replace(replacements: Map[Node, Node]): Unit = {
     val toReplace = nodes.filter { case (_, node) => replacements.contains(node) }.keys.toArray
