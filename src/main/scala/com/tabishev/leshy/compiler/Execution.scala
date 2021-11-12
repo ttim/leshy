@@ -1,9 +1,10 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
+import com.tabishev.leshy.node.RunImpl
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime}
 
-sealed abstract class Execution {
+sealed abstract class Execution extends RunImpl {
   def execute(runtime: Runtime): Unit
 
   def markConsts(consts: Consts): Consts

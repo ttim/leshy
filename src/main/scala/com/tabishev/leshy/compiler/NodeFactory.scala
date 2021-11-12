@@ -3,36 +3,41 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast
 import com.tabishev.leshy.ast.{Bytes, Fn}
 import com.tabishev.leshy.common.ConstInterpreter
+import com.tabishev.leshy.node.Node
 import com.tabishev.leshy.runtime.{FrameOffset, Symbols}
 
 import scala.annotation.tailrec
 import scala.util.Try
 
+case class OriginInfo(srcOp: OperationRef, ctx: SpecializationContext) extends Node.Payload
+
 object NodeFactory {
   @tailrec
   def create(compiler: Compiler, symbols: Symbols,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val options = Node.Options(compiler.debugEnabled, op, ctx)
+    val options = OriginInfo(op, ctx)
     val constInterpreter = SpecializationContextConstInterpreter(symbols, ctx)
 
     def executeNode(execution: Execution): Node = {
       val (stackSize, prevConsts) = ctx.get()
       val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(prevConsts))
-      val nextOptions = Node.Options(compiler.debugEnabled, op.next, nextCtx)
+      val nextOptions = OriginInfo(op.next, nextCtx)
       val nextNode = Node.LazyNode(nextOptions, () => compiler.create(op.next, nextCtx))
       Node.Run(options, execution, nextNode)
     }
     def targetNode(target: OperationRef): Node = {
-      val targetOptions = Node.Options(compiler.debugEnabled, target, ctx)
+      val targetOptions = OriginInfo(target, ctx)
       Node.LazyNode(targetOptions, () => compiler.create(target, ctx))
     }
     def fnCallNode(fn: String, offset: FrameOffset): Node = {
       val target = OperationRef(fn, 0)
       val callCtx = SpecializationContext.offset(ctx, offset)
-      val callOptions = Node.Options(compiler.debugEnabled, target, callCtx)
+      val callOptions = OriginInfo(target, callCtx)
       Node.LazyNode(callOptions, () => compiler.create(target, callCtx))
     }
-    def fnCallNextNode(calleeCtx: SpecializationContext, offset: FrameOffset): Node = {
+    def fnCallNextNode(calleeFinalNode: Node.Final, offset: FrameOffset): Node = {
+      val calleeCtx = calleeFinalNode.payload.asInstanceOf[OriginInfo].ctx
+      // depending on calculation/specializations being made by callee next line node might be different
       val nextCtx = SpecializationContext.fnCall(ctx, offset, calleeCtx)
       compiler.create(op.next, nextCtx)
     }
@@ -53,7 +58,7 @@ object NodeFactory {
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
-          Node.Call(options, offset, fnCallNode(target, offset), calleeCtx => fnCallNextNode(calleeCtx, offset))
+          Node.Call(options, offset, fnCallNode(target, offset), calleeFinalNode => fnCallNextNode(calleeFinalNode, offset))
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
           create(compiler, symbols, ctx, op.next, fn)
