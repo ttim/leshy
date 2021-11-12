@@ -1,21 +1,31 @@
 package com.tabishev.leshy.node
 
 object NodeUtils {
-  def inlineLazyNode(node: Node): Unit = node match {
+  def inlineIndirectNode(node: Node): Unit = node match {
     case run: Node.Run =>
-      inlineLazyNode(() => run.next, node => run.next = node)
+      inlineIndirectNode(() => run.next, node => run.next = node)
     case branch: Node.Branch =>
-      inlineLazyNode(() => branch.ifTrue, node => branch.ifTrue = node)
-      inlineLazyNode(() => branch.ifFalse, node => branch.ifFalse = node)
+      inlineIndirectNode(() => branch.ifTrue, node => branch.ifTrue = node)
+      inlineIndirectNode(() => branch.ifFalse, node => branch.ifFalse = node)
     case call: Node.Call =>
-      inlineLazyNode(() => call.call, node => call.call = node)
-    case _ => // do nothing
+      inlineIndirectNode(() => call.call, node => call.call = node)
+      call.next = call.next.map { (key, value) =>
+        (key, value match {
+          case indirect: Node.Indirect if indirect.node != null => indirect.node
+          case other => other
+        })
+      }
+    case indirect: Node.Indirect =>
+      inlineIndirectNode(() => indirect.node, node => indirect.node = node)
+    case _: Node.Generated =>
+      // do nothing
+    case _: Node.Final =>
+      // do nothing
   }
 
-  private def inlineLazyNode(get: () => Node, set: Node => Unit): Unit =
+  private def inlineIndirectNode(get: () => Node, set: Node => Unit): Unit =
     get() match {
-      case next: Node.LazyNode =>
-        if (next.node != null) set(next.node)
+      case next: Node.Indirect if next.node != null => set(next.node)
       case _ => // do nothing
     }
 }

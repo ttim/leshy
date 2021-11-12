@@ -15,31 +15,16 @@ object NodeFactory {
   @tailrec
   def create(compiler: Compiler, symbols: Symbols,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val options = OriginInfo(op, ctx)
+    val originInfo = OriginInfo(op, ctx)
     val constInterpreter = SpecializationContextConstInterpreter(symbols, ctx)
+
+    def lazyNode(nextCtx: SpecializationContext, nextOp: OperationRef): Node.Indirect =
+      new Node.Indirect(OriginInfo(nextOp, nextCtx), () => compiler.create(nextOp, nextCtx))
 
     def executeNode(execution: Execution): Node = {
       val (stackSize, prevConsts) = ctx.get()
       val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(prevConsts))
-      val nextOptions = OriginInfo(op.next, nextCtx)
-      val nextNode = Node.LazyNode(nextOptions, () => compiler.create(op.next, nextCtx))
-      Node.Run(options, execution, nextNode)
-    }
-    def targetNode(target: OperationRef): Node = {
-      val targetOptions = OriginInfo(target, ctx)
-      Node.LazyNode(targetOptions, () => compiler.create(target, ctx))
-    }
-    def fnCallNode(fn: String, offset: FrameOffset): Node = {
-      val target = OperationRef(fn, 0)
-      val callCtx = SpecializationContext.offset(ctx, offset)
-      val callOptions = OriginInfo(target, callCtx)
-      Node.LazyNode(callOptions, () => compiler.create(target, callCtx))
-    }
-    def fnCallNextNode(calleeFinalNode: Node.Final, offset: FrameOffset): Node = {
-      val calleeCtx = calleeFinalNode.payload.asInstanceOf[OriginInfo].ctx
-      // depending on calculation/specializations being made by callee next line node might be different
-      val nextCtx = SpecializationContext.fnCall(ctx, offset, calleeCtx)
-      compiler.create(op.next, nextCtx)
+      Node.Run(originInfo, execution, lazyNode(nextCtx, op.next))
     }
 
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
@@ -47,7 +32,7 @@ object NodeFactory {
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
 
     op.resolve(fn) match {
-      case None => Node.Final(options)
+      case None => Node.Final(originInfo)
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
@@ -58,7 +43,13 @@ object NodeFactory {
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
-          Node.Call(options, offset, fnCallNode(target, offset), calleeFinalNode => fnCallNextNode(calleeFinalNode, offset))
+          val callNode = lazyNode(SpecializationContext.offset(ctx, offset), OperationRef(target, 0))
+          Node.Call(originInfo, offset, callNode, calleeFinalNode => {
+            val calleeCtx = calleeFinalNode.payload.asInstanceOf[OriginInfo].ctx
+            // depending on calculation/specializations being made by callee next line node might be different
+            val nextCtx = SpecializationContext.fnCall(ctx, offset, calleeCtx)
+            compiler.create(op.next, nextCtx)
+          })
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
           create(compiler, symbols, ctx, op.next, fn)
@@ -78,7 +69,7 @@ object NodeFactory {
               throw new UnsupportedOperationException(length + " " + modifier)
           }
 
-          Node.Branch(options, impl, targetNode(target), targetNode(op.next))
+          Node.Branch(originInfo, impl, lazyNode(ctx, target), lazyNode(ctx, op.next))
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, symbols, ctx, target, fn)

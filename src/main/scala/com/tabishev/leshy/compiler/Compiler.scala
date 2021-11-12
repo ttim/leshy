@@ -44,14 +44,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   }
 
   def optimize(): Unit = {
-    nodes.values.foreach(NodeUtils.inlineLazyNode)
-  }
-
-  private def replace(replacements: Map[Node, Node]): Unit = {
-    val toReplace = nodes.filter { case (_, node) => replacements.contains(node) }.keys.toArray
-    toReplace.foreach { key =>
-      nodes.put(key, replacements(nodes(key)))
-    }
+    nodes.values.foreach(NodeUtils.inlineIndirectNode)
   }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
