@@ -4,32 +4,6 @@ import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
 
 import scala.collection.mutable
 
-final class GenericNode(
-                         val specialize: SpecializationContext => Node,
-                         val specialized: mutable.Map[SpecializationContext, Node],
-                       ) {
-  def create(ctx: SpecializationContext): Node = specialized.getOrElseUpdate(ctx, specialize(ctx))
-}
-
-object GenericNode {
-  def specialized(map: mutable.HashMap[SpecializationContext, Node]): GenericNode =
-    new GenericNode(_ => throw new IllegalArgumentException, map)
-
-  def const(node: Node): GenericNode = specialized(mutable.HashMap(node.options.ctx -> node))
-
-  def holder(): GenericNode = specialized(mutable.HashMap())
-
-  def of(fn: SpecializationContext => Node): GenericNode =
-    new GenericNode(fn, mutable.HashMap[SpecializationContext, Node]())
-
-  def merge(node: GenericNode, replaces: Map[SpecializationContext, Node]): GenericNode = {
-    val resultNodes = mutable.HashMap[SpecializationContext, Node]()
-    resultNodes.addAll(node.specialized)
-    resultNodes.addAll(replaces)
-    new GenericNode(node.specialize, resultNodes)
-  }
-}
-
 sealed abstract class Node {
   val options: Node.Options
 
@@ -61,6 +35,7 @@ sealed abstract class Node {
 object Node {
   final case class Options(debug: Boolean, srcOp: OperationRef, ctx: SpecializationContext)
 
+  // todo: rework it by making `node` public, and adding callback computeNode: (LazyNode) => Unit
   final case class LazyNode(options: Options, node: () => Node) extends Node {
     private var computed: Node = null
 
@@ -84,7 +59,7 @@ object Node {
       if (impl.execute(runtime)) ifTrue else ifFalse
   }
 
-  final case class Call(options: Options, offset: FrameOffset, var call: Node, next: GenericNode) extends Node {
+  final case class Call(options: Options, offset: FrameOffset, var call: Node, next: SpecializationContext => Node) extends Node {
     private var cachedNextNode = Map[SpecializationContext, Node]()
 
     override protected def runInternal(runtime: Runtime): Node = {
@@ -97,8 +72,7 @@ object Node {
 
     private def nextNode(calleeCtx: SpecializationContext): Node =
       cachedNextNode.getOrElse(calleeCtx, {
-        val nextCtx = SpecializationContext.fnCall(options.ctx, offset, calleeCtx)
-        val node = next.create(nextCtx)
+        val node = next(calleeCtx)
         cachedNextNode = cachedNextNode.updated(calleeCtx, node)
         node
       })

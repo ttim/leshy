@@ -71,11 +71,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     }
   }
 
-  private def transform(transform: Transform): Unit = {
-    val transformed = Transform.apply(nodes.values.toSeq, transform)
-    nodes.mapValuesInPlace { case (_, node) => transformed(node) }
-  }
-
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
     if (debugEnabled || force) {
       val fnCtx = loader.load(op.fn).get
