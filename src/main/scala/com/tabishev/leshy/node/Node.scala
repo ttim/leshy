@@ -31,11 +31,11 @@ object Node {
   // marker interface, can be anything
   trait Payload
 
-  final class LazyNode(val payload: Node.Payload, val initNode: () => Node) extends Node {
+  final class Indirect(val payload: Node.Payload, val supply: () => Node) extends Node {
     var node: Node = null
 
     override protected def runInternal(runtime: Runtime): Node = {
-      if (node == null) node = initNode()
+      if (node == null) node = supply()
       node
     }
   }
@@ -52,7 +52,7 @@ object Node {
       if (impl.execute(runtime)) ifTrue else ifFalse
   }
 
-  final class Call(val payload: Payload, val offset: FrameOffset, var call: Node, val initNext: Node.Final => Node) extends Node {
+  final class Call(val payload: Payload, val offset: FrameOffset, var call: Node, val supplyNext: Node.Final => Node) extends Node {
     var next: Map[Node.Final, Node] = Map()
 
     override protected def runInternal(runtime: Runtime): Node = {
@@ -64,7 +64,7 @@ object Node {
 
     private def nextNode(calleeFinalNode: Node.Final): Node =
       next.getOrElse(calleeFinalNode, {
-        val node = initNext(calleeFinalNode)
+        val node = supplyNext(calleeFinalNode)
         next = next.updated(calleeFinalNode, node)
         node
       })
