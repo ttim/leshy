@@ -44,6 +44,13 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
 
   def optimize(): Unit = ()
 
+  private def replace(replacements: Map[Node, Node]): Unit = {
+    val toReplace = nodes.filter { case (_, node) => replacements.contains(node) }.keys.toArray
+    toReplace.foreach { key =>
+      nodes.put(key, replacements(nodes(key)))
+    }
+  }
+
   private def transform(transform: Transform): Unit = {
     val transformed = Transform.apply(nodes.values.toSeq, transform)
     nodes.mapValuesInPlace { case (_, node) => transformed(node) }

@@ -124,4 +124,10 @@ object Node {
   final case class Final(options: Options) extends Node {
     protected def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
   }
+
+  abstract class Generated(val original: Node) extends Node {
+    override val options: Options = original.options
+
+    override protected def runInternal(runtime: Runtime): Node = original.runInternal(runtime)
+  }
 }
