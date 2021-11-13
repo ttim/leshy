@@ -8,7 +8,14 @@ object Nodes {
   final case class Origin(op: OperationRef, ctx: SpecializationContext)
 
   final case class Link(compiler: Compiler, ctx: SpecializationContext, op: OperationRef) extends Node.Indirect {
-    override def resolve(): Node = compiler.create(op, ctx)
+    private var resolved: Node = null
+
+    override def tryResolve(): Option[Node] = Option(resolved)
+
+    override def resolve(): Node = {
+      if (resolved == null) resolved = compiler.create(op, ctx)
+      resolved
+    }
   }
 
   final case class Execute(compiler: Compiler, origin: Origin, execution: Execution) extends Node.Run {
@@ -29,24 +36,20 @@ object Nodes {
   }
 
   final case class Call(compiler: Compiler, origin: Origin, offset: FrameOffset, target: String) extends Node.Call {
-    override val call: Node = Link(compiler, SpecializationContext.offset(origin.ctx, offset), OperationRef(target, 0))
+    private var next: Map[Node.Final, Node] = Map()
 
-    // todo: add caching!
-    //    var next: Map[Node.Final, Node] = Map()
-    //
-    //    private def nextNode(calleeFinalNode: Node.Final): Node =
-    //      next.getOrElse(calleeFinalNode, {
-    //        val node = supplyNext(calleeFinalNode)
-    //        next = next.updated(calleeFinalNode, node)
-    //        node
-    //      })
+    override val call: Node =
+      Link(compiler, SpecializationContext.offset(origin.ctx, offset), OperationRef(target, 0))
 
-    override def next(returnNode: Node.Final): Node = {
-      val calleeCtx = returnNode.asInstanceOf[Final].origin.ctx
-      // depending on calculation/specializations being made by callee next line node might be different
-      val nextCtx = SpecializationContext.fnCall(origin.ctx, offset, calleeCtx)
-      compiler.create(origin.op.next, nextCtx)
-    }
+    override def next(returnNode: Node.Final): Node =
+      next.getOrElse(returnNode, {
+        val calleeCtx = returnNode.asInstanceOf[Final].origin.ctx
+        // depending on calculation/specializations being made by callee next line node might be different
+        val nextCtx = SpecializationContext.fnCall(origin.ctx, offset, calleeCtx)
+        val node = compiler.create(origin.op.next, nextCtx)
+        next = next.updated(returnNode, node)
+        node
+      })
   }
 
   final case class Final(compiler: Compiler, origin: Origin) extends Node.Final
