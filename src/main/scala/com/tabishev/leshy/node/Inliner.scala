@@ -1,8 +1,7 @@
 package com.tabishev.leshy.node
 
 object Inliner {
-  def inlineIndirect(node: Node): Node =
-    tryInline(Map(), node).getOrElse(node)
+  def inlineIndirect(node: Node): Node = inlineIndirect(Map(), node)
 
   private final class Holder extends Node.Indirect {
     var resolved: Node = null
@@ -18,40 +17,28 @@ object Inliner {
     }
   }
 
-  private def tryInline(inProcess: Map[Node, Holder], node: Node): Option[Node] =
-    if (inProcess.contains(node)) Some(inProcess(node)) else {
+  private def inlineIndirect(inProcess: Map[Node, Holder], node: Node): Node =
+    if (inProcess.contains(node)) inProcess(node) else {
       val holder = new Holder()
       val nextInProcess = inProcess + ((node, holder))
-      val inlined: Option[Node] = node match {
+      val inlined: Node = node match {
         case indirect: Node.Indirect =>
           indirect.tryResolve() match {
-            case Some(resolved) => Some(tryInline(nextInProcess, resolved).getOrElse(resolved))
-            case None => None
+            case Some(resolved) => inlineIndirect(nextInProcess, resolved)
+            case None => indirect
           }
         case run: Node.Run =>
-          tryInline(nextInProcess, run.next).map { inlinedNext =>
-            run.replace(withNext = inlinedNext)
-          }
+          run.copy(next = inlineIndirect(nextInProcess, run.next))
         case branch: Node.Branch =>
-          val inlinedTrue = tryInline(nextInProcess, branch.ifTrue)
-          val inlinedFalse = tryInline(nextInProcess, branch.ifFalse)
-          if (inlinedTrue.isDefined || inlinedFalse.isDefined)
-            Some(branch.replace(
-              withIfTrue = inlinedTrue.getOrElse(branch.ifTrue),
-              withIfFalse = inlinedFalse.getOrElse(branch.ifFalse)
-            ))
-          else
-            None
+          branch.copy(ifTrue = inlineIndirect(nextInProcess, branch.ifTrue), ifFalse = inlineIndirect(nextInProcess, branch.ifFalse))
         case call: Node.Call =>
-          tryInline(nextInProcess, call.call).map { inlinedCall =>
-            call.replace(withCall = inlinedCall)
-          }
+          call.copy(call = inlineIndirect(nextInProcess, call.call))
         case _: Node.Final =>
-          None
+          node
         case _: Node.Generated =>
-          None
+          node
       }
-      holder.resolved = inlined.getOrElse(node)
+      holder.resolved = inlined
       inlined
     }
 }

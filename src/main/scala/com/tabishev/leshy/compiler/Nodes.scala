@@ -19,7 +19,7 @@ object Nodes {
   }
 
   final case class Execute(origin: Origin, next: Node, execution: Execution) extends Node.Run {
-    override def replace(withNext: Node): Node.Run = copy(next = withNext)
+    override def copy(next: Node): Node.Run = Execute(origin, next, execution)
 
     override def execute(runtime: Runtime): Unit = execution.execute(runtime)
   }
@@ -31,8 +31,7 @@ object Nodes {
   }
 
   final case class Branch(origin: Origin, ifTrue: Node, ifFalse: Node, execution: BranchExecution) extends Node.Branch {
-    override def replace(withIfTrue: Node, withIfFalse: Node): Node.Branch =
-      copy(ifTrue = withIfTrue, ifFalse = withIfFalse)
+    override def copy(ifTrue: Node, ifFalse: Node): Node.Branch = Branch(origin, ifTrue, ifFalse, execution)
 
     override def execute(runtime: Runtime): Boolean = execution.execute(runtime)
   }
@@ -43,7 +42,7 @@ object Nodes {
   final case class Call(origin: Origin, call: Node, offset: FrameOffset) extends Node.Call {
     private var next: Map[Node.Final, Node] = Map()
 
-    override def replace(withCall: Node): Node.Call = copy(call = withCall)
+    override def copy(call: Node): Node.Call = Call(origin, call, offset)
 
     override def next(returnNode: Node.Final): Node =
       next.getOrElse(returnNode, {
