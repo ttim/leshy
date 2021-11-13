@@ -21,7 +21,7 @@ object NodeFactory {
     def lazyNode(nextCtx: SpecializationContext, nextOp: OperationRef): Node.Indirect =
       Nodes.Link(compiler, nextCtx, nextOp)
 
-    def executeNode(execution: Execution): Node = Nodes.Execute(compiler, origin, execution)
+    def executeNode(execution: Execution): Node = Nodes.execute(compiler, origin, execution)
 
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
@@ -39,7 +39,7 @@ object NodeFactory {
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
-          Nodes.Call(compiler, origin, offset, target)
+          Nodes.call(compiler, origin, offset, target)
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
           create(compiler, symbols, ctx, op.next, fn)
@@ -59,7 +59,7 @@ object NodeFactory {
               throw new UnsupportedOperationException(length + " " + modifier)
           }
 
-          Nodes.Branch(compiler, origin, impl, target)
+          Nodes.branch(compiler, origin, impl, target)
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, symbols, ctx, target, fn)
