@@ -15,20 +15,16 @@ object NodeFactory {
   @tailrec
   def create(compiler: Compiler, symbols: Symbols,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val origin = Origin(op, ctx)
+    val origin = Origin(compiler, op, ctx)
     val constInterpreter = SpecializationContextConstInterpreter(symbols, ctx)
 
-    def lazyNode(nextCtx: SpecializationContext, nextOp: OperationRef): Node.Indirect =
-      Nodes.Link(compiler, nextCtx, nextOp)
-
-    def executeNode(execution: Execution): Node = Nodes.execute(compiler, origin, execution)
-
+    def executeNode(execution: Execution): Node = Nodes.execute(origin, execution)
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
 
     op.resolve(fn) match {
-      case None => Nodes.Final(compiler, origin)
+      case None => Nodes.Final(origin)
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
@@ -39,7 +35,7 @@ object NodeFactory {
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
-          Nodes.call(compiler, origin, offset, target)
+          Nodes.call(origin, offset, target)
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
           create(compiler, symbols, ctx, op.next, fn)
@@ -59,7 +55,7 @@ object NodeFactory {
               throw new UnsupportedOperationException(length + " " + modifier)
           }
 
-          Nodes.branch(compiler, origin, impl, target)
+          Nodes.branch(origin, impl, target)
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, symbols, ctx, target, fn)
