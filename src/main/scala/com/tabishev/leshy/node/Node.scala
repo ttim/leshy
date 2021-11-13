@@ -5,8 +5,6 @@ import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
 import scala.collection.mutable
 
 sealed abstract class Node {
-  val payload: Node.Payload
-
   final def run(runtime: Runtime): Node.Final = {
     var node: Node = this
     while (!node.isInstanceOf[Node.Final]) {
@@ -19,71 +17,57 @@ sealed abstract class Node {
     node.asInstanceOf[Node.Final]
   }
 
-  protected def runInternal(runtime: Runtime): Node
+  def runInternal(runtime: Runtime): Node
 
   private inline def debug(inline msg: => String): Unit =
-    if (Node.Debug) println(s"[$payload]: $msg")
+    if (Node.Debug) println(s"[${toString()}]: $msg")
 }
 
 object Node {
   private val Debug: Boolean = false
 
-  // marker interface, can be anything
-  trait Payload
+  abstract class Indirect extends Node {
+    def resolve(): Node
 
-  final class Indirect(val payload: Node.Payload, val supply: () => Node) extends Node {
-    var node: Node = null
-
-    override protected def runInternal(runtime: Runtime): Node = {
-      if (node == null) node = supply()
-      node
-    }
+    final override def runInternal(runtime: Runtime): Node = resolve()
   }
 
-  final class Run(val payload: Payload, val impl: RunImpl, var next: Node) extends Node {
-    protected def runInternal(runtime: Runtime): Node = {
-      impl.execute(runtime)
+  abstract class Run extends Node {
+    val next: Node
+    def execute(runtime: Runtime): Unit
+
+    final def runInternal(runtime: Runtime): Node = {
+      execute(runtime)
       next
     }
   }
 
-  final class Branch(val payload: Payload, val impl: BranchImpl, var ifTrue: Node, var ifFalse: Node) extends Node {
-    override protected def runInternal(runtime: Runtime): Node =
-      if (impl.execute(runtime)) ifTrue else ifFalse
+  abstract class Branch extends Node {
+    val ifTrue: Node
+    val ifFalse: Node
+    def execute(runtime: Runtime): Boolean
+
+    final override def runInternal(runtime: Runtime): Node =
+      if (execute(runtime)) ifTrue else ifFalse
   }
 
-  final class Call(val payload: Payload, val offset: FrameOffset, var call: Node, val supplyNext: Node.Final => Node) extends Node {
-    var next: Map[Node.Final, Node] = Map()
+  abstract class Call extends Node {
+    val offset: FrameOffset
+    val call: Node
 
-    override protected def runInternal(runtime: Runtime): Node = {
+    def next(returnNode: Node.Final): Node
+
+    final override def runInternal(runtime: Runtime): Node = {
       runtime.stack.moveFrame(offset.get)
       val finalNode = call.run(runtime)
       runtime.stack.moveFrame(-offset.get)
-      nextNode(finalNode)
+      next(finalNode)
     }
-
-    private def nextNode(calleeFinalNode: Node.Final): Node =
-      next.getOrElse(calleeFinalNode, {
-        val node = supplyNext(calleeFinalNode)
-        next = next.updated(calleeFinalNode, node)
-        node
-      })
   }
 
-  final class Final(val payload: Node.Payload) extends Node {
-    protected def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
+  abstract class Final extends Node {
+    final def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
   }
 
-  abstract class Generated(val original: Node) extends Node {
-    override val payload: Payload = original.payload
-    override protected def runInternal(runtime: Runtime): Node = original.runInternal(runtime)
-  }
-}
-
-abstract class RunImpl {
-  def execute(runtime: Runtime): Unit
-}
-
-abstract class BranchImpl {
-  def execute(runtime: Runtime): Boolean
+  abstract class Generated extends Node
 }

@@ -44,7 +44,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   }
 
   def optimize(): Unit = {
-    nodes.values.foreach(NodeUtils.inlineIndirectNode)
+//    nodes.values.foreach(NodeUtils.inlineIndirectNode)
   }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =

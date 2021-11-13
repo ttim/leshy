@@ -2,37 +2,33 @@ package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast
 import com.tabishev.leshy.ast.{Bytes, Fn}
+import com.tabishev.leshy.runtime.Runtime
 import com.tabishev.leshy.common.ConstInterpreter
+import com.tabishev.leshy.compiler.Nodes.Origin
 import com.tabishev.leshy.node.Node
 import com.tabishev.leshy.runtime.{FrameOffset, Symbols}
 
 import scala.annotation.tailrec
 import scala.util.Try
 
-case class OriginInfo(srcOp: OperationRef, ctx: SpecializationContext) extends Node.Payload
-
 object NodeFactory {
   @tailrec
   def create(compiler: Compiler, symbols: Symbols,
              ctx: SpecializationContext, op: OperationRef, fn: Fn): Node = {
-    val originInfo = OriginInfo(op, ctx)
+    val origin = Origin(op, ctx)
     val constInterpreter = SpecializationContextConstInterpreter(symbols, ctx)
 
     def lazyNode(nextCtx: SpecializationContext, nextOp: OperationRef): Node.Indirect =
-      new Node.Indirect(OriginInfo(nextOp, nextCtx), () => compiler.create(nextOp, nextCtx))
+      Nodes.Link(compiler, nextCtx, nextOp)
 
-    def executeNode(execution: Execution): Node = {
-      val (stackSize, prevConsts) = ctx.get()
-      val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(prevConsts))
-      Node.Run(originInfo, execution, lazyNode(nextCtx, op.next))
-    }
+    def executeNode(execution: Execution): Node = Nodes.Execute(compiler, origin, execution)
 
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
     def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
 
     op.resolve(fn) match {
-      case None => Node.Final(originInfo)
+      case None => Nodes.Final(compiler, origin)
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
@@ -43,13 +39,7 @@ object NodeFactory {
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
-          val callNode = lazyNode(SpecializationContext.offset(ctx, offset), OperationRef(target, 0))
-          Node.Call(originInfo, offset, callNode, calleeFinalNode => {
-            val calleeCtx = calleeFinalNode.payload.asInstanceOf[OriginInfo].ctx
-            // depending on calculation/specializations being made by callee next line node might be different
-            val nextCtx = SpecializationContext.fnCall(ctx, offset, calleeCtx)
-            compiler.create(op.next, nextCtx)
-          })
+          Nodes.Call(compiler, origin, offset, target)
         case ast.Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
           create(compiler, symbols, ctx, op.next, fn)
@@ -69,7 +59,7 @@ object NodeFactory {
               throw new UnsupportedOperationException(length + " " + modifier)
           }
 
-          Node.Branch(originInfo, impl, lazyNode(ctx, target), lazyNode(ctx, op.next))
+          Nodes.Branch(compiler, origin, impl, target)
         case ast.Operation.Jump(targetAst) =>
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
           create(compiler, symbols, ctx, target, fn)
