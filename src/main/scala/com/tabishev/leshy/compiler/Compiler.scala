@@ -3,7 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.common.ConstInterpreter
 import com.tabishev.leshy.loader.FnLoader
-import com.tabishev.leshy.node.{Node, NodeUtils}
+import com.tabishev.leshy.node.{Node, Inliner}
 import com.tabishev.leshy.runtime.{Consts, FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
@@ -44,7 +44,14 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   }
 
   def optimize(): Unit = {
-//    nodes.values.foreach(NodeUtils.inlineIndirectNode)
+    inlineNodes()
+  }
+
+  private def inlineNodes(): Unit = {
+    val replacement = nodes.map { (key, node) =>
+      (key, Inliner.inlineIndirect(node))
+    }
+    nodes.addAll(replacement)
   }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
