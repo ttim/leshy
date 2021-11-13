@@ -35,6 +35,8 @@ object Node {
 
   abstract class Run extends Node {
     val next: Node
+    def replace(withNext: Node): Run
+
     def execute(runtime: Runtime): Unit
 
     final def runInternal(runtime: Runtime): Node = {
@@ -46,6 +48,8 @@ object Node {
   abstract class Branch extends Node {
     val ifTrue: Node
     val ifFalse: Node
+    def replace(withIfTrue: Node, withIfFalse: Node): Branch
+
     def execute(runtime: Runtime): Boolean
 
     final override def runInternal(runtime: Runtime): Node =
@@ -55,6 +59,7 @@ object Node {
   abstract class Call extends Node {
     val offset: FrameOffset
     val call: Node
+    def replace(withCall: Node): Call
 
     def next(returnNode: Node.Final): Node
 

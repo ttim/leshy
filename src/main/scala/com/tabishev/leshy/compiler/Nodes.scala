@@ -18,28 +18,32 @@ object Nodes {
     }
   }
 
-  final case class Execute(compiler: Compiler, origin: Origin, execution: Execution) extends Node.Run {
-    override def execute(runtime: Runtime): Unit = execution.execute(runtime)
+  final case class Execute(compiler: Compiler, origin: Origin, next: Node, execution: Execution) extends Node.Run {
+    override def replace(withNext: Node): Node.Run = copy(next = withNext)
 
-    override val next: Node = {
-      val (stackSize, prevConsts) = origin.ctx.get()
-      val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(prevConsts))
-      Link(compiler, nextCtx, origin.op.next)
-    }
+    override def execute(runtime: Runtime): Unit = execution.execute(runtime)
   }
 
-  final case class Branch(compiler: Compiler, origin: Origin, execution: BranchExecution, target: OperationRef) extends Node.Branch {
-    override val ifTrue: Node = Link(compiler, origin.ctx, target)
-    override val ifFalse: Node = Link(compiler, origin.ctx, origin.op.next)
+  def execute(compiler: Compiler, origin: Origin, execution: Execution): Execute = {
+    val (stackSize, prevConsts) = origin.ctx.get()
+    val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(prevConsts))
+    Execute(compiler, origin, Link(compiler, nextCtx, origin.op.next), execution)
+  }
+
+  final case class Branch(compiler: Compiler, origin: Origin, ifTrue: Node, ifFalse: Node, execution: BranchExecution) extends Node.Branch {
+    override def replace(withIfTrue: Node, withIfFalse: Node): Node.Branch =
+      copy(ifTrue = withIfTrue, ifFalse = withIfFalse)
 
     override def execute(runtime: Runtime): Boolean = execution.execute(runtime)
   }
 
-  final case class Call(compiler: Compiler, origin: Origin, offset: FrameOffset, target: String) extends Node.Call {
+  def branch(compiler: Compiler, origin: Origin, execution: BranchExecution, target: OperationRef): Branch =
+    Branch(compiler, origin, Link(compiler, origin.ctx, target), Link(compiler, origin.ctx, origin.op.next), execution)
+
+  final case class Call(compiler: Compiler, origin: Origin, call: Node, offset: FrameOffset) extends Node.Call {
     private var next: Map[Node.Final, Node] = Map()
 
-    override val call: Node =
-      Link(compiler, SpecializationContext.offset(origin.ctx, offset), OperationRef(target, 0))
+    override def replace(withCall: Node): Node.Call = copy(call = withCall)
 
     override def next(returnNode: Node.Final): Node =
       next.getOrElse(returnNode, {
@@ -50,6 +54,11 @@ object Nodes {
         next = next.updated(returnNode, node)
         node
       })
+  }
+
+  def call(compiler: Compiler, origin: Origin, offset: FrameOffset, target: String): Call = {
+    val node = Link(compiler, SpecializationContext.offset(origin.ctx, offset), OperationRef(target, 0))
+    Call(compiler, origin, node, offset)
   }
 
   final case class Final(compiler: Compiler, origin: Origin) extends Node.Final
