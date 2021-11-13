@@ -28,6 +28,7 @@ object Node {
 
   abstract class Indirect extends Node {
     def resolve(): Node
+    def tryResolve(): Option[Node]
 
     final override def runInternal(runtime: Runtime): Node = resolve()
   }
