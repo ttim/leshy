@@ -1,8 +1,8 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime}
-import org.objectweb.asm.MethodVisitor
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime}
+import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
@@ -30,9 +30,13 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
+
     override def write(writer: MethodVisitor): Unit = {
-      ???
+      writer.pushMemoryRef(dst)
+      writer.visitLdcInsn(value)
+      writer.invoke[MemoryRef]("putInt")
     }
+
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
   }
 
