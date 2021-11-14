@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{Const, Execution, MemoryOperand, Nodes, Stack}
+import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Nodes, Stack}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
@@ -11,30 +11,34 @@ import java.util
 
 class BytecodeCompilerSpec extends munit.FunSuite {
   private def genOrigin(): Nodes.Origin = Nodes.Origin(null, null, null)
-
   private def finalNode(): Node = Nodes.Final(genOrigin())
-  private def executeNode(ex: Execution, next: Node): Node = Nodes.Execute(genOrigin(), next, ex)
+  private def executeNode(ex: Execution): Node = Nodes.Execute(genOrigin(), finalNode(), ex)
 
   test("write4") {
-    check(
-      executeNode(
-        Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero)),
-        finalNode()))
+    testExecution(Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero)))
   }
 
   test("write8") {
-    check(
-      executeNode(
-        Const.Write8(Long.MaxValue - 777, MemoryOperand.Stack(FrameOffset.Zero)),
-        finalNode()))
+    testExecution(Const.Write8(Long.MaxValue - 777, MemoryOperand.Stack(FrameOffset.Zero)))
   }
 
   test("setSize") {
-    check(
-      executeNode(
-        Stack.SetSize(0, 12),
-        finalNode()))
+    testExecution(Stack.SetSize(0, 12))
   }
+
+  test("testFlagBranch") {
+    testBranch(BranchExecution.Const(true))
+    testBranch(BranchExecution.Const(false))
+  }
+
+  private def testExecution(ex: Execution): Unit = check(executeNode(ex))
+
+  private def testBranch(ex: BranchExecution): Unit = check(Nodes.Branch(
+    genOrigin(),
+    executeNode(Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(Const.Write4(888, MemoryOperand.Stack(FrameOffset.Zero))),
+    ex
+  ))
 
   private def check(node: Node): Unit = {
     val expectedRuntime = new Runtime()
