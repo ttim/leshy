@@ -37,6 +37,7 @@ object Nodes {
     override def copy(ifTrue: Node, ifFalse: Node): Node.Branch = Branch(origin, ifTrue, ifFalse, execution)
 
     override def execute(runtime: Runtime): Boolean = execution.execute(runtime)
+    override def generate(writer: MethodVisitor): Unit = execution.generate(writer)
   }
 
   def branch(origin: Origin, execution: BranchExecution, target: OperationRef): Branch =

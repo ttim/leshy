@@ -22,5 +22,5 @@ extension (writer: MethodVisitor) {
       writer.visitFieldInsn(Opcodes.PUTFIELD, field.owner.getInternalName, field.name, field.tpe.getDescriptor)
     }
 
-  private def push[T](value: T)(using pushable: Pushable[T]): Unit = pushable.push(writer, value)
+  def push[T](value: T)(using pushable: Pushable[T]): Unit = pushable.push(writer, value)
 }
