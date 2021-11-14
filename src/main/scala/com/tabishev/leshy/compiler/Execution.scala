@@ -3,6 +3,10 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
 import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
+import com.tabishev.leshy.bytecode._
+import com.tabishev.leshy.bytecode.intPushable
+import com.tabishev.leshy.bytecode.longPushable
+import com.tabishev.leshy.bytecode.invokeMethodPushable
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
@@ -30,24 +34,16 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
-    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
+    override def write(writer: MethodVisitor): Unit = writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putInt", dst, value))
 
-    override def write(writer: MethodVisitor): Unit = {
-      writer.pushMemoryRef(dst)
-      writer.visitLdcInsn(value)
-      writer.invoke[MemoryRef]("putInt")
-    }
+    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
   }
 
   final case class Write8(value: Long, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
-    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
+    override def write(writer: MethodVisitor): Unit = writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putLong", dst, value))
 
-    override def write(writer: MethodVisitor): Unit = {
-      writer.pushMemoryRef(dst)
-      writer.visitLdcInsn(value)
-      writer.invoke[MemoryRef]("putLong")
-    }
+    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
   }
 }
 
@@ -61,6 +57,9 @@ object Mark {
 object Stack {
   final case class SetSize(oldSize: Int, newSize: Int) extends Execution {
     override def execute(runtime: Runtime): Unit = runtime.stack.setFramesize(newSize)
+    override def write(writer: MethodVisitor): Unit =
+      writer.statement(InvokeMethod.virtual(classOf[StackMemory], "setFramesize", ContextStack(), newSize))
+
     override def markConsts(consts: Consts): Consts =
       if (newSize > oldSize)
         consts.markConsts(FrameOffset.nonNegative(oldSize), Array.fill[Byte](newSize - oldSize)(0))
@@ -70,12 +69,6 @@ object Stack {
     override def stackSize(before: Int): Int = {
       assert(before == oldSize)
       newSize
-    }
-
-    override def write(writer: MethodVisitor): Unit = {
-      writer.pushStack()
-      writer.visitLdcInsn(newSize)
-      writer.invoke[StackMemory]("setFramesize")
     }
   }
 }
