@@ -67,6 +67,12 @@ given longPushable: Pushable[Long] with {
   override def kind(value: Long): Pushable.Kind = Pushable.Kind.Long
 }
 
+given booleanPushable: Pushable[Boolean] with {
+  override def push(writer: MethodVisitor, value: Boolean): Unit = writer.visitLdcInsn(if (value) 1 else 0)
+  override def kind(value: Boolean): Pushable.Kind = Pushable.Kind.Int
+}
+
+
 case class Field(isStatic: Boolean, name: String, owner: Type, tpe: Type)
 
 case class InvokeMethod(opcode: Int, clazz: Class[_], name: String, args: Seq[Value[_]])

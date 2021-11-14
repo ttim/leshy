@@ -53,7 +53,7 @@ object Node {
     def copy(ifTrue: Node, ifFalse: Node): Branch
 
     def execute(runtime: Runtime): Boolean
-    def generate(writer: MethodVisitor): Unit = ???
+    def generate(writer: MethodVisitor): Unit
 
     final override def runInternal(runtime: Runtime): Node =
       if (execute(runtime)) ifTrue else ifFalse
