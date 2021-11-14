@@ -1,6 +1,7 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime}
+import org.objectweb.asm.{MethodVisitor, Opcodes}
 
 enum MemoryOperand {
   case Stack(offset: FrameOffset)

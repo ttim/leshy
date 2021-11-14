@@ -100,6 +100,8 @@ private class BytecodeCompiler(node: Node, name: String) {
       case NodeTraversal.Statement.Branch(node, ifTrue) =>
         node.generate(writer)
         ???
+      case NodeTraversal.Statement.Jump(_) =>
+        ???
     }
 
     writer.visitMaxs(1, 1)
