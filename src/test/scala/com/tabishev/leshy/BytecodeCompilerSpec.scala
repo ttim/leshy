@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{Const, Execution, MemoryOperand, Nodes}
+import com.tabishev.leshy.compiler.{Const, Execution, MemoryOperand, Nodes, Stack}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
@@ -19,6 +19,20 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     check(
       executeNode(
         Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero)),
+        finalNode()))
+  }
+
+  test("write8") {
+    check(
+      executeNode(
+        Const.Write8(Long.MaxValue - 777, MemoryOperand.Stack(FrameOffset.Zero)),
+        finalNode()))
+  }
+
+  test("setSize") {
+    check(
+      executeNode(
+        Stack.SetSize(0, 12),
         finalNode()))
   }
 

@@ -1,7 +1,7 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime}
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
 import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
 
 sealed abstract class Execution {
@@ -30,19 +30,24 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
+    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
 
     override def write(writer: MethodVisitor): Unit = {
       writer.pushMemoryRef(dst)
       writer.visitLdcInsn(value)
       writer.invoke[MemoryRef]("putInt")
     }
-
-    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
   }
 
   final case class Write8(value: Long, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
+
+    override def write(writer: MethodVisitor): Unit = {
+      writer.pushMemoryRef(dst)
+      writer.visitLdcInsn(value)
+      writer.invoke[MemoryRef]("putLong")
+    }
   }
 }
 
@@ -65,6 +70,12 @@ object Stack {
     override def stackSize(before: Int): Int = {
       assert(before == oldSize)
       newSize
+    }
+
+    override def write(writer: MethodVisitor): Unit = {
+      writer.pushStack()
+      writer.visitLdcInsn(newSize)
+      writer.invoke[StackMemory]("setFramesize")
     }
   }
 }
