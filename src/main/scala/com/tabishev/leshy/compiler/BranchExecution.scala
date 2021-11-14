@@ -1,20 +1,20 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.runtime.Runtime
-import org.objectweb.asm.MethodVisitor
-
-import com.tabishev.leshy.bytecode._
+import org.objectweb.asm.{Label, MethodVisitor, Opcodes}
+import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.bytecode.booleanPushable
 
 abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean
-  def generate(writer: MethodVisitor): Unit = ???
+  def generate(writer: MethodVisitor, ifTrue: Label): Unit = ???
 }
 
 object BranchExecution {
   final case class Const(value: Boolean) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = value
-    override def generate(writer: MethodVisitor): Unit = writer.push(value)
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      if (value) writer.visitJumpInsn(Opcodes.GOTO, ifTrue) // else do nothing
   }
 
   final case class MoreMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {

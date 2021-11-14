@@ -3,7 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.node.Node
 import com.tabishev.leshy.runtime.Runtime
 import com.tabishev.leshy.runtime.FrameOffset
-import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.{Label, MethodVisitor}
 
 object Nodes {
   final case class Origin(compiler: Compiler, op: OperationRef, ctx: SpecializationContext)
@@ -37,7 +37,7 @@ object Nodes {
     override def copy(ifTrue: Node, ifFalse: Node): Node.Branch = Branch(origin, ifTrue, ifFalse, execution)
 
     override def execute(runtime: Runtime): Boolean = execution.execute(runtime)
-    override def generate(writer: MethodVisitor): Unit = execution.generate(writer)
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit = execution.generate(writer, ifTrue)
   }
 
   def branch(origin: Origin, execution: BranchExecution, target: OperationRef): Branch =

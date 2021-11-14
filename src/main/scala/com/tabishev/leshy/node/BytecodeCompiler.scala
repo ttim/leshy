@@ -52,7 +52,7 @@ private class BytecodeCompiler(node: Node, name: String) {
     .map { (node, idx) => (s"node_$idx", node) }
 
   def compile(): Array[Byte] = {
-    val writer = new ClassWriter(ClassWriter.COMPUTE_MAXS)
+    val writer = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES)
 
     writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, name, null, typeGeneratedNode.getInternalName, Array())
     writeFields(writer)
@@ -97,10 +97,7 @@ private class BytecodeCompiler(node: Node, name: String) {
     }.map { line => (line, new Label()) }.toMap
 
     statements.zipWithIndex.foreach { (statement, line) =>
-      if (labels.contains(line)) {
-        writer.visitLabel(labels(line))
-        writer.visitFrame(Opcodes.F_SAME, 0, Array(), 0, Array())
-      }
+      if (labels.contains(line)) writer.visitLabel(labels(line))
 
       statement match {
         case NodeTraversal.Statement.Return(node) =>
@@ -108,8 +105,7 @@ private class BytecodeCompiler(node: Node, name: String) {
         case NodeTraversal.Statement.Run(node) =>
           node.generate(writer)
         case NodeTraversal.Statement.Branch(node, ifTrue) =>
-          node.generate(writer)
-          writer.visitJumpInsn(Opcodes.IFNE, labels(ifTrue))
+          node.generate(writer, labels(ifTrue))
         case NodeTraversal.Statement.Jump(target) =>
           writer.visitJumpInsn(Opcodes.GOTO, labels(target))
       }
