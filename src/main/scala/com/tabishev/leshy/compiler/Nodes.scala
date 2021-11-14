@@ -3,6 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.node.Node
 import com.tabishev.leshy.runtime.Runtime
 import com.tabishev.leshy.runtime.FrameOffset
+import org.objectweb.asm.MethodVisitor
 
 object Nodes {
   final case class Origin(compiler: Compiler, op: OperationRef, ctx: SpecializationContext)
@@ -22,6 +23,8 @@ object Nodes {
     override def copy(next: Node): Node.Run = Execute(origin, next, execution)
 
     override def execute(runtime: Runtime): Unit = execution.execute(runtime)
+
+    override def generate(writer: MethodVisitor): Unit = execution.write(writer)
   }
 
   def execute(origin: Origin, execution: Execution): Execute = {

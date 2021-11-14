@@ -1,6 +1,7 @@
 package com.tabishev.leshy.node
 
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
+import org.objectweb.asm.{MethodVisitor, MethodWriter}
 
 import scala.collection.mutable
 
@@ -38,6 +39,7 @@ object Node {
     def copy(next: Node): Run
 
     def execute(runtime: Runtime): Unit
+    def generate(writer: MethodVisitor): Unit
 
     final def runInternal(runtime: Runtime): Node = {
       execute(runtime)
@@ -51,6 +53,7 @@ object Node {
     def copy(ifTrue: Node, ifFalse: Node): Branch
 
     def execute(runtime: Runtime): Boolean
+    def generate(writer: MethodVisitor): Unit = ???
 
     final override def runInternal(runtime: Runtime): Node =
       if (execute(runtime)) ifTrue else ifFalse
