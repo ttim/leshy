@@ -1,14 +1,14 @@
 package com.tabishev.leshy.node
 
-import com.tabishev.leshy.bytecode._
+import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.bytecode.fieldPushable
 import com.tabishev.leshy.bytecode.thisPushable
 import com.tabishev.leshy.bytecode.paramPushable
 import com.tabishev.leshy.bytecode.superPushable
 import com.tabishev.leshy.runtime.Runtime
-import org.objectweb.asm.{ClassWriter, Opcodes}
-import org.objectweb.asm.Type
+import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
+import java.nio.file.Files
 import scala.collection.mutable
 import scala.util.Random
 
@@ -20,7 +20,9 @@ object BytecodeCompiler {
 
   def compile(node: Node): Node.Generated = {
     val name = "GenClass_" + Random.nextLong(Long.MaxValue)
-    classLoader.add(name, new BytecodeCompiler(node, name).compile())
+    val bytes = new BytecodeCompiler(node, name).compile()
+    Files.write(new java.io.File("Generated.class").toPath, bytes)
+    classLoader.add(name, bytes)
     val clazz = classLoader.loadClass(name)
     val constructor = clazz.getConstructors().head
     val returns = NodeTraversal.traverse(node).collect { case NodeTraversal.Statement.Return(node) => node }
@@ -89,16 +91,28 @@ private class BytecodeCompiler(node: Node, name: String) {
 
     writer.visitCode()
 
-    statements.foreach {
-      case NodeTraversal.Statement.Return(node) =>
-        writer.ret(Field(isStatic = false, argName(node), owner, typeNode))
-      case NodeTraversal.Statement.Run(node) =>
-        node.generate(writer)
-      case NodeTraversal.Statement.Branch(node, ifTrue) =>
-        node.generate(writer)
-        ???
-      case NodeTraversal.Statement.Jump(_) =>
-        ???
+    val labels = statements.collect {
+      case NodeTraversal.Statement.Branch(_, target) => target
+      case NodeTraversal.Statement.Jump(target) => target
+    }.map { line => (line, new Label()) }.toMap
+
+    statements.zipWithIndex.foreach { (statement, line) =>
+      if (labels.contains(line)) {
+        writer.visitLabel(labels(line))
+        writer.visitFrame(Opcodes.F_SAME, 0, Array(), 0, Array())
+      }
+
+      statement match {
+        case NodeTraversal.Statement.Return(node) =>
+          writer.ret(Field(isStatic = false, argName(node), owner, typeNode))
+        case NodeTraversal.Statement.Run(node) =>
+          node.generate(writer)
+        case NodeTraversal.Statement.Branch(node, ifTrue) =>
+          node.generate(writer)
+          writer.visitJumpInsn(Opcodes.IFNE, labels(ifTrue))
+        case NodeTraversal.Statement.Jump(target) =>
+          writer.visitJumpInsn(Opcodes.GOTO, labels(target))
+      }
     }
 
     writer.visitMaxs(1, 1)

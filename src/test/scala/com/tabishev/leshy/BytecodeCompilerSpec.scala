@@ -1,29 +1,30 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Nodes, Stack}
+import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Nodes, OperationRef, Stack}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime}
 
 import java.io.File
 import java.util
+import scala.util.Random
 
 class BytecodeCompilerSpec extends munit.FunSuite {
-  private def genOrigin(): Nodes.Origin = Nodes.Origin(null, null, null)
+  private def genOrigin(): Nodes.Origin = Nodes.Origin(null, OperationRef("", Random.nextInt()), null)
   private def finalNode(): Node = Nodes.Final(genOrigin())
-  private def executeNode(ex: Execution): Node = Nodes.Execute(genOrigin(), finalNode(), ex)
+  private def executeNode(size: Int, ex: Execution): Node = Nodes.Execute(genOrigin(), Nodes.Execute(genOrigin(), finalNode(), ex), Stack.SetSize(0, size))
 
   test("write4") {
-    testExecution(Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero)))
+    testExecution(4, Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero)))
   }
 
   test("write8") {
-    testExecution(Const.Write8(Long.MaxValue - 777, MemoryOperand.Stack(FrameOffset.Zero)))
+    testExecution(8, Const.Write8(Long.MaxValue - 777, MemoryOperand.Stack(FrameOffset.Zero)))
   }
 
   test("setSize") {
-    testExecution(Stack.SetSize(0, 12))
+    testExecution(0, Stack.SetSize(0, 12))
   }
 
   test("testFlagBranch") {
@@ -31,12 +32,12 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     testBranch(BranchExecution.Const(false))
   }
 
-  private def testExecution(ex: Execution): Unit = check(executeNode(ex))
+  private def testExecution(size: Int, ex: Execution): Unit = check(executeNode(size, ex))
 
   private def testBranch(ex: BranchExecution): Unit = check(Nodes.Branch(
     genOrigin(),
-    executeNode(Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero))),
-    executeNode(Const.Write4(888, MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(4, Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(4, Const.Write4(888, MemoryOperand.Stack(FrameOffset.Zero))),
     ex
   ))
 
