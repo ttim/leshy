@@ -1,5 +1,10 @@
 package com.tabishev.leshy.node
 
+import com.tabishev.leshy.bytecode._
+import com.tabishev.leshy.bytecode.fieldPushable
+import com.tabishev.leshy.bytecode.thisPushable
+import com.tabishev.leshy.bytecode.paramPushable
+import com.tabishev.leshy.bytecode.superPushable
 import com.tabishev.leshy.runtime.Runtime
 import org.objectweb.asm.{ClassWriter, Opcodes}
 import org.objectweb.asm.Type
@@ -67,15 +72,9 @@ private class BytecodeCompiler(node: Node, name: String) {
 
     writer.visitCode()
 
-    // super()
-    writer.visitVarInsn(Opcodes.ALOAD, 0)
-    writer.visitMethodInsn(Opcodes.INVOKESPECIAL, typeGeneratedNode.getInternalName, "<init>", "()V", false)
-
+    writer.statement(InvokeSuper(classOf[Node.Generated]))
     (0 until args.length).foreach { idx =>
-      // this.node_idx = <arg_idx>
-      writer.visitVarInsn(Opcodes.ALOAD, 0)
-      writer.visitVarInsn(Opcodes.ALOAD, idx + 1)
-      writer.visitFieldInsn(Opcodes.PUTFIELD, owner.getInternalName, "node_" + idx, typeNode.getDescriptor)
+      writer.putField(Field(isStatic = false, "node_" + idx, owner, typeNode), Param.idx[Node](idx))
     }
 
     // return
@@ -92,9 +91,7 @@ private class BytecodeCompiler(node: Node, name: String) {
 
     statements.foreach {
       case NodeTraversal.Statement.Return(node) =>
-        writer.visitVarInsn(Opcodes.ALOAD, 0)
-        writer.visitFieldInsn(Opcodes.GETFIELD, owner.getInternalName, argName(node), typeNode.getDescriptor)
-        writer.visitInsn(Opcodes.ARETURN)
+        writer.ret(Field(isStatic = false, argName(node), owner, typeNode))
       case NodeTraversal.Statement.Run(node) =>
         node.generate(writer)
       case NodeTraversal.Statement.Branch(node, ifTrue) =>
