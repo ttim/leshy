@@ -28,5 +28,5 @@ extension (writer: MethodVisitor) {
       writer.visitFieldInsn(Opcodes.PUTFIELD, field.owner.getInternalName, field.name, field.tpe.getDescriptor)
     }
 
-  def push(value: BytecodeExpression): BytecodeExpression.Kind = value.push(writer)
+  def push(value: BytecodeExpression): BytecodeExpressionKind = value.push(writer)
 }

@@ -6,95 +6,35 @@ import java.lang.reflect.Method
 import scala.reflect.ClassTag
 
 trait BytecodeExpression {
-  def push(writer: MethodVisitor): BytecodeExpression.Kind
+  def push(writer: MethodVisitor): BytecodeExpressionKind
 }
 
-object BytecodeExpression {
-  enum Kind {
-    case Void
-    case Object
-    case Int
-    case Long
-
-    def retInst: Int = this match {
-      case Void => Opcodes.RETURN
-      case Object => Opcodes.ARETURN
-      case Int => Opcodes.IRETURN
-      case Long => Opcodes.LRETURN
-    }
-
-    def popInst: Option[Int] = this match {
-      case Void => None
-      case Object => Some(Opcodes.POP)
-      case Int => Some(Opcodes.POP)
-      case Long => Some(Opcodes.POP2)
-    }
-
-    def loadInst: Option[Int] = this match {
-      case Void => None
-      case Object => Some(Opcodes.ALOAD)
-      case Int => Some(Opcodes.ILOAD)
-      case Long => Some(Opcodes.LLOAD)
-    }
-
-    def sumInst: Option[Int] = this match {
-      case Void => None
-      case Object => None
-      case Int => Some(Opcodes.IADD)
-      case Long => Some(Opcodes.LADD)
-    }
-
-    def multInst: Option[Int] = this match {
-      case Void => None
-      case Object => None
-      case Int => Some(Opcodes.IMUL)
-      case Long => Some(Opcodes.LMUL)
-    }
-
-    def negateInst: Option[Int] = this match {
-      case Void => None
-      case Object => None
-      case Int => Some(Opcodes.INEG)
-      case Long => Some(Opcodes.LNEG)
-    }
-  }
-
-  def kind[T: ClassTag]: Kind = kind(Type.getType(implicitly[ClassTag[T]].runtimeClass))
-
-  def kind(tpe: Type): Kind = tpe.getSort match {
-    case Type.VOID => Kind.Void
-    case Type.OBJECT => Kind.Object
-    case Type.INT => Kind.Int
-    case Type.LONG => Kind.Long
-  }
-}
-
-case class BytecodePrimitive private[bytecode] (kind: BytecodeExpression.Kind, value: Any) extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+case class BytecodePrimitive private[bytecode] (kind: BytecodeExpressionKind, value: Any) extends BytecodeExpression {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitLdcInsn(value)
     kind
   }
 }
 
 case class Field(isStatic: Boolean, name: String, owner: Type, tpe: Type) extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     if (!isStatic) {
       writer.push(ThisInstance())
       writer.visitFieldInsn(Opcodes.GETFIELD, owner.getInternalName, name, tpe.getDescriptor)
     } else {
       ???
     }
-    BytecodeExpression.kind(tpe)
+    BytecodeExpressionKind.of(tpe)
   }
 }
 
 case class InvokeMethod(opcode: Int, clazz: Class[_], name: String, args: Seq[BytecodeExpression]) extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     args.foreach { arg =>
-      assert(arg.push(writer) != BytecodeExpression.Kind.Void)
+      assert(arg.push(writer) != BytecodeExpressionKind.Void)
     }
     writer.visitMethodInsn(opcode, Type.getType(clazz).getInternalName, name, Type.getMethodDescriptor(method()), false)
-    BytecodeExpression.kind(Type.getType(method().getReturnType))
+    BytecodeExpressionKind.of(Type.getType(method().getReturnType))
   }
 
   private def method(): Method = {
@@ -112,8 +52,8 @@ object InvokeMethod {
     InvokeMethod(Opcodes.INVOKESTATIC, clazz, name, args.toSeq)
 }
 
-case class Param(idx: Int, kind: BytecodeExpression.Kind) extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+case class Param(idx: Int, kind: BytecodeExpressionKind) extends BytecodeExpression {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     kind.loadInst.foreach { inst =>
       writer.visitVarInsn(inst, idx + 1)
     }
@@ -122,26 +62,26 @@ case class Param(idx: Int, kind: BytecodeExpression.Kind) extends BytecodeExpres
 }
 
 object Param {
-  def idx[T: ClassTag](idx: Int): Param = Param(idx, BytecodeExpression.kind[T])
+  def idx[T: ClassTag](idx: Int): Param = Param(idx, BytecodeExpressionKind.of[T])
 }
 
 case class ThisInstance() extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitVarInsn(Opcodes.ALOAD, 0)
-    BytecodeExpression.Kind.Object
+    BytecodeExpressionKind.Object
   }
 }
 
 case class InvokeSuper(superClass: Class[_]) extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitVarInsn(Opcodes.ALOAD, 0)
     writer.visitMethodInsn(Opcodes.INVOKESPECIAL, Type.getInternalName(superClass), "<init>", "()V", false)
-    BytecodeExpression.Kind.Void
+    BytecodeExpressionKind.Void
   }
 }
 
-case class BytecodeBinaryOp(opcode: BytecodeExpression.Kind => Int, arg1: BytecodeExpression, arg2: BytecodeExpression) extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+case class BytecodeBinaryOp(opcode: BytecodeExpressionKind => Int, arg1: BytecodeExpression, arg2: BytecodeExpression) extends BytecodeExpression {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     val kind = arg1.push(writer)
     val kind2 = arg2.push(writer)
     assert(kind == kind2)
@@ -150,8 +90,8 @@ case class BytecodeBinaryOp(opcode: BytecodeExpression.Kind => Int, arg1: Byteco
   }
 }
 
-case class BytecodeUnaryOp(op: BytecodeExpression.Kind => Int, arg: BytecodeExpression) extends BytecodeExpression {
-  override def push(writer: MethodVisitor): BytecodeExpression.Kind = {
+case class BytecodeUnaryOp(op: BytecodeExpressionKind => Int, arg: BytecodeExpression) extends BytecodeExpression {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     val kind = arg.push(writer)
     writer.visitInsn(op(kind))
     kind
@@ -166,7 +106,7 @@ object Ops {
   def mult(arg1: BytecodeExpression, arg2: BytecodeExpression): BytecodeExpression =
     BytecodeBinaryOp(_.multInst.get, arg1, arg2)
 
-  def int(value: Int): BytecodeExpression = BytecodePrimitive(BytecodeExpression.Kind.Int, value)
-  def long(value: Long): BytecodeExpression =  BytecodePrimitive(BytecodeExpression.Kind.Long, value)
-  def bool(value: Boolean): BytecodeExpression = BytecodePrimitive(BytecodeExpression.Kind.Int, if (value) 1 else 0)
+  def int(value: Int): BytecodeExpression = BytecodePrimitive(BytecodeExpressionKind.Int, value)
+  def long(value: Long): BytecodeExpression =  BytecodePrimitive(BytecodeExpressionKind.Long, value)
+  def bool(value: Boolean): BytecodeExpression = BytecodePrimitive(BytecodeExpressionKind.Int, if (value) 1 else 0)
 }
