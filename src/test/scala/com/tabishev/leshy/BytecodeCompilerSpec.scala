@@ -98,17 +98,17 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     test4(BranchExecution.Const(true))
     test4(BranchExecution.Const(false))
 
-    test4(BranchExecution.LeMC4(op, 0))
-    test4(BranchExecution.LeMC4(op, -1))
-    test4(BranchExecution.LeMC4(op, 1))
+    test4(BranchExecution.le4(op, 0))
+    test4(BranchExecution.le4(op, -1))
+    test4(BranchExecution.le4(op, 1))
 
-    test4(BranchExecution.GtMC4(op, 0))
-    test4(BranchExecution.GtMC4(op, -1))
-    test4(BranchExecution.GtMC4(op, 1))
+    test4(BranchExecution.gt4(op, 0))
+    test4(BranchExecution.gt4(op, -1))
+    test4(BranchExecution.gt4(op, 1))
 
-    test8(BranchExecution.GtMC8(op, 0))
-    test8(BranchExecution.GtMC8(op, -1))
-    test8(BranchExecution.GtMC8(op, 1))
+    test8(BranchExecution.le8(op, 0))
+    test8(BranchExecution.le8(op, -1))
+    test8(BranchExecution.le8(op, 1))
   }
 
   private def testExecution(prepare: Runtime => Unit, ex: Execution*): Unit = check(prepare, executeNode(ex:_*))

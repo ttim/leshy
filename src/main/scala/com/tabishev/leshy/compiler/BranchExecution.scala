@@ -17,95 +17,45 @@ object BranchExecution {
       if (value) writer.visitJumpInsn(Opcodes.GOTO, ifTrue) // else do nothing
   }
 
-  final case class GtMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class Gt4(op1: IntProvider, op2: IntProvider) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean = op1.get(runtime) > op2.get(runtime)
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(op1.expression, BranchModifier.GT, op2.expression, ifTrue)
+  }
+
+  final case class Gt8(op1: LongProvider, op2: LongProvider) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean = op1.get(runtime) > op2.get(runtime)
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(op1.expression, BranchModifier.GT, op2.expression, ifTrue)
+  }
+
+  final case class Le4(op1: IntProvider, op2: IntProvider) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
-      op1.materialize(runtime).getInt() > op2.materialize(runtime).getInt()
+      op1.get(runtime) <= op2.get(runtime)
 
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), BranchModifier.GT, MemoryOps.getInt(op2), ifTrue)
+      writer.branch(op1.expression, BranchModifier.LE, op2.expression, ifTrue)
   }
 
-  final case class GtMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() > op2
-
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), BranchModifier.GT, const(op2), ifTrue)
-  }
-
-  final case class GtMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class Le8(op1: LongProvider, op2: LongProvider) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
-      op1.materialize(runtime).getLong() > op2.materialize(runtime).getLong()
+      op1.get(runtime) <= op2.get(runtime)
 
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getLong(op1), BranchModifier.GT, MemoryOps.getLong(op2), ifTrue)
+      writer.branch(op1.expression, BranchModifier.LE, op2.expression, ifTrue)
   }
 
-  final case class GtMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() > op2
+  def gt4(op1: MemoryOperand | Int, op2: MemoryOperand | Int): BranchExecution =
+    Gt4(IntProvider.create(op1), IntProvider.create(op2))
 
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getLong(op1), BranchModifier.GT, const(op2), ifTrue)
-  }
+  def gt8(op1: MemoryOperand | Long, op2: MemoryOperand | Long): BranchExecution =
+    Gt8(LongProvider.create(op1), LongProvider.create(op2))
 
-  final case class LeMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean =
-      op1.materialize(runtime).getInt() <= op2.materialize(runtime).getInt()
+  def le4(op1: MemoryOperand | Int, op2: MemoryOperand | Int): BranchExecution =
+    Le4(IntProvider.create(op1), IntProvider.create(op2))
 
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), BranchModifier.LE, MemoryOps.getInt(op2), ifTrue)
-  }
-
-  final case class LeMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() <= op2
-
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), BranchModifier.LE, const(op2), ifTrue)
-  }
-
-  final case class LeMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean =
-      op1.materialize(runtime).getLong() <= op2.materialize(runtime).getLong()
-
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), BranchModifier.LE, MemoryOps.getInt(op2), ifTrue)
-  }
-
-  final case class LeMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
-    override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() <= op2
-
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getLong(op1), BranchModifier.LE, const(op2), ifTrue)
-  }
-
-  def gt4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int): BranchExecution =
-    (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM4(op1, op2)
-      case (op1: MemoryOperand, op2: Int) => GtMC4(op1, op2)
-      case (op1: Int, op2: MemoryOperand) => LeMC4(op2, op1)
-      case (op1: Int, op2: Int) => Const(op1 > op2)
-    }
-
-  def gt8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
-    (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM8(op1, op2)
-      case (op1: MemoryOperand, op2: Long) => GtMC8(op1, op2)
-      case (op1: Long, op2: MemoryOperand) => LeMC8(op2, op1)
-      case (op1: Long, op2: Long) => Const(op1 > op2)
-    }
-
-  def le4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int): BranchExecution =
-    (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM4(op2, op1)
-      case (op1: MemoryOperand, op2: Int) => LeMC4(op1, op2)
-      case (op1: Int, op2: MemoryOperand) => GtMC4(op2, op1)
-      case (op1: Int, op2: Int) => Const(op1 <= op2)
-    }
-
-  def le8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
-    (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM8(op2, op1)
-      case (op1: MemoryOperand, op2: Long) => LeMC8(op1, op2)
-      case (op1: Long, op2: MemoryOperand) => GtMC8(op2, op1)
-      case (op1: Long, op2: Long) => Const(op1 <= op2)
-    }
+  def le8(op1: MemoryOperand | Long, op2: MemoryOperand | Long): BranchExecution =
+    Le8(LongProvider.create(op1), LongProvider.create(op2))
 }
