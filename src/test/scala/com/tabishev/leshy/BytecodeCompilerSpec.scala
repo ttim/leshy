@@ -93,6 +93,7 @@ class BytecodeCompilerSpec extends munit.FunSuite {
   test("test branch") {
     val op = MemoryOperand.Stack(FrameOffset.nonNegative(0))
     def test4(branch: BranchExecution): Unit = testBranch(runtime => runtime.stack.setFramesize(4), branch)
+    def test8(branch: BranchExecution): Unit = testBranch(runtime => runtime.stack.setFramesize(8), branch)
 
     test4(BranchExecution.Const(true))
     test4(BranchExecution.Const(false))
@@ -104,6 +105,10 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     test4(BranchExecution.MoreMC4(op, 0))
     test4(BranchExecution.MoreMC4(op, -1))
     test4(BranchExecution.MoreMC4(op, 1))
+
+    test8(BranchExecution.MoreMC8(op, 0))
+    test8(BranchExecution.MoreMC8(op, -1))
+    test8(BranchExecution.MoreMC8(op, 1))
   }
 
   private def testExecution(prepare: Runtime => Unit, ex: Execution*): Unit = check(prepare, executeNode(ex:_*))

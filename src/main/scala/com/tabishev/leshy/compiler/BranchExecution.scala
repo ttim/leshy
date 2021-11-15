@@ -37,9 +37,12 @@ object BranchExecution {
   final case class MoreMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() > op2
 
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      // todo: is it correct? given longs are two elements on stack
-      writer.branch(MemoryOps.getLong(op1), Opcodes.IF_ICMPGT, const(op2), ifTrue)
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit = {
+      writer.push(MemoryOps.getLong(op1))
+      writer.push(const(op2))
+      writer.visitInsn(Opcodes.LCMP)
+      writer.visitJumpInsn(Opcodes.IFGT, ifTrue)
+    }
   }
 
   final case class LessOrEqualMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
