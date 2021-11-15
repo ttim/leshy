@@ -56,5 +56,10 @@ extension (writer: MethodVisitor) {
       writer.visitFieldInsn(Opcodes.PUTFIELD, field.owner.getInternalName, field.name, field.tpe.getDescriptor)
     }
 
+  def storeVar(idx: Int, value: BytecodeExpression): Unit = {
+    val kind = writer.push(value)
+    writer.visitVarInsn(kind.storeInst.get, idx)
+  }
+
   def push(value: BytecodeExpression): BytecodeExpressionKind = value.push(writer)
 }

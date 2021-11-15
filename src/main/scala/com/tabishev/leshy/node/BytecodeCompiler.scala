@@ -1,7 +1,7 @@
 package com.tabishev.leshy.node
 
 import com.tabishev.leshy.bytecode.*
-import com.tabishev.leshy.runtime.Runtime
+import com.tabishev.leshy.runtime.{Runtime, StackMemory}
 import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
 import java.net.URLClassLoader
@@ -71,7 +71,7 @@ private class BytecodeCompiler(node: Node, name: String) {
 
     writer.statement(InvokeSuper(classOf[Node.Generated]))
     (0 until args.length).foreach { idx =>
-      writer.putField(Field(isStatic = false, "node_" + idx, owner, typeNode), BytecodeExpression.param[Node](idx))
+      writer.putField(Field(isStatic = false, "node_" + idx, owner, typeNode), BytecodeExpression.local[Node](idx + 1))
     }
 
     // return
@@ -84,8 +84,14 @@ private class BytecodeCompiler(node: Node, name: String) {
     val methodType = Type.getMethodType(typeNode, typeRuntime)
     val writer = classWriter.visitMethod(Opcodes.ACC_PUBLIC, "runInternal", methodType.getDescriptor, null, null)
 
-    writer.visitCode()
+    val start = new Label()
+    val finish = new Label()
 
+    writer.visitCode()
+    writer.visitLocalVariable("stack", Type.getDescriptor(classOf[StackMemory]), null, start, finish, 2)
+
+    writer.visitLabel(start)
+    writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runtime], "stack", BytecodeExpression.local[Runtime](1)))
     val labels = statements.collect {
       case NodeTraversal.Statement.Branch(_, target) => target
       case NodeTraversal.Statement.Jump(target) => target
@@ -106,6 +112,7 @@ private class BytecodeCompiler(node: Node, name: String) {
       }
     }
 
+    writer.visitLabel(finish)
     writer.visitMaxs(1, 1)
     writer.visitEnd()
   }
