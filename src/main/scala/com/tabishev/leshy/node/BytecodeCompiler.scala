@@ -26,6 +26,7 @@ object BytecodeCompiler {
 
   def compile(node: Node): Node.Generated = {
     val name = "GenClass_" + Random.nextLong(Long.MaxValue)
+//    println(s"compile $node into $name")
     val bytes = new BytecodeCompiler(node, name).compile()
     Files.write(dest.resolve(name + ".class"), bytes)
     val clazz = classLoader.loadClass(name)
