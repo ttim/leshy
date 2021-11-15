@@ -89,14 +89,13 @@ object Sum {
 
   def length4(op1: MemoryOperand | Int, op2: MemoryOperand | Int, dst: MemoryOperand): Execution =
     (op1, op2) match {
-      // todo: why this is needed separately???
+      // we need to treat this cases separately to keep constantness in a correct way
       case (op1: Int, op2: Int) => WriteConst.Length4(op1 + op2, dst)
       case _ => Length4(IntProvider.create(op1), IntProvider.create(op2), dst)
     }
 
   def length8(op1: MemoryOperand | Long, op2: MemoryOperand | Long, dst: MemoryOperand): Execution =
     (op1, op2) match {
-      // todo: why this is needed separately???
       case (op1: Long, op2: Long) => WriteConst.Length8(op1 + op2, dst)
       case _ => Length8(LongProvider.create(op1), LongProvider.create(op2), dst)
     }
@@ -119,14 +118,12 @@ object Mult {
 
   def length4(op1: MemoryOperand | Int, op2: MemoryOperand | Int, dst: MemoryOperand): Execution =
     (op1, op2) match {
-      // todo: why this is needed separately???
       case (op1: Int, op2: Int) => WriteConst.Length4(op1 * op2, dst)
       case _ => Length4(IntProvider.create(op1), IntProvider.create(op2), dst)
     }
 
   def length8(op1: MemoryOperand | Long, op2: MemoryOperand | Long, dst: MemoryOperand): Execution =
     (op1, op2) match {
-      // todo: why this is needed separately???
       case (op1: Long, op2: Long) => WriteConst.Length8(op1 * op2, dst)
       case _ => Length8(LongProvider.create(op1), LongProvider.create(op2), dst)
     }
@@ -149,43 +146,43 @@ object Negate {
       writer.statement(MemoryOps.putLong(dst, negate(MemoryOps.getLong(op))))
   }
 
-  def length4(opUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = opUnion match {
-    case op: MemoryOperand => Length4(op, dst)
-    case op: Int => WriteConst.Length4(-op, dst)
-  }
+  def length4(opUnion: MemoryOperand | Int, dst: MemoryOperand): Execution =
+    opUnion match {
+      case op: MemoryOperand => Length4(op, dst)
+      case op: Int => WriteConst.Length4(-op, dst)
+    }
 
-  def length8(opUnion: MemoryOperand | Long, dst: MemoryOperand): Execution = opUnion match {
-    case op: MemoryOperand => Length8(op, dst)
-    case op: Long => WriteConst.Length8(-op, dst)
-  }
+  def length8(opUnion: MemoryOperand | Long, dst: MemoryOperand): Execution =
+    opUnion match {
+      case op: MemoryOperand => Length8(op, dst)
+      case op: Long => WriteConst.Length8(-op, dst)
+    }
 }
 
 object Set {
-  final case class Length4(src: IntProvider, dst: MemoryOperand) extends NonConstExecution4 {
+  final case class Length4(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(src.get(runtime))
+      dst.materialize(runtime).putInt(src.materialize(runtime).getInt())
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, src.expression))
+      writer.statement(MemoryOps.putInt(dst, MemoryOps.getInt(src)))
   }
 
-  final case class Length8(src: LongProvider, dst: MemoryOperand) extends NonConstExecution8 {
+  final case class Length8(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(src.get(runtime))
+      dst.materialize(runtime).putLong(src.materialize(runtime).getLong())
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, src.expression))
+      writer.statement(MemoryOps.putLong(dst, MemoryOps.getLong(src)))
   }
 
-  def length4(srcUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = {
-    // todo: why failing?
-    return Length4(IntProvider.create(srcUnion), dst)
+  def length4(srcUnion: MemoryOperand | Int, dst: MemoryOperand): Execution =
     srcUnion match {
-      case src: MemoryOperand => Length4(IntProvider.create(src), dst)
       case src: Int => WriteConst.Length4(src, dst)
+      case src: MemoryOperand => Length4(src, dst)
     }
-  }
 
-  def length8(srcUnion: MemoryOperand | Long, dst: MemoryOperand): Execution = srcUnion match {
-    case src: MemoryOperand => Length8(LongProvider.create(src), dst)
-    case src: Long => WriteConst.Length8(src, dst)
-  }
+  def length8(srcUnion: MemoryOperand | Long, dst: MemoryOperand): Execution =
+    srcUnion match {
+      case src: Long => WriteConst.Length8(src, dst)
+      case src: MemoryOperand => Length8(src, dst)
+    }
 }
