@@ -45,7 +45,7 @@ object Implementations {
     "interpreter/generic" ->interpreter.run(FnSpecs.Ffactorial8),
     "interpreter/generic/no-check" ->interpreterNoCheck.run(FnSpecs.Ffactorial8),
     "compiler/generic/no-gen" -> FnSpecs.createCompiler(FnSpecs.Ffactorial8, doBytecodeGeneration = false),
-//    "compiler/generic/gen" -> FnSpecs.createCompiler(FnSpecs.Ffactorial8, doBytecodeGeneration = true),
+    "compiler/generic/gen" -> FnSpecs.createCompiler(FnSpecs.Ffactorial8, doBytecodeGeneration = true),
     "native" -> (n => JavaImpl.ffactorial8(n)),
     "byte buffer" -> (n => ByteBufferImpl.ffactorial8(n)),
     "memory access" -> (n => MemoryAccessImpl.ffactorial8(n)),
