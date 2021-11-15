@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Nodes, OperationRef, Stack, Sum}
+import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Negate, Nodes, OperationRef, Stack, Sum}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory}
@@ -28,6 +28,12 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
   test("write8") {
     testExecution(prepareSize(4), Const.Write8(Long.MaxValue - 777, MemoryOperand.Stack(FrameOffset.Zero)))
+  }
+
+  test("negate") {
+    val op = MemoryOperand.Stack(FrameOffset.Zero)
+    testExecution(prepareSize(4), Const.Write4(1, op), Negate.M4(op, op))
+    testExecution(prepareSize(8), Const.Write8(1, op), Negate.M8(op, op))
   }
 
   test("sum4") {
@@ -85,10 +91,12 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
   private def check(prepare: StackMemory => Unit, node: Node): Unit = {
     val expectedRuntime = new Runtime()
+    prepare(expectedRuntime.stack)
     val expectedFinal = node.run(expectedRuntime)
     val expected = expectedRuntime.stack.currentStackFrame()
 
     val actualRuntime = new Runtime()
+    prepare(actualRuntime.stack)
     val actualFinal = BytecodeCompiler.compile(node).run(actualRuntime)
     val actual = actualRuntime.stack.currentStackFrame()
 
