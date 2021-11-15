@@ -8,6 +8,24 @@ import com.tabishev.leshy.runtime.{Consts, FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
 
+object Compiler {
+  def runner[T, V](
+                    loader: FnLoader,
+                    runtime: Runtime,
+                    debugEnabled: Boolean,
+                    doBytecodeGeneration: Boolean,
+                    spec: FnSpec[T, V],
+                    warmup: Option[T]
+                  ): T => V = {
+    val compiler = new Compiler(loader, runtime, debugEnabled, doBytecodeGeneration)
+    warmup.foreach { input =>
+      compiler.run(spec)(input)
+    }
+    compiler.optimize()
+    input => compiler.run(spec)(input)
+  }
+}
+
 final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean, val doBytecodeGeneration: Boolean) {
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 

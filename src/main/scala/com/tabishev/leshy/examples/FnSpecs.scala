@@ -3,7 +3,7 @@ package com.tabishev.leshy.examples
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.compiler.Compiler
 import com.tabishev.leshy.interpreter.Interpreter
-import com.tabishev.leshy.loader.FileLoader
+import com.tabishev.leshy.loader.{FileLoader, FnLoader}
 import com.tabishev.leshy.runtime.{FnSpec, Input, Runtime}
 
 import java.io.File
@@ -13,22 +13,13 @@ object FnSpecs {
     "src/main/lsh/fib.lsh",
     "src/main/lsh/factorial.lsh"
   )
+  def loader(): FnLoader = FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath))
 
   def createInterpreter(debug: Boolean, checkConsts: Boolean): Interpreter =
-    new Interpreter(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), debug, checkConsts)
+    new Interpreter(loader(), debug, checkConsts)
 
-  def createCompiler(debug: Boolean, doBytecodeGeneration: Boolean): Compiler = {
-    val loader = FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath))
-    val instance = new Compiler(loader, new Runtime(), debug, doBytecodeGeneration)
-
-    // warmup to get all nodes ready before freeze
-    Seq[FnSpec[Int, _]](Fib4, Fib8, Fibx4, Fibx8, Ffactorial4, Ffactorial8).foreach { spec =>
-      instance.run(spec)(10)
-    }
-
-    instance.optimize()
-    instance
-  }
+  def createCompiler[V](spec: FnSpec[Int, V]): Int => V =
+    Compiler.runner(loader(), new Runtime(), debugEnabled = false, doBytecodeGeneration = false, spec, Some(10))
 
   val Fib4: FnSpec[Int, Int] = FnSpec("fib4", { input =>
     Input.add(Bytes.fromInt(input), isConst = false)
@@ -76,24 +67,12 @@ object FnSpecs {
   }
 
   private def testCompiler(): Unit = {
-    val compiler = FnSpecs.createCompiler(false, doBytecodeGeneration = false)
-
-    assert(compiler.run(Fib4)(10) == 89)
-    assert(compiler.run(Fib8)(10) == 89)
-    assert(compiler.run(Fibx4)(10) == 89)
-    assert(compiler.run(Fibx8)(10) == 89)
-
-    assert(compiler.run(Ffactorial4)(4) == 8)
-    assert(compiler.run(Ffactorial8)(4) == 8)
-
-    assert(compiler.run(Ffactorial8)(17) == 34459425)
-    assert(compiler.run(Ffactorial8)(10001) == 7031418319358416161L)
-    assert(compiler.run(Fibx4)(11) == 144)
-    assert(compiler.run(Fibx8)(11) == 144)
+    assert(createCompiler(Fib4)(10) == 89)
+    assert(createCompiler(Fibx8)(10) == 89)
 
     val start = System.currentTimeMillis()
 //    assert(compiler.run(Fib8)(40) == 165580141)
-    assert(compiler.run(Fibx8)(38) == 63245986)
+//    assert(compiler.run(Fibx8)(38) == 63245986)
     println((System.currentTimeMillis() - start)/1000.0)
   }
 
