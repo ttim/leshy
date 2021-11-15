@@ -35,14 +35,14 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
-    override def write(writer: MethodVisitor): Unit = writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putInt", dst, value))
+    override def write(writer: MethodVisitor): Unit = MemoryOps.putInt(dst, value)
 
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
   }
 
   final case class Write8(value: Long, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
-    override def write(writer: MethodVisitor): Unit = writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putLong", dst, value))
+    override def write(writer: MethodVisitor): Unit = MemoryOps.putLong(dst, value)
 
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
   }
@@ -79,43 +79,29 @@ object Sum {
   final case class MM4(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2.materialize(runtime).getInt())
-    override def write(writer: MethodVisitor): Unit = {
-      val expr = BytecodeSum(
-        InvokeMethod.virtual(classOf[MemoryRef], "getInt", op1),
-        InvokeMethod.virtual(classOf[MemoryRef], "getInt", op2)
-      )
-      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putInt", dst, expr))
-    }
+    override def write(writer: MethodVisitor): Unit =
+      writer.statement(MemoryOps.putInt(dst, BytecodeSum(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
   }
 
   final case class MC4(op1: MemoryOperand, op2: Int, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2)
-    override def write(writer: MethodVisitor): Unit = {
-      val expr = BytecodeSum(InvokeMethod.virtual(classOf[MemoryRef], "getInt", op1), op2)
-      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putInt", dst, expr))
-    }
+    override def write(writer: MethodVisitor): Unit =
+      writer.statement(MemoryOps.putInt(dst, BytecodeSum(MemoryOps.getInt(op1), op2)))
   }
 
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2.materialize(runtime).getLong())
-    override def write(writer: MethodVisitor): Unit = {
-      val expr = BytecodeSum(
-        InvokeMethod.virtual(classOf[MemoryRef], "getLong", op1),
-        InvokeMethod.virtual(classOf[MemoryRef], "getLong", op2)
-      )
-      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putLong", dst, expr))
-    }
+    override def write(writer: MethodVisitor): Unit =
+      writer.statement(MemoryOps.putLong(dst, BytecodeSum(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
   }
 
   final case class MC8(op1: MemoryOperand, op2: Long, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2)
-    override def write(writer: MethodVisitor): Unit = {
-      val expr = BytecodeSum(InvokeMethod.virtual(classOf[MemoryRef], "getLong", op1), op2)
-      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putLong", dst, expr))
-    }
+    override def write(writer: MethodVisitor): Unit =
+      writer.statement(MemoryOps.putLong(dst, BytecodeSum(MemoryOps.getLong(op1), op2)))
   }
 
   def length4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int, dst: MemoryOperand): Execution =

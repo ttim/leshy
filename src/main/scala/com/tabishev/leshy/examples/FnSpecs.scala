@@ -17,9 +17,9 @@ object FnSpecs {
   def createInterpreter(debug: Boolean, checkConsts: Boolean): Interpreter =
     new Interpreter(FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath)), debug, checkConsts)
 
-  def createCompiler(debug: Boolean): Compiler = {
+  def createCompiler(debug: Boolean, doBytecodeGeneration: Boolean): Compiler = {
     val loader = FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath))
-    val instance = new Compiler(loader, new Runtime(), debug)
+    val instance = new Compiler(loader, new Runtime(), debug, doBytecodeGeneration)
 
     // warmup to get all nodes ready before freeze
     Seq[FnSpec[Int, _]](Fib4, Fib8, Fibx4, Fibx8, Ffactorial4, Ffactorial8).foreach { spec =>
@@ -76,7 +76,7 @@ object FnSpecs {
   }
 
   private def testCompiler(): Unit = {
-    val compiler = FnSpecs.createCompiler(false)
+    val compiler = FnSpecs.createCompiler(false, doBytecodeGeneration = false)
 
     assert(compiler.run(Fib4)(10) == 89)
     assert(compiler.run(Fib8)(10) == 89)

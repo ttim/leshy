@@ -3,7 +3,7 @@ package com.tabishev.leshy.examples
 object Implementations {
   private val interpreter = FnSpecs.createInterpreter(debug = false, checkConsts = true)
   private val interpreterNoCheck = FnSpecs.createInterpreter(debug = false, checkConsts = false)
-  private val compiler = FnSpecs.createCompiler(false)
+  private val compiler = FnSpecs.createCompiler(false, doBytecodeGeneration = false)
 
   val Fib4: Map[String, Int => Int] = Map(
     "interpreter" -> interpreter.run(FnSpecs.Fib4),

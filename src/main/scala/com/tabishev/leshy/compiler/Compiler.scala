@@ -3,12 +3,12 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.common.ConstInterpreter
 import com.tabishev.leshy.loader.FnLoader
-import com.tabishev.leshy.node.{Node, Inliner}
+import com.tabishev.leshy.node.{BytecodeCompiler, Inliner, Node}
 import com.tabishev.leshy.runtime.{Consts, FnSpec, Runtime, StackMemory}
 
 import scala.collection.mutable
 
-final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean) {
+final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean, val doBytecodeGeneration: Boolean) {
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
   def run[T, V](spec: FnSpec[T, V])(input: T): V = {
@@ -44,12 +44,19 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   }
 
   def optimize(): Unit = {
-    inlineNodes()
+    if (!doBytecodeGeneration) inlineNodes() else compileNodes()
   }
 
   private def inlineNodes(): Unit = {
     val replacement = nodes.map { (key, node) =>
       (key, Inliner.inlineIndirect(node))
+    }
+    nodes.addAll(replacement)
+  }
+
+  private def compileNodes(): Unit = {
+    val replacement = nodes.map { case (key, node) =>
+      (key, if (key._1.line == 0) BytecodeCompiler.compile(node) else node)
     }
     nodes.addAll(replacement)
   }
