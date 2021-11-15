@@ -18,8 +18,8 @@ object FnSpecs {
   def createInterpreter(debug: Boolean, checkConsts: Boolean): Interpreter =
     new Interpreter(loader(), debug, checkConsts)
 
-  def createCompiler[V](spec: FnSpec[Int, V]): Int => V =
-    Compiler.runner(loader(), new Runtime(), debugEnabled = false, doBytecodeGeneration = false, spec, Some(10))
+  def createCompiler[V](spec: FnSpec[Int, V], doBytecodeGeneration: Boolean): Int => V =
+    Compiler.runner(loader(), new Runtime(), debugEnabled = false, doBytecodeGeneration, spec, Some(10))
 
   val Fib4: FnSpec[Int, Int] = FnSpec("fib4", { input =>
     Input.add(Bytes.fromInt(input), isConst = false)
@@ -67,8 +67,8 @@ object FnSpecs {
   }
 
   private def testCompiler(): Unit = {
-    assert(createCompiler(Fib4)(10) == 89)
-    assert(createCompiler(Fibx8)(10) == 89)
+    assert(createCompiler(Fib4, doBytecodeGeneration = false)(10) == 89)
+    assert(createCompiler(Fibx8, doBytecodeGeneration = false)(10) == 89)
 
     val start = System.currentTimeMillis()
 //    assert(compiler.run(Fib8)(40) == 165580141)
