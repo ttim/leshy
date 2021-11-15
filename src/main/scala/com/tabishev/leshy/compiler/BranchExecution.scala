@@ -3,7 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.runtime.Runtime
 import org.objectweb.asm.{Label, MethodVisitor, Opcodes}
 import com.tabishev.leshy.bytecode.*
-import com.tabishev.leshy.bytecode.booleanPushable
+import com.tabishev.leshy.bytecode.booleanBytecodeExpression
 
 abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean

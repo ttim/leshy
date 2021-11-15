@@ -4,9 +4,9 @@ import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
 import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
 import com.tabishev.leshy.bytecode._
-import com.tabishev.leshy.bytecode.intPushable
-import com.tabishev.leshy.bytecode.longPushable
-import com.tabishev.leshy.bytecode.invokeMethodPushable
+import com.tabishev.leshy.bytecode.intBytecodeExpression
+import com.tabishev.leshy.bytecode.longBytecodeExpression
+import com.tabishev.leshy.bytecode.invokeMethodBytecodeExpression
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
