@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Mult, Negate, Nodes, OperationRef, Stack, Sum, Set}
+import com.tabishev.leshy.compiler.{BranchExecution, WriteConst, Execution, MemoryOperand, Mult, Negate, Nodes, OperationRef, Stack, Sum, Set}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory}
@@ -24,8 +24,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(8)
     }
 
-    testExecution(prepare, Const.Write4(777, dst))
-    testExecution(prepare, Const.Write8(Long.MaxValue - 777, dst))
+    testExecution(prepare, WriteConst.Length4(777, dst))
+    testExecution(prepare, WriteConst.Length8(Long.MaxValue - 777, dst))
   }
 
   test("negate") {
@@ -36,8 +36,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(16)
       op.materialize(runtime).putLong(Long.MaxValue - 777)
     }
-    testExecution(prepare, Negate.M4(op, dst))
-    testExecution(prepare, Negate.M8(op, dst))
+    testExecution(prepare, Negate.Length4(op, dst))
+    testExecution(prepare, Negate.Length8(op, dst))
   }
 
   test("set") {
@@ -48,8 +48,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(16)
       op.materialize(runtime).putLong(Long.MaxValue - 777)
     }
-    testExecution(prepare, Set.M4(op, dst))
-    testExecution(prepare, Set.M8(op, dst))
+    testExecution(prepare, Set.Length4(op, dst))
+    testExecution(prepare, Set.Length8(op, dst))
   }
 
   test("sum") {
@@ -82,10 +82,10 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       op2.materialize(runtime).putLong(Long.MaxValue - 888)
     }
 
-    testExecution(prepare, Mult.MC4(op1, 7, dst))
-    testExecution(prepare, Mult.MM4(op1, op2, dst))
-    testExecution(prepare, Mult.MC8(op1, 7, dst))
-    testExecution(prepare, Mult.MC8(op1, 7, dst))
+    testExecution(prepare, Mult.length4(op1, 7, dst))
+    testExecution(prepare, Mult.length4(op1, op2, dst))
+    testExecution(prepare, Mult.length8(op1, 7, dst))
+    testExecution(prepare, Mult.length8(op1, 7, dst))
   }
 
   test("setSize") {
@@ -117,8 +117,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
   private def testBranch(prepare: Runtime => Unit, ex: BranchExecution): Unit = check(prepare, Nodes.Branch(
     genOrigin(),
-    executeNode(Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero))),
-    executeNode(Const.Write4(888, MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(WriteConst.Length4(777, MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(WriteConst.Length4(888, MemoryOperand.Stack(FrameOffset.Zero))),
     ex
   ))
 
