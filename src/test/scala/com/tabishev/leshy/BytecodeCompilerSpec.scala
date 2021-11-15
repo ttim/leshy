@@ -44,6 +44,20 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     )
   }
 
+  test("sum8") {
+    val op1 = MemoryOperand.Stack(FrameOffset.nonNegative(0))
+    val op2 = MemoryOperand.Stack(FrameOffset.nonNegative(8))
+    val op3 = MemoryOperand.Stack(FrameOffset.nonNegative(16))
+    val op4 = MemoryOperand.Stack(FrameOffset.nonNegative(24))
+
+    testExecution(prepareSize(32),
+      Const.Write8(1, op1),
+      Const.Write8(10, op2),
+      Sum.MC8(op1, 7, op3),
+      Sum.MM8(op1, op2, op4)
+    )
+  }
+
   test("setSize") {
     testExecution(prepareNothing, Stack.SetSize(0, 12))
   }
