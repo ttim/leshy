@@ -7,7 +7,7 @@ import com.tabishev.leshy.bytecode._
 import com.tabishev.leshy.bytecode.intBytecodeExpression
 import com.tabishev.leshy.bytecode.longBytecodeExpression
 import com.tabishev.leshy.bytecode.invokeMethodBytecodeExpression
-import com.tabishev.leshy.bytecode.sumBytecodeExpression
+import com.tabishev.leshy.bytecode.binaryOpBytecodeExpression
 import com.tabishev.leshy.bytecode.negateBytecodeExpression
 
 sealed abstract class Execution {
@@ -133,6 +133,9 @@ object Mult {
   final case class MC4(op1: MemoryOperand, op2: Int, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() * op2)
+
+    override def write(writer: MethodVisitor): Unit =
+      MemoryOps.putInt(dst, Ops.mult(MemoryOps.getInt(op1), op2))
   }
 
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
@@ -194,11 +197,15 @@ object Set {
   final case class M4(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(src.materialize(runtime).getInt())
+    override def write(writer: MethodVisitor): Unit =
+      MemoryOps.putInt(dst, MemoryOps.getInt(src))
   }
 
   final case class M8(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(src.materialize(runtime).getLong())
+    override def write(writer: MethodVisitor): Unit =
+      MemoryOps.putLong(dst, MemoryOps.getLong(src))
   }
 
   def length4(srcUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = srcUnion match {
