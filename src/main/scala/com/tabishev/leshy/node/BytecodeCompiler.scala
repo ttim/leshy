@@ -1,10 +1,6 @@
 package com.tabishev.leshy.node
 
 import com.tabishev.leshy.bytecode.*
-import com.tabishev.leshy.bytecode.fieldBytecodeExpression
-import com.tabishev.leshy.bytecode.thisBytecodeExpression
-import com.tabishev.leshy.bytecode.paramBytecodeExpression
-import com.tabishev.leshy.bytecode.superBytecodeExpression
 import com.tabishev.leshy.runtime.Runtime
 import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
