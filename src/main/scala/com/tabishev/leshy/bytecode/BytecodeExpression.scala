@@ -44,6 +44,13 @@ object BytecodeExpression {
       case Long => Some(Opcodes.LADD)
     }
 
+    def multInst: Option[Int] = this match {
+      case Void => None
+      case Object => None
+      case Int => Some(Opcodes.IMUL)
+      case Long => Some(Opcodes.LMUL)
+    }
+
     def negateInst: Option[Int] = this match {
       case Void => None
       case Object => None
@@ -180,21 +187,25 @@ given valueBytecodeExpression: BytecodeExpression[Value[_]] with {
   override def push(writer: MethodVisitor, value: Value[_]): BytecodeExpression.Kind = value.push(writer)
 }
 
-case class BytecodeSum(arg1: Value[_], arg2: Value[_])
+case class BytecodeBinaryOp(opcode: BytecodeExpression.Kind => Int, arg1: Value[_], arg2: Value[_])
 
-given sumBytecodeExpression: BytecodeExpression[BytecodeSum] with {
-  override def push(writer: MethodVisitor, value: BytecodeSum): BytecodeExpression.Kind = {
+given binaryOpBytecodeExpression: BytecodeExpression[BytecodeBinaryOp] with {
+  override def push(writer: MethodVisitor, value: BytecodeBinaryOp): BytecodeExpression.Kind = {
     val kind = value.arg1.push(writer)
     val kind2 = value.arg2.push(writer)
     assert(kind == kind2)
-    writer.visitInsn(kind.sumInst.get)
+    writer.visitInsn(value.opcode(kind))
     kind
   }
 }
 
 object Ops {
-  def negate[V: BytecodeExpression](arg: V): BytecodeNegate = BytecodeNegate(Value(arg))
-  def sum[V1: BytecodeExpression, V2: BytecodeExpression](arg1: V1, arg2: V2) = BytecodeSum(Value(arg1), Value(arg2))
+  def negate[V: BytecodeExpression](arg: V): BytecodeNegate =
+    BytecodeNegate(Value(arg))
+  def sum[V1: BytecodeExpression, V2: BytecodeExpression](arg1: V1, arg2: V2) =
+    BytecodeBinaryOp(_.sumInst.get, Value(arg1), Value(arg2))
+  def mult[V1: BytecodeExpression, V2: BytecodeExpression](arg1: V1, arg2: V2) =
+    BytecodeBinaryOp(_.multInst.get, Value(arg1), Value(arg2))
 }
 
 case class BytecodeNegate(arg: Value[_])
