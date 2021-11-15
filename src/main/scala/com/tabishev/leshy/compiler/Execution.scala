@@ -7,6 +7,7 @@ import com.tabishev.leshy.bytecode._
 import com.tabishev.leshy.bytecode.intBytecodeExpression
 import com.tabishev.leshy.bytecode.longBytecodeExpression
 import com.tabishev.leshy.bytecode.invokeMethodBytecodeExpression
+import com.tabishev.leshy.bytecode.sumBytecodeExpression
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
@@ -78,11 +79,22 @@ object Sum {
   final case class MM4(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2.materialize(runtime).getInt())
+    override def write(writer: MethodVisitor): Unit = {
+      val expr = BytecodeSum(
+        InvokeMethod.virtual(classOf[MemoryRef], "getInt", op1),
+        InvokeMethod.virtual(classOf[MemoryRef], "getInt", op2)
+      )
+      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putInt", dst, expr))
+    }
   }
 
   final case class MC4(op1: MemoryOperand, op2: Int, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2)
+    override def write(writer: MethodVisitor): Unit = {
+      val expr = BytecodeSum(InvokeMethod.virtual(classOf[MemoryRef], "getInt", op1), op2)
+      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putInt", dst, expr))
+    }
   }
 
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {

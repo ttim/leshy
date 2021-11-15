@@ -6,6 +6,7 @@ import java.lang.reflect.Method
 import scala.reflect.ClassTag
 
 trait BytecodeExpression[T] {
+  // todo: return kind from push
   def push(writer: MethodVisitor, value: T): Unit
 
   def kind(value: T): BytecodeExpression.Kind
@@ -37,6 +38,13 @@ object BytecodeExpression {
       case Object => Some(Opcodes.ALOAD)
       case Int => Some(Opcodes.ILOAD)
       case Long => Some(Opcodes.LLOAD)
+    }
+
+    def sumInst: Option[Int] = this match {
+      case Void => None
+      case Object => None
+      case Int => Some(Opcodes.IADD)
+      case Long => Some(Opcodes.LADD)
     }
   }
 
@@ -158,4 +166,21 @@ given paramBytecodeExpression: BytecodeExpression[Param] with {
 case class Value[T: BytecodeExpression](value: T) {
   def push(writer: MethodVisitor): Unit = implicitly[BytecodeExpression[T]].push(writer, value)
   def kind: BytecodeExpression.Kind = implicitly[BytecodeExpression[T]].kind(value)
+}
+
+case class BytecodeSum[V1: BytecodeExpression, V2: BytecodeExpression](arg1: V1, arg2: V2) {
+  def push(writer: MethodVisitor): Unit = {
+    implicitly[BytecodeExpression[V1]].push(writer, arg1)
+    implicitly[BytecodeExpression[V2]].push(writer, arg2)
+    val kind = implicitly[BytecodeExpression[V1]].kind(arg1)
+    assert(implicitly[BytecodeExpression[V2]].kind(arg2) == kind)
+    writer.visitInsn(kind.sumInst.get)
+  }
+
+  def kind(): BytecodeExpression.Kind = implicitly[BytecodeExpression[V1]].kind(arg1)
+}
+
+given sumBytecodeExpression[V1, V2]: BytecodeExpression[BytecodeSum[V1, V2]] with {
+  override def push(writer: MethodVisitor, value: BytecodeSum[V1, V2]): Unit = value.push(writer)
+  override def kind(value: BytecodeSum[V1, V2]): BytecodeExpression.Kind = value.kind()
 }
