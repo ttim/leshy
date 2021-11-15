@@ -1,6 +1,6 @@
 package com.tabishev.leshy.bytecode
 
-import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
+import org.objectweb.asm.{Label, MethodVisitor, Opcodes, Type}
 
 extension (writer: MethodVisitor) {
   def statement[T](value: T)(using pushable: BytecodeExpression[T]): Unit = {
@@ -11,6 +11,12 @@ extension (writer: MethodVisitor) {
   def ret[T](value: T)(using pushable: BytecodeExpression[T]): Unit = {
     val kind = push(value)
     writer.visitInsn(kind.retInst)
+  }
+
+  def branch[T1, T2](arg1: T1, opcode: Int, arg2: T2, label: Label)(using BytecodeExpression[T1], BytecodeExpression[T2]): Unit = {
+    push(arg1)
+    push(arg2)
+    writer.visitJumpInsn(opcode, label)
   }
 
   def putField[T](field: Field, value: T)(using pushable: BytecodeExpression[T]): Unit =

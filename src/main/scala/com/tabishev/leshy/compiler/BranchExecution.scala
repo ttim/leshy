@@ -4,10 +4,11 @@ import com.tabishev.leshy.runtime.Runtime
 import org.objectweb.asm.{Label, MethodVisitor, Opcodes}
 import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.bytecode.booleanBytecodeExpression
+import com.tabishev.leshy.bytecode.intBytecodeExpression
 
 abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean
-  def generate(writer: MethodVisitor, ifTrue: Label): Unit = ???
+  def generate(writer: MethodVisitor, ifTrue: Label): Unit = throw new NotImplementedError(toString)
 }
 
 object BranchExecution {
@@ -42,6 +43,9 @@ object BranchExecution {
 
   final case class LessOrEqualMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() <= op2
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPLE, op2, ifTrue)
   }
 
   final case class LessOrEqualMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
