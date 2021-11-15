@@ -5,6 +5,7 @@ import org.objectweb.asm.{Label, MethodVisitor, Opcodes}
 import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.bytecode.booleanBytecodeExpression
 import com.tabishev.leshy.bytecode.intBytecodeExpression
+import com.tabishev.leshy.bytecode.longBytecodeExpression
 
 abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean
@@ -25,6 +26,9 @@ object BranchExecution {
 
   final case class MoreMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() > op2
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPGT, op2, ifTrue)
   }
 
   final case class MoreMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
@@ -34,6 +38,10 @@ object BranchExecution {
 
   final case class MoreMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() > op2
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      // todo: is it correct? given longs are two elements on stack
+      writer.branch(MemoryOps.getLong(op1), Opcodes.IF_ICMPGT, op2, ifTrue)
   }
 
   final case class LessOrEqualMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
