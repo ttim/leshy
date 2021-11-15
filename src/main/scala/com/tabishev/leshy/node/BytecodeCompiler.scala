@@ -72,7 +72,7 @@ private class BytecodeCompiler(node: Node, name: String) {
 
     writer.statement(InvokeSuper(classOf[Node.Generated]))
     (0 until args.length).foreach { idx =>
-      writer.putField(Field(isStatic = false, "node_" + idx, owner, typeNode), Param.idx[Node](idx))
+      writer.putField(Field(isStatic = false, "node_" + idx, owner, typeNode), BytecodeExpression.param[Node](idx))
     }
 
     // return

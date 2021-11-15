@@ -4,6 +4,7 @@ import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
 import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
 import com.tabishev.leshy.bytecode._
+import com.tabishev.leshy.bytecode.BytecodeExpression._
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
@@ -31,14 +32,14 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
-    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putInt(dst, Ops.int(value)))
+    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putInt(dst, const(value)))
 
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
   }
 
   final case class Write8(value: Long, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
-    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putLong(dst, Ops.long(value)))
+    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putLong(dst, const(value)))
 
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
   }
@@ -56,7 +57,7 @@ object Stack {
   final case class SetSize(oldSize: Int, newSize: Int) extends Execution {
     override def execute(runtime: Runtime): Unit = runtime.stack.setFramesize(newSize)
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(InvokeMethod.virtual(classOf[StackMemory], "setFramesize", MemoryOps.Stack, Ops.int(newSize)))
+      writer.statement(invokeVirtual(classOf[StackMemory], "setFramesize", MemoryOps.Stack, const(newSize)))
 
     override def markConsts(consts: Consts): Consts =
       if (newSize > oldSize)
@@ -77,28 +78,28 @@ object Sum {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2.materialize(runtime).getInt())
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, Ops.sum(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
+      writer.statement(MemoryOps.putInt(dst, sum(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
   }
 
   final case class MC4(op1: MemoryOperand, op2: Int, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2)
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, Ops.sum(MemoryOps.getInt(op1), Ops.int(op2))))
+      writer.statement(MemoryOps.putInt(dst, sum(MemoryOps.getInt(op1), const(op2))))
   }
 
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2.materialize(runtime).getLong())
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, Ops.sum(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
+      writer.statement(MemoryOps.putLong(dst, sum(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
   }
 
   final case class MC8(op1: MemoryOperand, op2: Long, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2)
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, Ops.sum(MemoryOps.getLong(op1), Ops.long(op2))))
+      writer.statement(MemoryOps.putLong(dst, sum(MemoryOps.getLong(op1), const(op2))))
   }
 
   def length4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int, dst: MemoryOperand): Execution =
@@ -125,7 +126,7 @@ object Mult {
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() * op2.materialize(runtime).getInt())
 
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, Ops.mult(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
+      writer.statement(MemoryOps.putInt(dst, mult(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
   }
 
   final case class MC4(op1: MemoryOperand, op2: Int, dst: MemoryOperand) extends NonConstExecution4 {
@@ -133,7 +134,7 @@ object Mult {
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() * op2)
 
     override def write(writer: MethodVisitor): Unit =
-      MemoryOps.putInt(dst, Ops.mult(MemoryOps.getInt(op1), Ops.int(op2)))
+      MemoryOps.putInt(dst, mult(MemoryOps.getInt(op1), const(op2)))
   }
 
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
@@ -141,7 +142,7 @@ object Mult {
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() * op2.materialize(runtime).getLong())
 
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, Ops.mult(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
+      writer.statement(MemoryOps.putLong(dst, mult(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
   }
 
   final case class MC8(op1: MemoryOperand, op2: Long, dst: MemoryOperand) extends NonConstExecution8 {
@@ -149,7 +150,7 @@ object Mult {
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() * op2)
 
     override def write(writer: MethodVisitor): Unit =
-      MemoryOps.putLong(dst, Ops.mult(MemoryOps.getLong(op1), Ops.long(op2)))
+      MemoryOps.putLong(dst, mult(MemoryOps.getLong(op1), const(op2)))
   }
 
   def length4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int, dst: MemoryOperand): Execution =
@@ -175,7 +176,7 @@ object Negate {
       dst.materialize(runtime).putInt(-op.materialize(runtime).getInt())
 
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, Ops.negate(MemoryOps.getInt(op))))
+      writer.statement(MemoryOps.putInt(dst, negate(MemoryOps.getInt(op))))
   }
 
   final case class M8(op: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
@@ -183,7 +184,7 @@ object Negate {
       dst.materialize(runtime).putLong(-op.materialize(runtime).getLong())
 
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, Ops.negate(MemoryOps.getLong(op))))
+      writer.statement(MemoryOps.putLong(dst, negate(MemoryOps.getLong(op))))
   }
 
   def length4(opUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = opUnion match {
