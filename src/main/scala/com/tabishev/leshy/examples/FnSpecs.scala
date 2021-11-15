@@ -67,8 +67,7 @@ object FnSpecs {
   }
 
   private def testCompiler(): Unit = {
-    assert(createCompiler(Fib4, doBytecodeGeneration = false)(10) == 89)
-    assert(createCompiler(Fibx8, doBytecodeGeneration = false)(10) == 89)
+    assert(createCompiler(Ffactorial4, doBytecodeGeneration = true)(4) == 8)
 
     val start = System.currentTimeMillis()
 //    assert(compiler.run(Fib8)(40) == 165580141)
