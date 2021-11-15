@@ -100,11 +100,22 @@ object Sum {
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2.materialize(runtime).getLong())
+    override def write(writer: MethodVisitor): Unit = {
+      val expr = BytecodeSum(
+        InvokeMethod.virtual(classOf[MemoryRef], "getLong", op1),
+        InvokeMethod.virtual(classOf[MemoryRef], "getLong", op2)
+      )
+      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putLong", dst, expr))
+    }
   }
 
   final case class MC8(op1: MemoryOperand, op2: Long, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2)
+    override def write(writer: MethodVisitor): Unit = {
+      val expr = BytecodeSum(InvokeMethod.virtual(classOf[MemoryRef], "getLong", op1), op2)
+      writer.statement(InvokeMethod.virtual(classOf[MemoryRef], "putLong", dst, expr))
+    }
   }
 
   def length4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int, dst: MemoryOperand): Execution =
