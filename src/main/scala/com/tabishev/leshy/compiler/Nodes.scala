@@ -17,6 +17,8 @@ object Nodes {
       if (resolved == null) resolved = origin.compiler.create(origin.op, origin.ctx)
       resolved
     }
+
+    def invalidate(): Unit = resolved = null
   }
 
   final case class Execute(origin: Origin, next: Node, execution: Execution) extends Node.Run {
@@ -57,6 +59,8 @@ object Nodes {
         next = next.updated(returnNode, node)
         node
       })
+
+    def invalidate(): Unit = next = Map()
   }
 
   def call(origin: Origin, offset: FrameOffset, target: String): Call = {

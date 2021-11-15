@@ -45,6 +45,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
 
   def optimize(): Unit = {
     if (!doBytecodeGeneration) inlineNodes() else compileNodes()
+    invalidate()
   }
 
   private def inlineNodes(): Unit = {
@@ -60,6 +61,13 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     }
     nodes.addAll(replacement)
   }
+
+  private def invalidate(): Unit =
+    nodes.values.foreach {
+      case node: Nodes.Call => node.invalidate()
+      case node: Nodes.Link => node.invalidate()
+      case _ => // do nothing
+    }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
     if (debugEnabled || force) {
