@@ -4,37 +4,35 @@ import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.runtime.Runtime
 import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
+import java.net.URLClassLoader
 import java.nio.file.Files
+import java.util.Comparator
 import scala.collection.mutable
 import scala.util.Random
 
 object BytecodeCompiler {
-  private val classLoader = new InMemoryClassLoader(this.getClass.getClassLoader)
+  private val dest = new java.io.File("generated").toPath
+  private val classLoader = new URLClassLoader(Array(dest.toUri.toURL), this.getClass.getClassLoader)
   private val typeGeneratedNode = Type.getType(classOf[Node.Generated])
   private val typeNode = Type.getType(classOf[Node])
   private val typeRuntime = Type.getType(classOf[Runtime])
 
+  // prepare dest
+  Files.walk(dest)
+    .sorted(Comparator.reverseOrder())
+    .map(_.toFile)
+    .forEach(_.delete)
+  Files.createDirectory(dest)
+
   def compile(node: Node): Node.Generated = {
     val name = "GenClass_" + Random.nextLong(Long.MaxValue)
     val bytes = new BytecodeCompiler(node, name).compile()
-    Files.write(new java.io.File("Generated.class").toPath, bytes)
-    classLoader.add(name, bytes)
+    Files.write(dest.resolve(name + ".class"), bytes)
     val clazz = classLoader.loadClass(name)
     val constructor = clazz.getConstructors().head
     val returns = NodeTraversal.traverse(node).collect { case NodeTraversal.Statement.Return(node) => node }
     val generated = constructor.newInstance(returns.toArray:_*).asInstanceOf[Node.Generated]
     generated
-  }
-
-  private class InMemoryClassLoader(parent: ClassLoader) extends ClassLoader(parent) {
-    val classes: mutable.Map[String, Array[Byte]] = mutable.HashMap()
-
-    def add(name: String, bytes: Array[Byte]): Unit = classes.addOne(name, bytes)
-
-    override def findClass(name: String): Class[_] = {
-      val bytes = classes(name)
-      defineClass(name, bytes, 0, bytes.length)
-    }
   }
 }
 
