@@ -67,6 +67,13 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     testBranch(prepareSize(4), BranchExecution.Const(false))
   }
 
+  test("test LessOrEqual branch") {
+    val op = MemoryOperand.Stack(FrameOffset.nonNegative(0))
+    testBranch(prepareSize(4), BranchExecution.LessOrEqualMC4(op, 0))
+    testBranch(prepareSize(4), BranchExecution.LessOrEqualMC4(op, -1))
+    testBranch(prepareSize(4), BranchExecution.LessOrEqualMC4(op, 1))
+  }
+
   private def testExecution(prepare: StackMemory => Unit, ex: Execution*): Unit = check(prepare, executeNode(ex:_*))
 
   private def testBranch(prepare: StackMemory => Unit, ex: BranchExecution): Unit = check(prepare, Nodes.Branch(
