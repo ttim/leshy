@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Nodes, OperationRef, Stack}
+import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Nodes, OperationRef, Stack, Sum}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory}
@@ -17,7 +17,10 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
   private def genOrigin(): Nodes.Origin = Nodes.Origin(null, OperationRef("", Random.nextInt()), null)
   private def finalNode(): Node = Nodes.Final(genOrigin())
-  private def executeNode(ex: Execution): Node = Nodes.Execute(genOrigin(), finalNode(), ex)
+  private def executeNode(ex: Execution*): Node = ex.toList match {
+    case head :: tail => Nodes.Execute(genOrigin(), executeNode(tail:_*), head)
+    case nil => finalNode()
+  }
 
   test("write4") {
     testExecution(prepareSize(4), Const.Write4(777, MemoryOperand.Stack(FrameOffset.Zero)))
@@ -25,6 +28,20 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
   test("write8") {
     testExecution(prepareSize(4), Const.Write8(Long.MaxValue - 777, MemoryOperand.Stack(FrameOffset.Zero)))
+  }
+
+  test("sum4") {
+    val op1 = MemoryOperand.Stack(FrameOffset.nonNegative(0))
+    val op2 = MemoryOperand.Stack(FrameOffset.nonNegative(4))
+    val op3 = MemoryOperand.Stack(FrameOffset.nonNegative(8))
+    val op4 = MemoryOperand.Stack(FrameOffset.nonNegative(12))
+
+    testExecution(prepareSize(16),
+      Const.Write4(1, op1),
+      Const.Write4(10, op2),
+      Sum.MC4(op1, 7, op3),
+      Sum.MM4(op1, op2, op4)
+    )
   }
 
   test("setSize") {
@@ -36,7 +53,7 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     testBranch(prepareSize(4), BranchExecution.Const(false))
   }
 
-  private def testExecution(prepare: StackMemory => Unit, ex: Execution): Unit = check(prepare, executeNode(ex))
+  private def testExecution(prepare: StackMemory => Unit, ex: Execution*): Unit = check(prepare, executeNode(ex:_*))
 
   private def testBranch(prepare: StackMemory => Unit, ex: BranchExecution): Unit = check(prepare, Nodes.Branch(
     genOrigin(),
