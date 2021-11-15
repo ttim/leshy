@@ -31,6 +31,13 @@ enum BytecodeExpressionKind {
     case Long => Some(Opcodes.LLOAD)
   }
 
+  def storeInst: Option[Int] = this match {
+    case Void => None
+    case Object => Some(Opcodes.ASTORE)
+    case Int => Some(Opcodes.ISTORE)
+    case Long => Some(Opcodes.LSTORE)
+  }
+
   def sumInst: Option[Int] = this match {
     case Void => None
     case Object => None

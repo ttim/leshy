@@ -8,8 +8,8 @@ import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
 import scala.reflect.ClassTag
 
 object MemoryOps {
-  val Runtime: BytecodeExpression = param[Runtime](0)
-  val Stack: BytecodeExpression = invokeVirtual(classOf[Runtime], "stack", Runtime)
+  val Runtime: BytecodeExpression = local[Runtime](1)
+  val Stack: BytecodeExpression = local[StackMemory](2)
 
   def frameOffset(offset: FrameOffset): BytecodeExpression =
     invokeStatic(classOf[FrameOffset], "nonNegative", const(offset.get))

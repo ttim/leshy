@@ -27,7 +27,7 @@ object BytecodeExpression {
   def invokeStatic(clazz: Class[_], name: String, args: BytecodeExpression*): InvokeMethod =
     InvokeMethod(Opcodes.INVOKESTATIC, clazz, name, args.toSeq)
 
-  def param[T: ClassTag](idx: Int): Param = Param(idx, BytecodeExpressionKind.of[T])
+  def local[T: ClassTag](idx: Int): BytecodeExpression = Local(idx, BytecodeExpressionKind.of[T])
 }
 
 case class BytecodeConst private[bytecode](kind: BytecodeExpressionKind, value: Any) extends BytecodeExpression {
@@ -65,11 +65,9 @@ case class InvokeMethod(opcode: Int, clazz: Class[_], name: String, args: Seq[By
   }
 }
 
-case class Param(idx: Int, kind: BytecodeExpressionKind) extends BytecodeExpression {
+case class Local(idx: Int, kind: BytecodeExpressionKind) extends BytecodeExpression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
-    kind.loadInst.foreach { inst =>
-      writer.visitVarInsn(inst, idx + 1)
-    }
+    writer.visitVarInsn(kind.loadInst.get, idx)
     kind
   }
 }
