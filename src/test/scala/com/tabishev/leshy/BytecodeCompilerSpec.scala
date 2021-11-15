@@ -48,8 +48,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(16)
       op.materialize(runtime).putLong(Long.MaxValue - 777)
     }
-    testExecution(prepare, Set.Length4(op, dst))
-    testExecution(prepare, Set.Length8(op, dst))
+    testExecution(prepare, Set.length4(op, dst))
+    testExecution(prepare, Set.length8(op, dst))
   }
 
   test("sum") {
