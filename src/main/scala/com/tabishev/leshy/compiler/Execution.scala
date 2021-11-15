@@ -8,10 +8,11 @@ import com.tabishev.leshy.bytecode.intBytecodeExpression
 import com.tabishev.leshy.bytecode.longBytecodeExpression
 import com.tabishev.leshy.bytecode.invokeMethodBytecodeExpression
 import com.tabishev.leshy.bytecode.sumBytecodeExpression
+import com.tabishev.leshy.bytecode.negateBytecodeExpression
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
-  def write(writer: MethodVisitor): Unit = ???
+  def write(writer: MethodVisitor): Unit = throw new NotImplementedError(toString)
 
   def markConsts(consts: Consts): Consts
   def stackSize(before: Int): Int = before
@@ -35,14 +36,14 @@ sealed abstract class NonConstExecution8 extends NonConstExecution {
 object Const {
   final case class Write4(value: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
-    override def write(writer: MethodVisitor): Unit = MemoryOps.putInt(dst, value)
+    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putInt(dst, value))
 
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
   }
 
   final case class Write8(value: Long, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
-    override def write(writer: MethodVisitor): Unit = MemoryOps.putLong(dst, value)
+    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putLong(dst, value))
 
     override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
   }
@@ -52,6 +53,7 @@ object Mark {
   // Specialize can't implemented simalry because execution assumes spec ctx not changing between runs
   final case class NotSpecialize(length: Int, dst: MemoryOperand) extends NonConstExecution {
     override def execute(runtime: Runtime): Unit = ()
+    override def write(writer: MethodVisitor): Unit = ()
   }
 }
 
@@ -164,11 +166,17 @@ object Negate {
   final case class M4(op: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(-op.materialize(runtime).getInt())
+
+    override def write(writer: MethodVisitor): Unit =
+      writer.statement(MemoryOps.putInt(dst, Ops.negate(MemoryOps.getInt(op))))
   }
 
   final case class M8(op: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(-op.materialize(runtime).getLong())
+
+    override def write(writer: MethodVisitor): Unit =
+      writer.statement(MemoryOps.putLong(dst, Ops.negate(MemoryOps.getLong(op))))
   }
 
   def length4(opUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = opUnion match {
