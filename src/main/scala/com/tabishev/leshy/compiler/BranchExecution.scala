@@ -3,6 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.runtime.Runtime
 import org.objectweb.asm.{Label, MethodVisitor, Opcodes}
 import com.tabishev.leshy.bytecode.*
+import com.tabishev.leshy.bytecode.BytecodeExpression._
 
 abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean
@@ -25,7 +26,7 @@ object BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() > op2
 
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPGT, Ops.int(op2), ifTrue)
+      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPGT, const(op2), ifTrue)
   }
 
   final case class MoreMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
@@ -38,7 +39,7 @@ object BranchExecution {
 
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
       // todo: is it correct? given longs are two elements on stack
-      writer.branch(MemoryOps.getLong(op1), Opcodes.IF_ICMPGT, Ops.long(op2), ifTrue)
+      writer.branch(MemoryOps.getLong(op1), Opcodes.IF_ICMPGT, const(op2), ifTrue)
   }
 
   final case class LessOrEqualMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
@@ -50,7 +51,7 @@ object BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() <= op2
 
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPLE, Ops.int(op2), ifTrue)
+      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPLE, const(op2), ifTrue)
   }
 
   final case class LessOrEqualMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
