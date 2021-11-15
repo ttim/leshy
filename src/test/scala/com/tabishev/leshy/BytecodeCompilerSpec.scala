@@ -63,10 +63,12 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       op2.materialize(runtime).putLong(Long.MaxValue - 888)
     }
 
-    testExecution(prepare, Sum.MC4(op1, 7, dst))
-    testExecution(prepare, Sum.MM4(op1, op2, dst))
-    testExecution(prepare, Sum.MC8(op1, 7, dst))
-    testExecution(prepare, Sum.MC8(op1, 7, dst))
+    testExecution(prepare, Sum.length4(5, 7, dst))
+    testExecution(prepare, Sum.length4(op1, 7, dst))
+    testExecution(prepare, Sum.length4(op1, op2, dst))
+    testExecution(prepare, Sum.length8(5, 7, dst))
+    testExecution(prepare, Sum.length8(op1, 7, dst))
+    testExecution(prepare, Sum.length8(op1, 7, dst))
   }
 
   test("mult") {

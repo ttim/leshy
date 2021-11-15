@@ -73,49 +73,32 @@ object Stack {
 }
 
 object Sum {
-  // MM - memory, memory
-  final case class MM4(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
+  final case class Sum4(op1: IntProvider, op2: IntProvider, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2.materialize(runtime).getInt())
+      dst.materialize(runtime).putInt(op1.get(runtime) + op2.get(runtime))
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, sum(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
+      writer.statement(MemoryOps.putInt(dst, sum(op1.expression, op2.expression)))
   }
 
-  final case class MC4(op1: MemoryOperand, op2: Int, dst: MemoryOperand) extends NonConstExecution4 {
+  final case class Sum8(op1: LongProvider, op2: LongProvider, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2)
+      dst.materialize(runtime).putLong(op1.get(runtime) + op2.get(runtime))
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, sum(MemoryOps.getInt(op1), const(op2))))
+      writer.statement(MemoryOps.putLong(dst, sum(op1.expression, op2.expression)))
   }
 
-  final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2.materialize(runtime).getLong())
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, sum(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
-  }
-
-  final case class MC8(op1: MemoryOperand, op2: Long, dst: MemoryOperand) extends NonConstExecution8 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2)
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, sum(MemoryOps.getLong(op1), const(op2))))
-  }
-
-  def length4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int, dst: MemoryOperand): Execution =
-    (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => MM4(op1, op2, dst)
-      case (op1: MemoryOperand, op2: Int) => MC4(op1, op2, dst)
-      case (op1: Int, op2: MemoryOperand) => MC4(op2, op1, dst)
+  def length4(op1: MemoryOperand | Int, op2: MemoryOperand | Int, dst: MemoryOperand): Execution =
+    (op1, op2) match {
+      // todo: why this is needed separately???
       case (op1: Int, op2: Int) => Const.Write4(op1 + op2, dst)
+      case _ => Sum4(IntProvider.create(op1), IntProvider.create(op2), dst)
     }
 
-  def length8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long, dst: MemoryOperand): Execution =
-    (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => MM8(op1, op2, dst)
-      case (op1: MemoryOperand, op2: Long) => MC8(op1, op2, dst)
-      case (op1: Long, op2: MemoryOperand) => MC8(op2, op1, dst)
+  def length8(op1: MemoryOperand | Long, op2: MemoryOperand | Long, dst: MemoryOperand): Execution =
+    (op1, op2) match {
+      // todo: why this is needed separately???
       case (op1: Long, op2: Long) => Const.Write8(op1 + op2, dst)
+      case _ => Sum8(LongProvider.create(op1), LongProvider.create(op2), dst)
     }
 }
 
