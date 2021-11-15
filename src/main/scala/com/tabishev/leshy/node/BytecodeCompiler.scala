@@ -31,7 +31,9 @@ object BytecodeCompiler {
     Files.write(dest.resolve(name + ".class"), bytes)
     val clazz = classLoader.loadClass(name)
     val constructor = clazz.getConstructors().head
-    val returns = NodeTraversal.traverse(node).collect { case NodeTraversal.Statement.Return(node) => node }
+    val returns = NodeTraversal.traverse(node).collect {
+      case NodeTraversal.Statement.Return(node) => node
+    }
     val generated = constructor.newInstance(returns.toArray:_*).asInstanceOf[Node.Generated]
     generated
   }
@@ -60,7 +62,7 @@ private class BytecodeCompiler(node: Node, name: String) {
 
   private def writeFields(writer: ClassWriter): Unit =
     (0 until args.length).foreach { idx =>
-      writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "node_" + idx, typeNode.getDescriptor, null, null)
+      writer.visitField(Opcodes.ACC_PUBLIC, "node_" + idx, typeNode.getDescriptor, null, null)
     }
 
   private def writeConstructor(classWriter: ClassWriter): Unit = {

@@ -78,5 +78,15 @@ object Node {
     final def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
   }
 
-  abstract class Generated extends Node
+  abstract class Generated extends Node {
+    def update(fn: Node => Node): Unit = {
+      // todo: generate this method?
+      this.getClass.getDeclaredFields.foreach {
+        case field if (field.getType.isAssignableFrom(classOf[Node])) => {
+          field.set(this, fn(field.get(this).asInstanceOf[Node]))
+        }
+        case _ => // do nothing
+      }
+    }
+  }
 }

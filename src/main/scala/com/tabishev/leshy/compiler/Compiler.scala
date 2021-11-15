@@ -63,7 +63,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
 
   def optimize(): Unit = {
     if (!doBytecodeGeneration) inlineNodes() else compileNodes()
-    invalidate()
   }
 
   private def inlineNodes(): Unit = {
@@ -78,14 +77,27 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
       (key, if (key._1.line == 0) BytecodeCompiler.compile(node) else node)
     }
     nodes.addAll(replacement)
+    invalidate()
+    // and reinline generated where possible
+    nodes.values.foreach {
+      case generated: com.tabishev.leshy.node.Node.Generated =>
+        generated.update {
+          case Nodes.Call(origin, Nodes.Link(link), offset) =>
+            Nodes.Call(origin, Nodes.Link(link).resolve(), offset)
+          case node =>
+            node
+        }
+      case _ => // do nothing
+    }
   }
 
-  private def invalidate(): Unit =
+  private def invalidate(): Unit = {
     nodes.values.foreach {
       case node: Nodes.Call => node.invalidate()
       case node: Nodes.Link => node.invalidate()
       case _ => // do nothing
     }
+  }
 
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
     if (debugEnabled || force) {
