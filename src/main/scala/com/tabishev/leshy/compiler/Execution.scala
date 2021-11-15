@@ -82,28 +82,28 @@ object Sum {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2.materialize(runtime).getInt())
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, BytecodeSum(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
+      writer.statement(MemoryOps.putInt(dst, Ops.sum(MemoryOps.getInt(op1), MemoryOps.getInt(op2))))
   }
 
   final case class MC4(op1: MemoryOperand, op2: Int, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() + op2)
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, BytecodeSum(MemoryOps.getInt(op1), op2)))
+      writer.statement(MemoryOps.putInt(dst, Ops.sum(MemoryOps.getInt(op1), op2)))
   }
 
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2.materialize(runtime).getLong())
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, BytecodeSum(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
+      writer.statement(MemoryOps.putLong(dst, Ops.sum(MemoryOps.getLong(op1), MemoryOps.getLong(op2))))
   }
 
   final case class MC8(op1: MemoryOperand, op2: Long, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() + op2)
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, BytecodeSum(MemoryOps.getLong(op1), op2)))
+      writer.statement(MemoryOps.putLong(dst, Ops.sum(MemoryOps.getLong(op1), op2)))
   }
 
   def length4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int, dst: MemoryOperand): Execution =

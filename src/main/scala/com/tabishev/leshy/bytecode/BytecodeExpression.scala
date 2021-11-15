@@ -180,23 +180,21 @@ given valueBytecodeExpression: BytecodeExpression[Value[_]] with {
   override def push(writer: MethodVisitor, value: Value[_]): BytecodeExpression.Kind = value.push(writer)
 }
 
-// make it similar  to negate
-case class BytecodeSum[V1: BytecodeExpression, V2: BytecodeExpression](arg1: V1, arg2: V2) {
-  def push(writer: MethodVisitor): BytecodeExpression.Kind = {
-    val kind = implicitly[BytecodeExpression[V1]].push(writer, arg1)
-    val kind2 = implicitly[BytecodeExpression[V2]].push(writer, arg2)
+case class BytecodeSum(arg1: Value[_], arg2: Value[_])
+
+given sumBytecodeExpression: BytecodeExpression[BytecodeSum] with {
+  override def push(writer: MethodVisitor, value: BytecodeSum): BytecodeExpression.Kind = {
+    val kind = value.arg1.push(writer)
+    val kind2 = value.arg2.push(writer)
     assert(kind == kind2)
     writer.visitInsn(kind.sumInst.get)
     kind
   }
 }
 
-given sumBytecodeExpression[V1, V2]: BytecodeExpression[BytecodeSum[V1, V2]] with {
-  override def push(writer: MethodVisitor, value: BytecodeSum[V1, V2]): BytecodeExpression.Kind = value.push(writer)
-}
-
 object Ops {
   def negate[V: BytecodeExpression](arg: V): BytecodeNegate = BytecodeNegate(Value(arg))
+  def sum[V1: BytecodeExpression, V2: BytecodeExpression](arg1: V1, arg2: V2) = BytecodeSum(Value(arg1), Value(arg2))
 }
 
 case class BytecodeNegate(arg: Value[_])
