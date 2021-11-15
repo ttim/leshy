@@ -161,27 +161,31 @@ object Negate {
 }
 
 object Set {
-  final case class Length4(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
+  final case class Length4(src: IntProvider, dst: MemoryOperand) extends NonConstExecution4 {
     override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(src.materialize(runtime).getInt())
+      dst.materialize(runtime).putInt(src.get(runtime))
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, MemoryOps.getInt(src)))
+      writer.statement(MemoryOps.putInt(dst, src.expression))
   }
 
-  final case class Length8(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
+  final case class Length8(src: LongProvider, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(src.materialize(runtime).getLong())
+      dst.materialize(runtime).putLong(src.get(runtime))
     override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, MemoryOps.getLong(src)))
+      writer.statement(MemoryOps.putLong(dst, src.expression))
   }
 
-  def length4(srcUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = srcUnion match {
-    case src: MemoryOperand => Length4(src, dst)
-    case src: Int => WriteConst.Length4(src, dst)
+  def length4(srcUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = {
+    // todo: why failing?
+    return Length4(IntProvider.create(srcUnion), dst)
+    srcUnion match {
+      case src: MemoryOperand => Length4(IntProvider.create(src), dst)
+      case src: Int => WriteConst.Length4(src, dst)
+    }
   }
 
   def length8(srcUnion: MemoryOperand | Long, dst: MemoryOperand): Execution = srcUnion match {
-    case src: MemoryOperand => Length8(src, dst)
+    case src: MemoryOperand => Length8(LongProvider.create(src), dst)
     case src: Long => WriteConst.Length8(src, dst)
   }
 }
