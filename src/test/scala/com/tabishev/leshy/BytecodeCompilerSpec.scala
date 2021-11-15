@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Negate, Nodes, OperationRef, Stack, Sum}
+import com.tabishev.leshy.compiler.{BranchExecution, Const, Execution, MemoryOperand, Mult, Negate, Nodes, OperationRef, Stack, Sum, Set}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory}
@@ -40,6 +40,18 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     testExecution(prepare, Negate.M8(op, dst))
   }
 
+  test("set") {
+    val op = MemoryOperand.Stack(FrameOffset.nonNegative(0))
+    val dst = MemoryOperand.Stack(FrameOffset.nonNegative(8))
+
+    val prepare: Runtime => Unit = runtime => {
+      runtime.stack.setFramesize(16)
+      op.materialize(runtime).putLong(Long.MaxValue - 777)
+    }
+    testExecution(prepare, Set.M4(op, dst))
+    testExecution(prepare, Set.M8(op, dst))
+  }
+
   test("sum") {
     val op1 = MemoryOperand.Stack(FrameOffset.nonNegative(0))
     val op2 = MemoryOperand.Stack(FrameOffset.nonNegative(8))
@@ -55,6 +67,23 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     testExecution(prepare, Sum.MM4(op1, op2, dst))
     testExecution(prepare, Sum.MC8(op1, 7, dst))
     testExecution(prepare, Sum.MC8(op1, 7, dst))
+  }
+
+  test("mult") {
+    val op1 = MemoryOperand.Stack(FrameOffset.nonNegative(0))
+    val op2 = MemoryOperand.Stack(FrameOffset.nonNegative(8))
+    val dst = MemoryOperand.Stack(FrameOffset.nonNegative(16))
+
+    val prepare: Runtime => Unit = runtime => {
+      runtime.stack.setFramesize(24)
+      op1.materialize(runtime).putLong(Long.MaxValue - 777)
+      op2.materialize(runtime).putLong(Long.MaxValue - 888)
+    }
+
+    testExecution(prepare, Mult.MC4(op1, 7, dst))
+    testExecution(prepare, Mult.MM4(op1, op2, dst))
+    testExecution(prepare, Mult.MC8(op1, 7, dst))
+    testExecution(prepare, Mult.MC8(op1, 7, dst))
   }
 
   test("setSize") {

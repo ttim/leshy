@@ -134,7 +134,7 @@ object Mult {
       dst.materialize(runtime).putInt(op1.materialize(runtime).getInt() * op2)
 
     override def write(writer: MethodVisitor): Unit =
-      MemoryOps.putInt(dst, mult(MemoryOps.getInt(op1), const(op2)))
+      writer.statement(MemoryOps.putInt(dst, mult(MemoryOps.getInt(op1), const(op2))))
   }
 
   final case class MM8(op1: MemoryOperand, op2: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
@@ -150,7 +150,7 @@ object Mult {
       dst.materialize(runtime).putLong(op1.materialize(runtime).getLong() * op2)
 
     override def write(writer: MethodVisitor): Unit =
-      MemoryOps.putLong(dst, mult(MemoryOps.getLong(op1), const(op2)))
+      writer.statement(MemoryOps.putLong(dst, mult(MemoryOps.getLong(op1), const(op2))))
   }
 
   def length4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int, dst: MemoryOperand): Execution =
@@ -203,14 +203,14 @@ object Set {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putInt(src.materialize(runtime).getInt())
     override def write(writer: MethodVisitor): Unit =
-      MemoryOps.putInt(dst, MemoryOps.getInt(src))
+      writer.statement(MemoryOps.putInt(dst, MemoryOps.getInt(src)))
   }
 
   final case class M8(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
     override def execute(runtime: Runtime): Unit =
       dst.materialize(runtime).putLong(src.materialize(runtime).getLong())
     override def write(writer: MethodVisitor): Unit =
-      MemoryOps.putLong(dst, MemoryOps.getLong(src))
+      writer.statement(MemoryOps.putLong(dst, MemoryOps.getLong(src)))
   }
 
   def length4(srcUnion: MemoryOperand | Int, dst: MemoryOperand): Execution = srcUnion match {

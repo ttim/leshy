@@ -59,24 +59,12 @@ object FnSpecs {
       output.slice(4)
     })
 
-  private def testInterpreter(): Unit = {
-    val start = System.currentTimeMillis()
-    println(createInterpreter(false, true).run(Fib4)(30))
-    println(createInterpreter(true, true).run(Ffactorial8)(17))
-    println((System.currentTimeMillis() - start)/1000.0)
-  }
-
-  private def testCompiler(): Unit = {
-    assert(createCompiler(Ffactorial4, doBytecodeGeneration = true)(4) == 8)
-
-    val start = System.currentTimeMillis()
-//    assert(compiler.run(Fib8)(40) == 165580141)
-//    assert(compiler.run(Fibx8)(38) == 63245986)
-    println((System.currentTimeMillis() - start)/1000.0)
-  }
-
   def main(args: Array[String]): Unit = {
-//    testInterpreter()
-    testCompiler()
+    val start = System.currentTimeMillis()
+//    println(createInterpreter(false, true).run(Fib4)(30))
+//    println(createInterpreter(true, true).run(Ffactorial8)(17))
+//    assert(createCompiler(Fib8, doBytecodeGeneration = true)(40) == 165580141)
+//    assert(createCompiler(Fibx8, doBytecodeGeneration = true)(38) == 63245986)
+    println((System.currentTimeMillis() - start)/1000.0)
   }
 }
