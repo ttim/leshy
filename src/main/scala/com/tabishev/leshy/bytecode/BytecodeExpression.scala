@@ -169,6 +169,10 @@ case class Value[T: BytecodeExpression](value: T) {
   def push(writer: MethodVisitor): BytecodeExpression.Kind = implicitly[BytecodeExpression[T]].push(writer, value)
 }
 
+given valueBytecodeExpression: BytecodeExpression[Value[_]] with {
+  override def push(writer: MethodVisitor, value: Value[_]): BytecodeExpression.Kind = value.push(writer)
+}
+
 case class BytecodeSum[V1: BytecodeExpression, V2: BytecodeExpression](arg1: V1, arg2: V2) {
   def push(writer: MethodVisitor): BytecodeExpression.Kind = {
     val kind = implicitly[BytecodeExpression[V1]].push(writer, arg1)
