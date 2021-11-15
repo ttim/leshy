@@ -7,7 +7,7 @@ import com.tabishev.leshy.bytecode.BytecodeExpression._
 
 abstract class BranchExecution {
   def execute(runtime: Runtime): Boolean
-  def generate(writer: MethodVisitor, ifTrue: Label): Unit = throw new NotImplementedError(toString)
+  def generate(writer: MethodVisitor, ifTrue: Label): Unit
 }
 
 object BranchExecution {
@@ -17,84 +17,95 @@ object BranchExecution {
       if (value) writer.visitJumpInsn(Opcodes.GOTO, ifTrue) // else do nothing
   }
 
-  final case class MoreMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class GtMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getInt() > op2.materialize(runtime).getInt()
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getInt(op1), BranchModifier.GT, MemoryOps.getInt(op2), ifTrue)
   }
 
-  final case class MoreMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
+  final case class GtMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() > op2
 
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPGT, const(op2), ifTrue)
+      writer.branch(MemoryOps.getInt(op1), BranchModifier.GT, const(op2), ifTrue)
   }
 
-  final case class MoreMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class GtMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getLong() > op2.materialize(runtime).getLong()
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getLong(op1), BranchModifier.GT, MemoryOps.getLong(op2), ifTrue)
   }
 
-  final case class MoreMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
+  final case class GtMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() > op2
 
-    override def generate(writer: MethodVisitor, ifTrue: Label): Unit = {
-      writer.push(MemoryOps.getLong(op1))
-      writer.push(const(op2))
-      writer.visitInsn(Opcodes.LCMP)
-      writer.visitJumpInsn(Opcodes.IFGT, ifTrue)
-    }
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getLong(op1), BranchModifier.GT, const(op2), ifTrue)
   }
 
-  final case class LessOrEqualMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class LeMM4(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getInt() <= op2.materialize(runtime).getInt()
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getInt(op1), BranchModifier.LE, MemoryOps.getInt(op2), ifTrue)
   }
 
-  final case class LessOrEqualMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
+  final case class LeMC4(op1: MemoryOperand, op2: Int) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getInt() <= op2
 
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
-      writer.branch(MemoryOps.getInt(op1), Opcodes.IF_ICMPLE, const(op2), ifTrue)
+      writer.branch(MemoryOps.getInt(op1), BranchModifier.LE, const(op2), ifTrue)
   }
 
-  final case class LessOrEqualMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
+  final case class LeMM8(op1: MemoryOperand, op2: MemoryOperand) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean =
       op1.materialize(runtime).getLong() <= op2.materialize(runtime).getLong()
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getInt(op1), BranchModifier.LE, MemoryOps.getInt(op2), ifTrue)
   }
 
-  final case class LessOrEqualMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
+  final case class LeMC8(op1: MemoryOperand, op2: Long) extends BranchExecution {
     override def execute(runtime: Runtime): Boolean = op1.materialize(runtime).getLong() <= op2
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(MemoryOps.getLong(op1), BranchModifier.LE, const(op2), ifTrue)
   }
 
-  def more4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int): BranchExecution =
+  def gt4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int): BranchExecution =
     (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM4(op1, op2)
-      case (op1: MemoryOperand, op2: Int) => MoreMC4(op1, op2)
-      case (op1: Int, op2: MemoryOperand) => LessOrEqualMC4(op2, op1)
+      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM4(op1, op2)
+      case (op1: MemoryOperand, op2: Int) => GtMC4(op1, op2)
+      case (op1: Int, op2: MemoryOperand) => LeMC4(op2, op1)
       case (op1: Int, op2: Int) => Const(op1 > op2)
     }
 
-  def more8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
+  def gt8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
     (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM8(op1, op2)
-      case (op1: MemoryOperand, op2: Long) => MoreMC8(op1, op2)
-      case (op1: Long, op2: MemoryOperand) => LessOrEqualMC8(op2, op1)
+      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM8(op1, op2)
+      case (op1: MemoryOperand, op2: Long) => GtMC8(op1, op2)
+      case (op1: Long, op2: MemoryOperand) => LeMC8(op2, op1)
       case (op1: Long, op2: Long) => Const(op1 > op2)
     }
 
-  def lessOrEqual4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int): BranchExecution =
+  def le4(op1Union: MemoryOperand | Int, op2Union: MemoryOperand | Int): BranchExecution =
     (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM4(op2, op1)
-      case (op1: MemoryOperand, op2: Int) => LessOrEqualMC4(op1, op2)
-      case (op1: Int, op2: MemoryOperand) => MoreMC4(op2, op1)
+      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM4(op2, op1)
+      case (op1: MemoryOperand, op2: Int) => LeMC4(op1, op2)
+      case (op1: Int, op2: MemoryOperand) => GtMC4(op2, op1)
       case (op1: Int, op2: Int) => Const(op1 <= op2)
     }
 
-  def lessOrEqual8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
+  def le8(op1Union: MemoryOperand | Long, op2Union: MemoryOperand | Long): BranchExecution =
     (op1Union, op2Union) match {
-      case (op1: MemoryOperand, op2: MemoryOperand) => MoreMM8(op2, op1)
-      case (op1: MemoryOperand, op2: Long) => LessOrEqualMC8(op1, op2)
-      case (op1: Long, op2: MemoryOperand) => MoreMC8(op2, op1)
+      case (op1: MemoryOperand, op2: MemoryOperand) => GtMM8(op2, op1)
+      case (op1: MemoryOperand, op2: Long) => LeMC8(op1, op2)
+      case (op1: Long, op2: MemoryOperand) => GtMC8(op2, op1)
       case (op1: Long, op2: Long) => Const(op1 <= op2)
     }
 }
