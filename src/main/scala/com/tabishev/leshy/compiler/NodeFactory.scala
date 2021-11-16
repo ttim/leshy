@@ -20,8 +20,8 @@ object NodeFactory {
 
     def executeNode(execution: Execution): Node = Nodes.execute(origin, execution)
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
-    def toIntOrOperand(addressOrConst: ast.Const | ast.Address): Int | MemoryOperand = toIntOrOperandFn(constInterpreter, addressOrConst)
-    def toLongOrOperand(addressOrConst: ast.Const | ast.Address): Long | MemoryOperand = toLongOrOperandFn(constInterpreter, addressOrConst)
+    def toIntProvider(addressOrConst: ast.Const | ast.Address): IntProvider = IntProvider.create(toIntOrOperandFn(constInterpreter, addressOrConst))
+    def toLongProvider(addressOrConst: ast.Const | ast.Address): LongProvider = LongProvider.create(toLongOrOperandFn(constInterpreter, addressOrConst))
 
     op.resolve(fn) match {
       case None => Nodes.Final(origin)
@@ -45,11 +45,11 @@ object NodeFactory {
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
 
           val impl = (length, modifier) match {
-            case (4, "m") => BranchExecution.gt4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
-            case (4, "le") => BranchExecution.le4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast))
+            case (4, "m") => BranchExecution.Gt4(toIntProvider(op1Ast), toIntProvider(op2Ast))
+            case (4, "le") => BranchExecution.Le4(toIntProvider(op1Ast), toIntProvider(op2Ast))
 
-            case (8, "m") => BranchExecution.gt8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
-            case (8, "le") => BranchExecution.le8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast))
+            case (8, "m") => BranchExecution.Gt8(toLongProvider(op1Ast), toLongProvider(op2Ast))
+            case (8, "le") => BranchExecution.Le8(toLongProvider(op1Ast), toLongProvider(op2Ast))
 
             case _ =>
               throw new UnsupportedOperationException(length + " " + modifier)
@@ -63,8 +63,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Sum.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
-            case 8 => Sum.length8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast), dst)
+            case 4 => Sum.Length4(toIntProvider(op1Ast), toIntProvider(op2Ast), dst)
+            case 8 => Sum.Length8(toLongProvider(op1Ast), toLongProvider(op2Ast), dst)
             case _ => ???
           }
           executeNode(impl)
@@ -72,8 +72,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Mult.length4(toIntOrOperand(op1Ast), toIntOrOperand(op2Ast), dst)
-            case 8 => Mult.length8(toLongOrOperand(op1Ast), toLongOrOperand(op2Ast), dst)
+            case 4 => Mult.Length4(toIntProvider(op1Ast), toIntProvider(op2Ast), dst)
+            case 8 => Mult.Length8(toLongProvider(op1Ast), toLongProvider(op2Ast), dst)
             case _ => ???
           }
           executeNode(impl)
@@ -81,8 +81,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Negate.length4(toIntOrOperand(opAst), dst)
-            case 8 => Negate.length8(toLongOrOperand(opAst), dst)
+            case 4 => Negate.Length4(toIntProvider(opAst), dst)
+            case 8 => Negate.Length8(toLongProvider(opAst), dst)
             case _ => ???
           }
           executeNode(impl)
@@ -90,8 +90,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Set.length4(toIntOrOperand(srcAst), dst)
-            case 8 => Set.length8(toLongOrOperand(srcAst), dst)
+            case 4 => Set.Length4(toIntProvider(srcAst), dst)
+            case 8 => Set.Length8(toLongProvider(srcAst), dst)
             case _ => ???
           }
           executeNode(impl)

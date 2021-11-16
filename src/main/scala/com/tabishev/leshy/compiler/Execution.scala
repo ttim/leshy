@@ -8,48 +8,100 @@ import com.tabishev.leshy.bytecode.BytecodeExpression._
 
 sealed abstract class Execution {
   def execute(runtime: Runtime): Unit
-  def write(writer: MethodVisitor): Unit = throw new NotImplementedError(toString)
+  def write(writer: MethodVisitor): Unit
 
   def markConsts(consts: Consts): Consts
   def stackSize(before: Int): Int = before
 }
 
-sealed abstract class NonConstExecution extends Execution {
-  val length: Int
+sealed abstract class BinaryIntExecution extends Execution {
+  val op1: IntProvider
+  val op2: IntProvider
   val dst: MemoryOperand
 
-  final def markConsts(consts: Consts): Consts = dst.unmarkConst(consts, length)
-}
+  def eval(arg1: Int, arg2: Int): Int
+  val expression: BytecodeExpression
 
-sealed abstract class NonConstExecution4 extends NonConstExecution {
-  final val length: Int = 4
-}
+  override final def execute(runtime: Runtime): Unit =
+    dst.materialize(runtime).putInt(eval(op1.get(runtime), op2.get(runtime)))
+  override final def write(writer: MethodVisitor): Unit =
+    writer.statement(MemoryOps.putInt(dst, expression))
 
-sealed abstract class NonConstExecution8 extends NonConstExecution {
-  final val length: Int = 8
-}
-
-object WriteConst {
-  final case class Length4(value: Int, dst: MemoryOperand) extends Execution {
-    override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putInt(value)
-    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putInt(dst, const(value)))
-
-    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromInt(value).get())
+  def markConsts(consts: Consts): Consts = (op1, op2) match {
+    case (IntProvider.Const(v1), IntProvider.Const(v2)) =>
+      dst.markConst(consts, Bytes.fromInt(eval(v1, v2)).get())
+    case _ =>
+      dst.unmarkConst(consts, 4)
   }
+}
 
-  final case class Length8(value: Long, dst: MemoryOperand) extends Execution {
-    override def execute(runtime: Runtime): Unit = dst.materialize(runtime).putLong(value)
-    override def write(writer: MethodVisitor): Unit = writer.statement(MemoryOps.putLong(dst, const(value)))
+sealed abstract class BinaryLongExecution extends Execution {
+  val op1: LongProvider
+  val op2: LongProvider
+  val dst: MemoryOperand
 
-    override def markConsts(consts: Consts): Consts = dst.markConst(consts, Bytes.fromLong(value).get())
+  def eval(arg1: Long, arg2: Long): Long
+  val expression: BytecodeExpression
+
+  override final def execute(runtime: Runtime): Unit =
+    dst.materialize(runtime).putLong(eval(op1.get(runtime), op2.get(runtime)))
+  override final def write(writer: MethodVisitor): Unit =
+    writer.statement(MemoryOps.putLong(dst, expression))
+
+  def markConsts(consts: Consts): Consts = (op1, op2) match {
+    case (LongProvider.Const(v1), LongProvider.Const(v2)) =>
+      dst.markConst(consts, Bytes.fromLong(eval(v1, v2)).get())
+    case _ =>
+      dst.unmarkConst(consts, 8)
+  }
+}
+
+sealed abstract class UnaryIntExecution extends Execution {
+  val src: IntProvider
+  val dst: MemoryOperand
+
+  def eval(arg: Int): Int
+  val expression: BytecodeExpression
+
+  override final def execute(runtime: Runtime): Unit =
+    dst.materialize(runtime).putInt(eval(src.get(runtime)))
+  override final def write(writer: MethodVisitor): Unit =
+    writer.statement(MemoryOps.putInt(dst, expression))
+
+  def markConsts(consts: Consts): Consts = src match {
+    case IntProvider.Const(v) =>
+      dst.markConst(consts, Bytes.fromInt(eval(v)).get())
+    case _ =>
+      dst.unmarkConst(consts, 4)
+  }
+}
+
+sealed abstract class UnaryLongExecution extends Execution {
+  val src: LongProvider
+  val dst: MemoryOperand
+
+  def eval(arg: Long): Long
+  val expression: BytecodeExpression
+
+  override final def execute(runtime: Runtime): Unit =
+    dst.materialize(runtime).putLong(eval(src.get(runtime)))
+  override final def write(writer: MethodVisitor): Unit =
+    writer.statement(MemoryOps.putLong(dst, expression))
+
+  def markConsts(consts: Consts): Consts = src match {
+    case LongProvider.Const(v) =>
+      dst.markConst(consts, Bytes.fromLong(eval(v)).get())
+    case _ =>
+      dst.unmarkConst(consts, 8)
   }
 }
 
 object Mark {
   // Specialize can't implemented simalry because execution assumes spec ctx not changing between runs
-  final case class NotSpecialize(length: Int, dst: MemoryOperand) extends NonConstExecution {
+  final case class NotSpecialize(length: Int, dst: MemoryOperand) extends Execution {
     override def execute(runtime: Runtime): Unit = ()
     override def write(writer: MethodVisitor): Unit = ()
+    override def markConsts(consts: Consts): Consts = dst.unmarkConst(consts, length)
   }
 }
 
@@ -73,116 +125,49 @@ object Stack {
 }
 
 object Sum {
-  final case class Length4(op1: IntProvider, op2: IntProvider, dst: MemoryOperand) extends NonConstExecution4 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(op1.get(runtime) + op2.get(runtime))
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, sum(op1.expression, op2.expression)))
+  final case class Length4(op1: IntProvider, op2: IntProvider, dst: MemoryOperand) extends BinaryIntExecution {
+    override def eval(arg1: Int, arg2: Int): Int = arg1 + arg2
+    override val expression: BytecodeExpression = sum(op1.expression, op2.expression)
   }
 
-  final case class Length8(op1: LongProvider, op2: LongProvider, dst: MemoryOperand) extends NonConstExecution8 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(op1.get(runtime) + op2.get(runtime))
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, sum(op1.expression, op2.expression)))
+  final case class Length8(op1: LongProvider, op2: LongProvider, dst: MemoryOperand) extends BinaryLongExecution {
+    override def eval(arg1: Long, arg2: Long): Long = arg1 + arg2
+    override val expression: BytecodeExpression = sum(op1.expression, op2.expression)
   }
-
-  def length4(op1: MemoryOperand | Int, op2: MemoryOperand | Int, dst: MemoryOperand): Execution =
-    (op1, op2) match {
-      // we need to treat this cases separately to keep constantness in a correct way
-      case (op1: Int, op2: Int) => WriteConst.Length4(op1 + op2, dst)
-      case _ => Length4(IntProvider.create(op1), IntProvider.create(op2), dst)
-    }
-
-  def length8(op1: MemoryOperand | Long, op2: MemoryOperand | Long, dst: MemoryOperand): Execution =
-    (op1, op2) match {
-      case (op1: Long, op2: Long) => WriteConst.Length8(op1 + op2, dst)
-      case _ => Length8(LongProvider.create(op1), LongProvider.create(op2), dst)
-    }
 }
 
 object Mult {
-  final case class Length4(op1: IntProvider, op2: IntProvider, dst: MemoryOperand) extends NonConstExecution4 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(op1.get(runtime) * op2.get(runtime))
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, mult(op1.expression, op2.expression)))
+  final case class Length4(op1: IntProvider, op2: IntProvider, dst: MemoryOperand) extends BinaryIntExecution {
+    override def eval(arg1: Int, arg2: Int): Int = arg1 * arg2
+    override val expression: BytecodeExpression = mult(op1.expression, op2.expression)
   }
 
-  final case class Length8(op1: LongProvider, op2: LongProvider, dst: MemoryOperand) extends NonConstExecution8 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(op1.get(runtime) * op2.get(runtime))
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, mult(op1.expression, op2.expression)))
+  final case class Length8(op1: LongProvider, op2: LongProvider, dst: MemoryOperand) extends BinaryLongExecution {
+    override def eval(arg1: Long, arg2: Long): Long = arg1 * arg2
+    override val expression: BytecodeExpression = mult(op1.expression, op2.expression)
   }
-
-  def length4(op1: MemoryOperand | Int, op2: MemoryOperand | Int, dst: MemoryOperand): Execution =
-    (op1, op2) match {
-      case (op1: Int, op2: Int) => WriteConst.Length4(op1 * op2, dst)
-      case _ => Length4(IntProvider.create(op1), IntProvider.create(op2), dst)
-    }
-
-  def length8(op1: MemoryOperand | Long, op2: MemoryOperand | Long, dst: MemoryOperand): Execution =
-    (op1, op2) match {
-      case (op1: Long, op2: Long) => WriteConst.Length8(op1 * op2, dst)
-      case _ => Length8(LongProvider.create(op1), LongProvider.create(op2), dst)
-    }
 }
 
 object Negate {
-  final case class Length4(op: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(-op.materialize(runtime).getInt())
-
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, negate(MemoryOps.getInt(op))))
+  final case class Length4(src: IntProvider, dst: MemoryOperand) extends UnaryIntExecution {
+    override def eval(arg: Int): Int = -arg
+    override val expression: BytecodeExpression = negate(src.expression)
   }
 
-  final case class Length8(op: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(-op.materialize(runtime).getLong())
-
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, negate(MemoryOps.getLong(op))))
+  final case class Length8(src: LongProvider, dst: MemoryOperand) extends UnaryLongExecution {
+    override def eval(arg: Long): Long = -arg
+    override val expression: BytecodeExpression = negate(src.expression)
   }
-
-  def length4(opUnion: MemoryOperand | Int, dst: MemoryOperand): Execution =
-    opUnion match {
-      case op: MemoryOperand => Length4(op, dst)
-      case op: Int => WriteConst.Length4(-op, dst)
-    }
-
-  def length8(opUnion: MemoryOperand | Long, dst: MemoryOperand): Execution =
-    opUnion match {
-      case op: MemoryOperand => Length8(op, dst)
-      case op: Long => WriteConst.Length8(-op, dst)
-    }
 }
 
 object Set {
-  final case class Length4(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution4 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putInt(src.materialize(runtime).getInt())
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putInt(dst, MemoryOps.getInt(src)))
+  final case class Length4(src: IntProvider, dst: MemoryOperand) extends UnaryIntExecution {
+    override def eval(arg: Int): Int = arg
+    override val expression: BytecodeExpression = src.expression
   }
 
-  final case class Length8(src: MemoryOperand, dst: MemoryOperand) extends NonConstExecution8 {
-    override def execute(runtime: Runtime): Unit =
-      dst.materialize(runtime).putLong(src.materialize(runtime).getLong())
-    override def write(writer: MethodVisitor): Unit =
-      writer.statement(MemoryOps.putLong(dst, MemoryOps.getLong(src)))
+  final case class Length8(src: LongProvider, dst: MemoryOperand) extends UnaryLongExecution {
+    override def eval(arg: Long): Long = arg
+    override val expression: BytecodeExpression = src.expression
   }
-
-  def length4(srcUnion: MemoryOperand | Int, dst: MemoryOperand): Execution =
-    srcUnion match {
-      case src: Int => WriteConst.Length4(src, dst)
-      case src: MemoryOperand => Length4(src, dst)
-    }
-
-  def length8(srcUnion: MemoryOperand | Long, dst: MemoryOperand): Execution =
-    srcUnion match {
-      case src: Long => WriteConst.Length8(src, dst)
-      case src: MemoryOperand => Length8(src, dst)
-    }
 }

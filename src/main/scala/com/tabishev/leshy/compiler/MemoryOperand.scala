@@ -36,12 +36,12 @@ sealed abstract class IntProvider {
 }
 
 object IntProvider {
-  private final class Const(value: Int) extends IntProvider {
+  final case class Const(value: Int) extends IntProvider {
     override def get(runtime: Runtime): Int = value
     override def expression: BytecodeExpression = BytecodeExpression.const(value)
   }
 
-  private final class Operand(value: MemoryOperand) extends IntProvider {
+  final case class Operand(value: MemoryOperand) extends IntProvider {
     override def get(runtime: Runtime): Int = value.materialize(runtime).getInt()
     override def expression: BytecodeExpression = MemoryOps.getInt(value)
   }
@@ -58,12 +58,12 @@ sealed abstract class LongProvider {
 }
 
 object LongProvider {
-  private final class Const(value: Long) extends LongProvider {
+  final case class Const(value: Long) extends LongProvider {
     override def get(runtime: Runtime): Long = value
     override def expression: BytecodeExpression = BytecodeExpression.const(value)
   }
 
-  private final class Operand(value: MemoryOperand) extends LongProvider {
+  final case class Operand(value: MemoryOperand) extends LongProvider {
     override def get(runtime: Runtime): Long = value.materialize(runtime).getLong()
     override def expression: BytecodeExpression = MemoryOps.getLong(value)
   }
