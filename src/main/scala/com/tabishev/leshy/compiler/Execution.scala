@@ -10,11 +10,17 @@ abstract class Execution {
   def execute(runtime: Runtime): Unit
   def write(writer: MethodVisitor): Unit
 
-  def markConsts(stackSize: Int, consts: Consts): Consts
-  def stackSize(before: Int): Int = before
+  def specialize(before: SpecializationContext): SpecializationContext
 }
 
-abstract class BinaryIntExecution extends Execution {
+trait UpdatesOnlyConsts extends Execution {
+  final override def specialize(before: SpecializationContext): SpecializationContext =
+    SpecializationContext(before.stackSize, updateConsts(before.consts))
+
+  def updateConsts(consts: Consts): Consts
+}
+
+abstract class BinaryIntExecution extends Execution with UpdatesOnlyConsts {
   val dst: MemoryOperand
   val op1: IntProvider
   val op2: IntProvider
@@ -27,7 +33,7 @@ abstract class BinaryIntExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putInt(dst, expression))
 
-  override final def markConsts(stackSize: Int, consts: Consts): Consts = (op1, op2) match {
+  override final def updateConsts(consts: Consts): Consts = (op1, op2) match {
     case (IntProvider.Const(v1), IntProvider.Const(v2)) =>
       dst.markConst(consts, Bytes.fromInt(eval(v1, v2)).get())
     case _ =>
@@ -35,7 +41,7 @@ abstract class BinaryIntExecution extends Execution {
   }
 }
 
-abstract class BinaryLongExecution extends Execution {
+abstract class BinaryLongExecution extends Execution with UpdatesOnlyConsts {
   val dst: MemoryOperand
   val op1: LongProvider
   val op2: LongProvider
@@ -48,7 +54,7 @@ abstract class BinaryLongExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putLong(dst, expression))
 
-  override final def markConsts(stackSize: Int, consts: Consts): Consts = (op1, op2) match {
+  override final def updateConsts(consts: Consts): Consts = (op1, op2) match {
     case (LongProvider.Const(v1), LongProvider.Const(v2)) =>
       dst.markConst(consts, Bytes.fromLong(eval(v1, v2)).get())
     case _ =>
@@ -56,7 +62,7 @@ abstract class BinaryLongExecution extends Execution {
   }
 }
 
-abstract class UnaryIntExecution extends Execution {
+abstract class UnaryIntExecution extends Execution with UpdatesOnlyConsts {
   val dst: MemoryOperand
   val src: IntProvider
 
@@ -68,7 +74,7 @@ abstract class UnaryIntExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putInt(dst, expression))
 
-  override final def markConsts(stackSize: Int, consts: Consts): Consts = src match {
+  override final def updateConsts(consts: Consts): Consts = src match {
     case IntProvider.Const(v) =>
       dst.markConst(consts, Bytes.fromInt(eval(v)).get())
     case _ =>
@@ -76,7 +82,7 @@ abstract class UnaryIntExecution extends Execution {
   }
 }
 
-abstract class UnaryLongExecution extends Execution {
+abstract class UnaryLongExecution extends Execution with UpdatesOnlyConsts {
   val dst: MemoryOperand
   val src: LongProvider
 
@@ -88,11 +94,10 @@ abstract class UnaryLongExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putLong(dst, expression))
 
-  override final def markConsts(stackSize: Int, consts: Consts): Consts = src match {
+  override final def updateConsts(consts: Consts): Consts = src match {
     case LongProvider.Const(v) =>
       dst.markConst(consts, Bytes.fromLong(eval(v)).get())
     case _ =>
       dst.unmarkConst(consts, 8)
   }
 }
-

@@ -29,10 +29,8 @@ object Nodes {
     override def generate(writer: MethodVisitor): Unit = execution.write(writer)
   }
 
-  def execute(origin: Origin, execution: Execution): Execute = {
-    val nextCtx = SpecializationContext(execution.stackSize(origin.ctx.stackSize), execution.markConsts(origin.ctx.stackSize, origin.ctx.consts))
-    Execute(origin, Link(Origin(origin.compiler, origin.op.next, nextCtx)), execution)
-  }
+  def execute(origin: Origin, execution: Execution): Execute =
+    Execute(origin, Link(Origin(origin.compiler, origin.op.next, execution.specialize(origin.ctx))), execution)
 
   final case class Branch(origin: Origin, ifTrue: Node, ifFalse: Node, execution: BranchExecution) extends Node.Branch {
     override def copy(ifTrue: Node, ifFalse: Node): Node.Branch = Branch(origin, ifTrue, ifFalse, execution)

@@ -9,10 +9,10 @@ import com.tabishev.leshy.bytecode.*
 
 object Mark {
   // Specialize can't implemented simalry because execution assumes spec ctx not changing between runs
-  final case class NotSpecialize(dst: MemoryOperand, length: Int) extends Execution {
+  final case class NotSpecialize(dst: MemoryOperand, length: Int) extends Execution with UpdatesOnlyConsts {
     override def execute(runtime: Runtime): Unit = ()
     override def write(writer: MethodVisitor): Unit = ()
-    override def markConsts(stackSize: Int, consts: Consts): Consts = dst.unmarkConst(consts, length)
+    override def updateConsts(consts: Consts): Consts = dst.unmarkConst(consts, length)
   }
 }
 
@@ -22,14 +22,13 @@ object Stack {
     override def write(writer: MethodVisitor): Unit =
       writer.statement(invokeVirtual(classOf[StackMemory], "setFramesize", MemoryOps.Stack, const(size)))
 
-    override def markConsts(oldSize: Int, consts: Consts): Consts = {
-      if (size > oldSize)
-        consts.markConsts(FrameOffset.nonNegative(oldSize), Array.fill[Byte](size - oldSize)(0))
-      else
-        consts.unmarkConsts(FrameOffset.nonNegative(size), oldSize - size)
-    }
-
-    override def stackSize(before: Int): Int = size
+    override def specialize(before: SpecializationContext): SpecializationContext =
+      SpecializationContext(size,
+        if (size > before.stackSize)
+          before.consts.markConsts(FrameOffset.nonNegative(before.stackSize), Array.fill[Byte](size - before.stackSize)(0))
+        else
+          before.consts.unmarkConsts(FrameOffset.nonNegative(size), before.stackSize - size)
+      )
   }
 }
 
