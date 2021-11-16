@@ -45,11 +45,11 @@ object NodeFactory {
           val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
 
           val impl = (length, modifier) match {
-            case (4, "m") => BranchExecution.Gt4(toIntProvider(op1Ast), toIntProvider(op2Ast))
-            case (4, "le") => BranchExecution.Le4(toIntProvider(op1Ast), toIntProvider(op2Ast))
+            case (4, "m") => Branches.Gt4(toIntProvider(op1Ast), toIntProvider(op2Ast))
+            case (4, "le") => Branches.Le4(toIntProvider(op1Ast), toIntProvider(op2Ast))
 
-            case (8, "m") => BranchExecution.Gt8(toLongProvider(op1Ast), toLongProvider(op2Ast))
-            case (8, "le") => BranchExecution.Le8(toLongProvider(op1Ast), toLongProvider(op2Ast))
+            case (8, "m") => Branches.Gt8(toLongProvider(op1Ast), toLongProvider(op2Ast))
+            case (8, "le") => Branches.Le8(toLongProvider(op1Ast), toLongProvider(op2Ast))
 
             case _ =>
               throw new UnsupportedOperationException(length + " " + modifier)

@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{BranchExecution, Execution, IntProvider, LongProvider, MemoryOperand, Mult, Negate, Nodes, OperationRef, Set, Stack, Sum}
+import com.tabishev.leshy.compiler._
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory}
@@ -88,20 +88,20 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     def test4(branch: BranchExecution): Unit = testBranch(runtime => runtime.stack.setFramesize(4), branch)
     def test8(branch: BranchExecution): Unit = testBranch(runtime => runtime.stack.setFramesize(8), branch)
 
-    test4(BranchExecution.Const(true))
-    test4(BranchExecution.Const(false))
+    test4(Branches.Const(true))
+    test4(Branches.Const(false))
 
-    test4(BranchExecution.Le4(intOp, IntProvider.create(0)))
-    test4(BranchExecution.Le4(intOp, IntProvider.create(-1)))
-    test4(BranchExecution.Le4(intOp, IntProvider.create(1)))
+    test4(Branches.Le4(intOp, IntProvider.create(0)))
+    test4(Branches.Le4(intOp, IntProvider.create(-1)))
+    test4(Branches.Le4(intOp, IntProvider.create(1)))
 
-    test4(BranchExecution.Gt4(intOp, IntProvider.create(0)))
-    test4(BranchExecution.Gt4(intOp, IntProvider.create(-1)))
-    test4(BranchExecution.Gt4(intOp, IntProvider.create(1)))
+    test4(Branches.Gt4(intOp, IntProvider.create(0)))
+    test4(Branches.Gt4(intOp, IntProvider.create(-1)))
+    test4(Branches.Gt4(intOp, IntProvider.create(1)))
 
-    test8(BranchExecution.Le8(longOp, LongProvider.create(0)))
-    test8(BranchExecution.Le8(longOp, LongProvider.create(-1)))
-    test8(BranchExecution.Le8(longOp, LongProvider.create(1)))
+    test8(Branches.Le8(longOp, LongProvider.create(0)))
+    test8(Branches.Le8(longOp, LongProvider.create(-1)))
+    test8(Branches.Le8(longOp, LongProvider.create(1)))
   }
 
   private def testExecution(prepare: Runtime => Unit, ex: Execution*): Unit = check(prepare, executeNode(ex:_*))
