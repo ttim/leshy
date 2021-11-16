@@ -79,7 +79,7 @@ class BytecodeCompilerSpec extends munit.FunSuite {
   }
 
   test("setSize") {
-    testExecution(_ => (), Stack.SetSize(0, 12))
+    testExecution(_ => (), Stack.SetSize(12))
   }
 
   test("test branch") {

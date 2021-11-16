@@ -28,10 +28,10 @@ object NodeFactory {
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          executeNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() + length))
+          executeNode(Stack.SetSize(constInterpreter.frameSize() + length))
         case ast.Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          executeNode(Stack.SetSize(constInterpreter.frameSize(), constInterpreter.frameSize() - length))
+          executeNode(Stack.SetSize(constInterpreter.frameSize() - length))
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
@@ -97,7 +97,7 @@ object NodeFactory {
           executeNode(impl)
         case ast.Operation.NotSpecialize(lengthAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          executeNode(Mark.NotSpecialize(length, toOperand(dstAst)))
+          executeNode(Mark.NotSpecialize(toOperand(dstAst), length))
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }
