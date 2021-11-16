@@ -79,14 +79,15 @@ object Node {
   }
 
   abstract class Generated extends Node {
-    def update(fn: Node => Node): Unit = {
+    def update(fn: Node => Node): Generated = {
       // todo: generate this method?
-      this.getClass.getDeclaredFields.foreach {
+      val nodes = this.getClass.getDeclaredFields.collect {
         case field if (field.getType.isAssignableFrom(classOf[Node])) => {
-          field.set(this, fn(field.get(this).asInstanceOf[Node]))
+          fn(field.get(this).asInstanceOf[Node])
         }
         case _ => // do nothing
       }
+      this.getClass.getConstructors.head.newInstance(nodes :_*).asInstanceOf[Generated]
     }
   }
 }

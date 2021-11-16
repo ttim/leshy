@@ -62,7 +62,7 @@ private class BytecodeCompiler(node: Node, name: String) {
 
   private def writeFields(writer: ClassWriter): Unit =
     (0 until args.length).foreach { idx =>
-      writer.visitField(Opcodes.ACC_PUBLIC, "node_" + idx, typeNode.getDescriptor, null, null)
+      writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "node_" + idx, typeNode.getDescriptor, null, null)
     }
 
   private def writeConstructor(classWriter: ClassWriter): Unit = {
