@@ -29,6 +29,19 @@ enum MemoryOperand {
       // do nothing
       consts
   }
+
+  def expression: BytecodeExpression = this match {
+    case MemoryOperand.Stack(offset) =>
+      StackMethods.getRef(invokeStatic(classOf[FrameOffset], "nonNegative", const(offset.get)))
+    case MemoryOperand.Native(offset) =>
+      ???
+  }
+
+  def putInt(value: BytecodeExpression): BytecodeExpression =
+    invokeVirtual(classOf[MemoryRef], "putInt", expression, value)
+
+  def putLong(value: BytecodeExpression): BytecodeExpression =
+    invokeVirtual(classOf[MemoryRef], "putLong", expression, value)
 }
 
 sealed abstract class IntProvider {
@@ -44,7 +57,8 @@ object IntProvider {
 
   final case class Operand(value: MemoryOperand) extends IntProvider {
     override def get(runtime: Runtime): Int = value.materialize(runtime).getInt()
-    override def expression: BytecodeExpression = MemoryOps.getInt(value)
+    override def expression: BytecodeExpression =
+      invokeVirtual(classOf[MemoryRef], "getInt", value.expression)
   }
 
   def create(constOrOperand: Int | MemoryOperand): IntProvider = constOrOperand match {
@@ -66,7 +80,8 @@ object LongProvider {
 
   final case class Operand(value: MemoryOperand) extends LongProvider {
     override def get(runtime: Runtime): Long = value.materialize(runtime).getLong()
-    override def expression: BytecodeExpression = MemoryOps.getLong(value)
+    override def expression: BytecodeExpression =
+      invokeVirtual(classOf[MemoryRef], "getLong", value.expression)
   }
 
   def create(constOrOperand: Long | MemoryOperand): LongProvider = constOrOperand match {
@@ -75,28 +90,14 @@ object LongProvider {
   }
 }
 
-object MemoryOps {
-  val Runtime: BytecodeExpression = local[Runtime](1)
-  val Stack: BytecodeExpression = local[StackMemory](2)
+object StackMethods {
+  private val Stack: BytecodeExpression = local[StackMemory](2)
 
-  def frameOffset(offset: FrameOffset): BytecodeExpression =
-    invokeStatic(classOf[FrameOffset], "nonNegative", const(offset.get))
+  def getRef(offset: BytecodeExpression): BytecodeExpression =
+    invokeVirtual(classOf[StackMemory], "getRef", StackMethods.Stack, offset)
 
-  def memoryOperand(operand: MemoryOperand): BytecodeExpression = operand match {
-    case MemoryOperand.Stack(offset) =>
-      invokeVirtual(classOf[StackMemory], "getRef", Stack, frameOffset(offset))
-    case MemoryOperand.Native(offset) =>
-      ???
-  }
-
-  def getInt(op: MemoryOperand): BytecodeExpression =
-    invokeVirtual(classOf[MemoryRef], "getInt", memoryOperand(op))
-  def putInt(op: MemoryOperand, value: BytecodeExpression): BytecodeExpression =
-    invokeVirtual(classOf[MemoryRef], "putInt", memoryOperand(op), value)
-  def getLong(op: MemoryOperand): BytecodeExpression =
-    invokeVirtual(classOf[MemoryRef], "getLong", memoryOperand(op))
-  def putLong(op: MemoryOperand, value: BytecodeExpression): BytecodeExpression =
-    invokeVirtual(classOf[MemoryRef], "putLong", memoryOperand(op), value)
+  def setFramesize(size: BytecodeExpression): BytecodeExpression =
+    invokeVirtual(classOf[StackMemory], "setFramesize", StackMethods.Stack, size)
 }
 
 // todo: write about premature optimization: there've been 0 reason to optimize either for interpreter or compiler nodes...

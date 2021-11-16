@@ -36,7 +36,7 @@ abstract class BinaryIntExecution extends Execution with UpdatesOnlyConsts {
   override final def execute(runtime: Runtime): Unit =
     dst.materialize(runtime).putInt(eval(op1.get(runtime), op2.get(runtime)))
   override final def write(writer: MethodVisitor): Unit =
-    writer.statement(MemoryOps.putInt(dst, expression))
+    writer.statement(dst.putInt(expression))
 
   override final def updateConsts(consts: Consts): Consts = (op1, op2) match {
     case (IntProvider.Const(v1), IntProvider.Const(v2)) =>
@@ -57,7 +57,7 @@ abstract class BinaryLongExecution extends Execution with UpdatesOnlyConsts {
   override final def execute(runtime: Runtime): Unit =
     dst.materialize(runtime).putLong(eval(op1.get(runtime), op2.get(runtime)))
   override final def write(writer: MethodVisitor): Unit =
-    writer.statement(MemoryOps.putLong(dst, expression))
+    writer.statement(dst.putLong(expression))
 
   override final def updateConsts(consts: Consts): Consts = (op1, op2) match {
     case (LongProvider.Const(v1), LongProvider.Const(v2)) =>
@@ -77,7 +77,7 @@ abstract class UnaryIntExecution extends Execution with UpdatesOnlyConsts {
   override final def execute(runtime: Runtime): Unit =
     dst.materialize(runtime).putInt(eval(src.get(runtime)))
   override final def write(writer: MethodVisitor): Unit =
-    writer.statement(MemoryOps.putInt(dst, expression))
+    writer.statement(dst.putInt(expression))
 
   override final def updateConsts(consts: Consts): Consts = src match {
     case IntProvider.Const(v) =>
@@ -97,7 +97,7 @@ abstract class UnaryLongExecution extends Execution with UpdatesOnlyConsts {
   override final def execute(runtime: Runtime): Unit =
     dst.materialize(runtime).putLong(eval(src.get(runtime)))
   override final def write(writer: MethodVisitor): Unit =
-    writer.statement(MemoryOps.putLong(dst, expression))
+    writer.statement(dst.putLong(expression))
 
   override final def updateConsts(consts: Consts): Consts = src match {
     case LongProvider.Const(v) =>
