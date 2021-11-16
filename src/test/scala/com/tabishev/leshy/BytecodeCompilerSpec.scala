@@ -1,7 +1,7 @@
 package com.tabishev.leshy
 
 import com.tabishev.leshy
-import com.tabishev.leshy.compiler.{BranchExecution, WriteConst, Execution, MemoryOperand, Mult, Negate, Nodes, OperationRef, Stack, Sum, Set}
+import com.tabishev.leshy.compiler.{BranchExecution, Execution, IntProvider, LongProvider, MemoryOperand, Mult, Negate, Nodes, OperationRef, Set, Stack, Sum}
 import com.tabishev.leshy.examples.Implementations
 import com.tabishev.leshy.node.{BytecodeCompiler, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Runtime, StackMemory}
@@ -18,16 +18,6 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     case nil => finalNode()
   }
 
-  test("const") {
-    val dst = MemoryOperand.Stack(FrameOffset.nonNegative(0))
-    val prepare: Runtime => Unit = runtime => {
-      runtime.stack.setFramesize(8)
-    }
-
-    testExecution(prepare, WriteConst.Length4(777, dst))
-    testExecution(prepare, WriteConst.Length8(Long.MaxValue - 777, dst))
-  }
-
   test("negate") {
     val op = MemoryOperand.Stack(FrameOffset.nonNegative(0))
     val dst = MemoryOperand.Stack(FrameOffset.nonNegative(8))
@@ -36,8 +26,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(16)
       op.materialize(runtime).putLong(Long.MaxValue - 777)
     }
-    testExecution(prepare, Negate.Length4(op, dst))
-    testExecution(prepare, Negate.Length8(op, dst))
+    testExecution(prepare, Negate.Length4(IntProvider.create(op), dst))
+    testExecution(prepare, Negate.Length8(LongProvider.create(op), dst))
   }
 
   test("set") {
@@ -48,8 +38,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(16)
       op.materialize(runtime).putLong(Long.MaxValue - 777)
     }
-    testExecution(prepare, Set.length4(op, dst))
-    testExecution(prepare, Set.length8(op, dst))
+    testExecution(prepare, Set.Length4(IntProvider.create(op), dst))
+    testExecution(prepare, Set.Length8(LongProvider.create(op), dst))
   }
 
   test("sum") {
@@ -63,12 +53,12 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       op2.materialize(runtime).putLong(Long.MaxValue - 888)
     }
 
-    testExecution(prepare, Sum.length4(5, 7, dst))
-    testExecution(prepare, Sum.length4(op1, 7, dst))
-    testExecution(prepare, Sum.length4(op1, op2, dst))
-    testExecution(prepare, Sum.length8(5, 7, dst))
-    testExecution(prepare, Sum.length8(op1, 7, dst))
-    testExecution(prepare, Sum.length8(op1, 7, dst))
+    testExecution(prepare, Sum.Length4(IntProvider.create(5), IntProvider.create(7), dst))
+    testExecution(prepare, Sum.Length4(IntProvider.create(op1), IntProvider.create(7), dst))
+    testExecution(prepare, Sum.Length4(IntProvider.create(op1), IntProvider.create(op2), dst))
+    testExecution(prepare, Sum.Length8(LongProvider.create(5), LongProvider.create(7), dst))
+    testExecution(prepare, Sum.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
+    testExecution(prepare, Sum.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
   }
 
   test("mult") {
@@ -82,10 +72,10 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       op2.materialize(runtime).putLong(Long.MaxValue - 888)
     }
 
-    testExecution(prepare, Mult.length4(op1, 7, dst))
-    testExecution(prepare, Mult.length4(op1, op2, dst))
-    testExecution(prepare, Mult.length8(op1, 7, dst))
-    testExecution(prepare, Mult.length8(op1, 7, dst))
+    testExecution(prepare, Mult.Length4(IntProvider.create(op1), IntProvider.create(7), dst))
+    testExecution(prepare, Mult.Length4(IntProvider.create(op1), IntProvider.create(op2), dst))
+    testExecution(prepare, Mult.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
+    testExecution(prepare, Mult.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
   }
 
   test("setSize") {
@@ -117,8 +107,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
   private def testBranch(prepare: Runtime => Unit, ex: BranchExecution): Unit = check(prepare, Nodes.Branch(
     genOrigin(),
-    executeNode(WriteConst.Length4(777, MemoryOperand.Stack(FrameOffset.Zero))),
-    executeNode(WriteConst.Length4(888, MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(Set.Length4(IntProvider.create(777), MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(Set.Length4(IntProvider.create(888), MemoryOperand.Stack(FrameOffset.Zero))),
     ex
   ))
 
