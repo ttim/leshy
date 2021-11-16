@@ -18,10 +18,12 @@ object BytecodeCompiler {
   private val typeRuntime = Type.getType(classOf[Runtime])
 
   // prepare dest
-  Files.walk(dest)
-    .sorted(Comparator.reverseOrder())
-    .map(_.toFile)
-    .forEach(_.delete)
+  if (Files.exists(dest)) {
+    Files.walk(dest)
+      .sorted(Comparator.reverseOrder())
+      .map(_.toFile)
+      .forEach(_.delete)
+  }
   Files.createDirectory(dest)
 
   def compile(node: Node): Node.Generated = {

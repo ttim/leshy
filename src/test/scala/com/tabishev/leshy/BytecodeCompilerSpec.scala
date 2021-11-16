@@ -26,8 +26,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(16)
       op.materialize(runtime).putLong(Long.MaxValue - 777)
     }
-    testExecution(prepare, Negate.Length4(IntProvider.create(op), dst))
-    testExecution(prepare, Negate.Length8(LongProvider.create(op), dst))
+    testExecution(prepare, Negate.Length4(dst, IntProvider.create(op)))
+    testExecution(prepare, Negate.Length8(dst, LongProvider.create(op)))
   }
 
   test("set") {
@@ -38,8 +38,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       runtime.stack.setFramesize(16)
       op.materialize(runtime).putLong(Long.MaxValue - 777)
     }
-    testExecution(prepare, Set.Length4(IntProvider.create(op), dst))
-    testExecution(prepare, Set.Length8(LongProvider.create(op), dst))
+    testExecution(prepare, Set.Length4(dst, IntProvider.create(op)))
+    testExecution(prepare, Set.Length8(dst, LongProvider.create(op)))
   }
 
   test("sum") {
@@ -53,12 +53,12 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       op2.materialize(runtime).putLong(Long.MaxValue - 888)
     }
 
-    testExecution(prepare, Sum.Length4(IntProvider.create(5), IntProvider.create(7), dst))
-    testExecution(prepare, Sum.Length4(IntProvider.create(op1), IntProvider.create(7), dst))
-    testExecution(prepare, Sum.Length4(IntProvider.create(op1), IntProvider.create(op2), dst))
-    testExecution(prepare, Sum.Length8(LongProvider.create(5), LongProvider.create(7), dst))
-    testExecution(prepare, Sum.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
-    testExecution(prepare, Sum.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
+    testExecution(prepare, Sum.Length4(dst, IntProvider.create(5), IntProvider.create(7)))
+    testExecution(prepare, Sum.Length4(dst, IntProvider.create(op1), IntProvider.create(7)))
+    testExecution(prepare, Sum.Length4(dst, IntProvider.create(op1), IntProvider.create(op2)))
+    testExecution(prepare, Sum.Length8(dst, LongProvider.create(5), LongProvider.create(7)))
+    testExecution(prepare, Sum.Length8(dst, LongProvider.create(op1), LongProvider.create(7)))
+    testExecution(prepare, Sum.Length8(dst, LongProvider.create(op1), LongProvider.create(7)))
   }
 
   test("mult") {
@@ -72,10 +72,10 @@ class BytecodeCompilerSpec extends munit.FunSuite {
       op2.materialize(runtime).putLong(Long.MaxValue - 888)
     }
 
-    testExecution(prepare, Mult.Length4(IntProvider.create(op1), IntProvider.create(7), dst))
-    testExecution(prepare, Mult.Length4(IntProvider.create(op1), IntProvider.create(op2), dst))
-    testExecution(prepare, Mult.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
-    testExecution(prepare, Mult.Length8(LongProvider.create(op1), LongProvider.create(7), dst))
+    testExecution(prepare, Mult.Length4(dst, IntProvider.create(op1), IntProvider.create(7)))
+    testExecution(prepare, Mult.Length4(dst, IntProvider.create(op1), IntProvider.create(op2)))
+    testExecution(prepare, Mult.Length8(dst, LongProvider.create(op1), LongProvider.create(7)))
+    testExecution(prepare, Mult.Length8(dst, LongProvider.create(op1), LongProvider.create(7)))
   }
 
   test("setSize") {
@@ -108,8 +108,8 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
   private def testBranch(prepare: Runtime => Unit, ex: BranchExecution): Unit = check(prepare, Nodes.Branch(
     genOrigin(),
-    executeNode(Set.Length4(IntProvider.create(777), MemoryOperand.Stack(FrameOffset.Zero))),
-    executeNode(Set.Length4(IntProvider.create(888), MemoryOperand.Stack(FrameOffset.Zero))),
+    executeNode(Set.Length4(MemoryOperand.Stack(FrameOffset.Zero), IntProvider.create(777))),
+    executeNode(Set.Length4(MemoryOperand.Stack(FrameOffset.Zero), IntProvider.create(888))),
     ex
   ))
 

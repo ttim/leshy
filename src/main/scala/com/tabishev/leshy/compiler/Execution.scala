@@ -15,9 +15,9 @@ abstract class Execution {
 }
 
 abstract class BinaryIntExecution extends Execution {
+  val dst: MemoryOperand
   val op1: IntProvider
   val op2: IntProvider
-  val dst: MemoryOperand
 
   def eval(arg1: Int, arg2: Int): Int
   val expression: BytecodeExpression
@@ -36,9 +36,9 @@ abstract class BinaryIntExecution extends Execution {
 }
 
 abstract class BinaryLongExecution extends Execution {
+  val dst: MemoryOperand
   val op1: LongProvider
   val op2: LongProvider
-  val dst: MemoryOperand
 
   def eval(arg1: Long, arg2: Long): Long
   val expression: BytecodeExpression
@@ -57,8 +57,8 @@ abstract class BinaryLongExecution extends Execution {
 }
 
 abstract class UnaryIntExecution extends Execution {
-  val src: IntProvider
   val dst: MemoryOperand
+  val src: IntProvider
 
   def eval(arg: Int): Int
   val expression: BytecodeExpression
@@ -77,8 +77,8 @@ abstract class UnaryIntExecution extends Execution {
 }
 
 abstract class UnaryLongExecution extends Execution {
-  val src: LongProvider
   val dst: MemoryOperand
+  val src: LongProvider
 
   def eval(arg: Long): Long
   val expression: BytecodeExpression

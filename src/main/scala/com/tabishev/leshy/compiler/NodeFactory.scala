@@ -63,8 +63,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Sum.Length4(toIntProvider(op1Ast), toIntProvider(op2Ast), dst)
-            case 8 => Sum.Length8(toLongProvider(op1Ast), toLongProvider(op2Ast), dst)
+            case 4 => Sum.Length4(dst, toIntProvider(op1Ast), toIntProvider(op2Ast))
+            case 8 => Sum.Length8(dst, toLongProvider(op1Ast), toLongProvider(op2Ast))
             case _ => ???
           }
           executeNode(impl)
@@ -72,8 +72,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Mult.Length4(toIntProvider(op1Ast), toIntProvider(op2Ast), dst)
-            case 8 => Mult.Length8(toLongProvider(op1Ast), toLongProvider(op2Ast), dst)
+            case 4 => Mult.Length4(dst, toIntProvider(op1Ast), toIntProvider(op2Ast))
+            case 8 => Mult.Length8(dst, toLongProvider(op1Ast), toLongProvider(op2Ast))
             case _ => ???
           }
           executeNode(impl)
@@ -81,8 +81,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Negate.Length4(toIntProvider(opAst), dst)
-            case 8 => Negate.Length8(toLongProvider(opAst), dst)
+            case 4 => Negate.Length4(dst, toIntProvider(opAst))
+            case 8 => Negate.Length8(dst, toLongProvider(opAst))
             case _ => ???
           }
           executeNode(impl)
@@ -90,8 +90,8 @@ object NodeFactory {
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
           val impl = length match {
-            case 4 => Set.Length4(toIntProvider(srcAst), dst)
-            case 8 => Set.Length8(toLongProvider(srcAst), dst)
+            case 4 => Set.Length4(dst, toIntProvider(srcAst))
+            case 8 => Set.Length8(dst, toLongProvider(srcAst))
             case _ => ???
           }
           executeNode(impl)
