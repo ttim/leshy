@@ -36,7 +36,7 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     assert(runtime.stack.isEmpty())
     val inputObj = spec.input(input)
     runtime.stack.append(inputObj.bytes)
-    val initialContext = SpecializationContext.from(runtime.stack.frameSize(), inputObj.consts)
+    val initialContext = SpecializationContext(runtime.stack.frameSize(), inputObj.consts)
     create(OperationRef(spec.fn, 0), initialContext).run(runtime)
     assert(runtime.stack.getFrameOffset() == 0)
     val output = Bytes.fromBytes(runtime.stack.currentStackFrame())
@@ -90,6 +90,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
   private def debug(op: OperationRef, ctx: SpecializationContext, msg: String, force: Boolean = false): Unit =
     if (debugEnabled || force) {
       val fnCtx = loader.load(op.fn).get
-      println(s"${runtime.stack.frameToString(ctx.get()._2)}, ${op.toString(fnCtx)}: $msg")
+      println(s"${runtime.stack.frameToString(ctx.consts)}, ${op.toString(fnCtx)}: $msg")
     }
 }
