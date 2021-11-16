@@ -27,7 +27,7 @@ abstract class BinaryIntExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putInt(dst, expression))
 
-  def markConsts(consts: Consts): Consts = (op1, op2) match {
+  override final def markConsts(consts: Consts): Consts = (op1, op2) match {
     case (IntProvider.Const(v1), IntProvider.Const(v2)) =>
       dst.markConst(consts, Bytes.fromInt(eval(v1, v2)).get())
     case _ =>
@@ -48,7 +48,7 @@ abstract class BinaryLongExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putLong(dst, expression))
 
-  def markConsts(consts: Consts): Consts = (op1, op2) match {
+  override final def markConsts(consts: Consts): Consts = (op1, op2) match {
     case (LongProvider.Const(v1), LongProvider.Const(v2)) =>
       dst.markConst(consts, Bytes.fromLong(eval(v1, v2)).get())
     case _ =>
@@ -68,7 +68,7 @@ abstract class UnaryIntExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putInt(dst, expression))
 
-  def markConsts(consts: Consts): Consts = src match {
+  override final def markConsts(consts: Consts): Consts = src match {
     case IntProvider.Const(v) =>
       dst.markConst(consts, Bytes.fromInt(eval(v)).get())
     case _ =>
@@ -88,7 +88,7 @@ abstract class UnaryLongExecution extends Execution {
   override final def write(writer: MethodVisitor): Unit =
     writer.statement(MemoryOps.putLong(dst, expression))
 
-  def markConsts(consts: Consts): Consts = src match {
+  override final def markConsts(consts: Consts): Consts = src match {
     case LongProvider.Const(v) =>
       dst.markConst(consts, Bytes.fromLong(eval(v)).get())
     case _ =>
