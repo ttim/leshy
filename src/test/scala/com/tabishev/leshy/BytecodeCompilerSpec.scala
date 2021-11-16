@@ -83,24 +83,25 @@ class BytecodeCompilerSpec extends munit.FunSuite {
   }
 
   test("test branch") {
-    val op = MemoryOperand.Stack(FrameOffset.nonNegative(0))
+    val intOp = IntProvider.create(MemoryOperand.Stack(FrameOffset.nonNegative(0)))
+    val longOp = LongProvider.create(MemoryOperand.Stack(FrameOffset.nonNegative(0)))
     def test4(branch: BranchExecution): Unit = testBranch(runtime => runtime.stack.setFramesize(4), branch)
     def test8(branch: BranchExecution): Unit = testBranch(runtime => runtime.stack.setFramesize(8), branch)
 
     test4(BranchExecution.Const(true))
     test4(BranchExecution.Const(false))
 
-    test4(BranchExecution.le4(op, 0))
-    test4(BranchExecution.le4(op, -1))
-    test4(BranchExecution.le4(op, 1))
+    test4(BranchExecution.Le4(intOp, IntProvider.create(0)))
+    test4(BranchExecution.Le4(intOp, IntProvider.create(-1)))
+    test4(BranchExecution.Le4(intOp, IntProvider.create(1)))
 
-    test4(BranchExecution.gt4(op, 0))
-    test4(BranchExecution.gt4(op, -1))
-    test4(BranchExecution.gt4(op, 1))
+    test4(BranchExecution.Gt4(intOp, IntProvider.create(0)))
+    test4(BranchExecution.Gt4(intOp, IntProvider.create(-1)))
+    test4(BranchExecution.Gt4(intOp, IntProvider.create(1)))
 
-    test8(BranchExecution.le8(op, 0))
-    test8(BranchExecution.le8(op, -1))
-    test8(BranchExecution.le8(op, 1))
+    test8(BranchExecution.Le8(longOp, LongProvider.create(0)))
+    test8(BranchExecution.Le8(longOp, LongProvider.create(-1)))
+    test8(BranchExecution.Le8(longOp, LongProvider.create(1)))
   }
 
   private def testExecution(prepare: Runtime => Unit, ex: Execution*): Unit = check(prepare, executeNode(ex:_*))

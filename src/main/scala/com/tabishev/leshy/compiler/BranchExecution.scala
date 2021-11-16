@@ -46,16 +46,4 @@ object BranchExecution {
     override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
       writer.branch(op1.expression, BranchModifier.LE, op2.expression, ifTrue)
   }
-
-  def gt4(op1: MemoryOperand | Int, op2: MemoryOperand | Int): BranchExecution =
-    Gt4(IntProvider.create(op1), IntProvider.create(op2))
-
-  def gt8(op1: MemoryOperand | Long, op2: MemoryOperand | Long): BranchExecution =
-    Gt8(LongProvider.create(op1), LongProvider.create(op2))
-
-  def le4(op1: MemoryOperand | Int, op2: MemoryOperand | Int): BranchExecution =
-    Le4(IntProvider.create(op1), IntProvider.create(op2))
-
-  def le8(op1: MemoryOperand | Long, op2: MemoryOperand | Long): BranchExecution =
-    Le8(LongProvider.create(op1), LongProvider.create(op2))
 }
