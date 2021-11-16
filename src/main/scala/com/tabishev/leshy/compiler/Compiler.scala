@@ -20,8 +20,11 @@ object Compiler {
     val compiler = new Compiler(loader, runtime, debugEnabled, doBytecodeGeneration)
     warmup.foreach { input =>
       compiler.run(spec)(input)
+      compiler.compileNodes()
+      // todo: shouldn't be really necessary
+      compiler.run(spec)(input)
+      compiler.inlineNodes()
     }
-    compiler.optimize()
     input => compiler.run(spec)(input)
   }
 }
@@ -78,17 +81,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     }
     nodes.addAll(replacement)
     invalidate()
-    // and reinline generated where possible
-    nodes.values.foreach {
-      case generated: com.tabishev.leshy.node.Node.Generated =>
-        generated.update {
-          case Nodes.Call(origin, Nodes.Link(link), offset) =>
-            Nodes.Call(origin, Nodes.Link(link).resolve(), offset)
-          case node =>
-            node
-        }
-      case _ => // do nothing
-    }
   }
 
   private def invalidate(): Unit = {

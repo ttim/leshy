@@ -35,8 +35,8 @@ object Inliner {
           call.copy(call = inlineIndirect(nextInProcess, call.call))
         case _: Node.Final =>
           node
-        case _: Node.Generated =>
-          node
+        case generated: Node.Generated =>
+          generated.update { child => inlineIndirect(nextInProcess, child) }
       }
       holder.resolved = inlined
       inlined
