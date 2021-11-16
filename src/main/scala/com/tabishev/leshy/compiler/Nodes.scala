@@ -31,7 +31,7 @@ object Nodes {
 
   def execute(origin: Origin, execution: Execution): Execute = {
     val (stackSize, prevConsts) = origin.ctx.get()
-    val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(prevConsts))
+    val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(stackSize, prevConsts))
     Execute(origin, Link(Origin(origin.compiler, origin.op.next, nextCtx)), execution)
   }
 
