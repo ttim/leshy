@@ -17,10 +17,10 @@ object Compiler {
                     spec: FnSpec[T, V],
                     warmup: Option[T]
                   ): T => V = {
-    val compiler = new Compiler(loader, runtime, debugEnabled, doBytecodeGeneration)
+    val compiler = new Compiler(loader, runtime, debugEnabled)
     warmup.foreach { input =>
       compiler.run(spec)(input)
-      compiler.compileNodes()
+      if (doBytecodeGeneration) compiler.compileNodes()
       // todo: shouldn't be really necessary
       compiler.run(spec)(input)
       compiler.inlineNodes()
@@ -29,7 +29,7 @@ object Compiler {
   }
 }
 
-final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean, val doBytecodeGeneration: Boolean) {
+final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnabled: Boolean) {
   private val nodes = mutable.HashMap[(OperationRef, SpecializationContext), Node]()
 
   def run[T, V](spec: FnSpec[T, V])(input: T): V = {
@@ -62,10 +62,6 @@ final class Compiler(val loader: FnLoader, val runtime: Runtime, val debugEnable
     debug(op, ctx, "finish create")
 
     node
-  }
-
-  def optimize(): Unit = {
-    if (!doBytecodeGeneration) inlineNodes() else compileNodes()
   }
 
   private def inlineNodes(): Unit = {
