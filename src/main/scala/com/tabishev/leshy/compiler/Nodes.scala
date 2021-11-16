@@ -30,8 +30,7 @@ object Nodes {
   }
 
   def execute(origin: Origin, execution: Execution): Execute = {
-    val (stackSize, prevConsts) = origin.ctx.get()
-    val nextCtx = SpecializationContext.from(execution.stackSize(stackSize), execution.markConsts(stackSize, prevConsts))
+    val nextCtx = SpecializationContext(execution.stackSize(origin.ctx.stackSize), execution.markConsts(origin.ctx.stackSize, origin.ctx.consts))
     Execute(origin, Link(Origin(origin.compiler, origin.op.next, nextCtx)), execution)
   }
 
@@ -54,7 +53,7 @@ object Nodes {
       next.getOrElse(returnNode, {
         val calleeCtx = returnNode.asInstanceOf[Final].origin.ctx
         // depending on calculation/specializations being made by callee next line node might be different
-        val nextCtx = SpecializationContext.fnCall(origin.ctx, offset, calleeCtx)
+        val nextCtx = origin.ctx.fnCall(offset, calleeCtx)
         val node = origin.compiler.create(origin.op.next, nextCtx)
         next = next.updated(returnNode, node)
         node
@@ -64,7 +63,7 @@ object Nodes {
   }
 
   def call(origin: Origin, offset: FrameOffset, target: String): Call = {
-    val node = Link(Origin(origin.compiler, OperationRef(target, 0), SpecializationContext.offset(origin.ctx, offset)))
+    val node = Link(Origin(origin.compiler, OperationRef(target, 0), origin.ctx.offset(offset)))
     Call(origin, node, offset)
   }
 
