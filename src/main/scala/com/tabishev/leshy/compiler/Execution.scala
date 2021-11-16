@@ -2,15 +2,20 @@ package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
-import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
-import com.tabishev.leshy.bytecode._
-import com.tabishev.leshy.bytecode.BytecodeExpression._
+import org.objectweb.asm.{Label, MethodVisitor, Opcodes, Type}
+import com.tabishev.leshy.bytecode.*
+import com.tabishev.leshy.bytecode.BytecodeExpression.*
 
 abstract class Execution {
   def execute(runtime: Runtime): Unit
   def write(writer: MethodVisitor): Unit
 
   def specialize(before: SpecializationContext): SpecializationContext
+}
+
+abstract class BranchExecution {
+  def execute(runtime: Runtime): Boolean
+  def generate(writer: MethodVisitor, ifTrue: Label): Unit
 }
 
 trait UpdatesOnlyConsts extends Execution {

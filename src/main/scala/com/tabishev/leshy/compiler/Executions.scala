@@ -3,8 +3,7 @@ package com.tabishev.leshy.compiler
 import com.tabishev.leshy.bytecode.BytecodeExpression
 import com.tabishev.leshy.bytecode.BytecodeExpression.{const, invokeVirtual, mult, negate, sum}
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime, StackMemory}
-import org.objectweb.asm.MethodVisitor
-
+import org.objectweb.asm.{Label, MethodVisitor, Opcodes}
 import com.tabishev.leshy.bytecode.*
 
 object Mark {
@@ -77,5 +76,43 @@ object Set {
   final case class Length8(dst: MemoryOperand, src: LongProvider) extends UnaryLongExecution {
     override def eval(arg: Long): Long = arg
     override val expression: BytecodeExpression = src.expression
+  }
+}
+
+object Branches {
+  final case class Const(value: Boolean) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean = value
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      if (value) writer.visitJumpInsn(Opcodes.GOTO, ifTrue) // else do nothing
+  }
+
+  final case class Gt4(op1: IntProvider, op2: IntProvider) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean = op1.get(runtime) > op2.get(runtime)
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(op1.expression, BranchModifier.GT, op2.expression, ifTrue)
+  }
+
+  final case class Gt8(op1: LongProvider, op2: LongProvider) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean = op1.get(runtime) > op2.get(runtime)
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(op1.expression, BranchModifier.GT, op2.expression, ifTrue)
+  }
+
+  final case class Le4(op1: IntProvider, op2: IntProvider) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean =
+      op1.get(runtime) <= op2.get(runtime)
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(op1.expression, BranchModifier.LE, op2.expression, ifTrue)
+  }
+
+  final case class Le8(op1: LongProvider, op2: LongProvider) extends BranchExecution {
+    override def execute(runtime: Runtime): Boolean =
+      op1.get(runtime) <= op2.get(runtime)
+
+    override def generate(writer: MethodVisitor, ifTrue: Label): Unit =
+      writer.branch(op1.expression, BranchModifier.LE, op2.expression, ifTrue)
   }
 }

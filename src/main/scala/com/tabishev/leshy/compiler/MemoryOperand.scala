@@ -1,7 +1,8 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.bytecode.BytecodeExpression
-import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime}
+import com.tabishev.leshy.bytecode.BytecodeExpression.{const, invokeStatic, invokeVirtual, local}
+import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
 import org.objectweb.asm.{MethodVisitor, Opcodes}
 
 enum MemoryOperand {
@@ -72,6 +73,30 @@ object LongProvider {
     case const: Long => new Const(const)
     case operand: MemoryOperand => new Operand(operand)
   }
+}
+
+object MemoryOps {
+  val Runtime: BytecodeExpression = local[Runtime](1)
+  val Stack: BytecodeExpression = local[StackMemory](2)
+
+  def frameOffset(offset: FrameOffset): BytecodeExpression =
+    invokeStatic(classOf[FrameOffset], "nonNegative", const(offset.get))
+
+  def memoryOperand(operand: MemoryOperand): BytecodeExpression = operand match {
+    case MemoryOperand.Stack(offset) =>
+      invokeVirtual(classOf[StackMemory], "getRef", Stack, frameOffset(offset))
+    case MemoryOperand.Native(offset) =>
+      ???
+  }
+
+  def getInt(op: MemoryOperand): BytecodeExpression =
+    invokeVirtual(classOf[MemoryRef], "getInt", memoryOperand(op))
+  def putInt(op: MemoryOperand, value: BytecodeExpression): BytecodeExpression =
+    invokeVirtual(classOf[MemoryRef], "putInt", memoryOperand(op), value)
+  def getLong(op: MemoryOperand): BytecodeExpression =
+    invokeVirtual(classOf[MemoryRef], "getLong", memoryOperand(op))
+  def putLong(op: MemoryOperand, value: BytecodeExpression): BytecodeExpression =
+    invokeVirtual(classOf[MemoryRef], "putLong", memoryOperand(op), value)
 }
 
 // todo: write about premature optimization: there've been 0 reason to optimize either for interpreter or compiler nodes...

@@ -61,10 +61,9 @@ object FnSpecs {
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis()
-    println(createCompiler(Fib4, doBytecodeGeneration = true)(25))
 //    println(createInterpreter(false, true).run(Fib4)(30))
 //    println(createInterpreter(true, true).run(Ffactorial8)(17))
-//    assert(createCompiler(Fib8, doBytecodeGeneration = true)(40) == 165580141)
+    assert(createCompiler(Fib8, doBytecodeGeneration = true)(40) == 165580141)
 //    assert(createCompiler(Fibx8, doBytecodeGeneration = true)(38) == 63245986)
     println((System.currentTimeMillis() - start)/1000.0)
   }
