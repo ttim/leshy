@@ -17,17 +17,12 @@ object Mark {
 
 object Stack {
   final case class SetSize(size: Int) extends Execution {
-    override def execute(runtime: Runtime): Unit = runtime.stack.setFramesize(size)
+    override def execute(runtime: Runtime): Unit =
+      runtime.stack.setFramesize(size)
     override def write(writer: MethodVisitor): Unit =
       writer.statement(StackMethods.setFramesize(const(size)))
-
     override def specialize(before: SpecializationContext): SpecializationContext =
-      SpecializationContext(size,
-        if (size > before.stackSize)
-          before.consts.markConsts(FrameOffset.nonNegative(before.stackSize), Array.fill[Byte](size - before.stackSize)(0))
-        else
-          before.consts.unmarkConsts(FrameOffset.nonNegative(size), before.stackSize - size)
-      )
+      before.setSize(size)
   }
 }
 

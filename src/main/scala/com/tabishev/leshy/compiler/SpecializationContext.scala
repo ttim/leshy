@@ -13,6 +13,14 @@ case class SpecializationContext(stackSize: Int, consts: Consts) {
 
   def offset(offset: FrameOffset): SpecializationContext =
     SpecializationContext(stackSize - offset.get, consts.call(offset))
+
+  def setSize(newSize: Int): SpecializationContext =
+    SpecializationContext(newSize,
+      if (newSize > stackSize)
+        consts.markConsts(FrameOffset.nonNegative(stackSize), Array.fill[Byte](newSize - stackSize)(0))
+      else
+        consts.unmarkConsts(FrameOffset.nonNegative(newSize), stackSize - newSize)
+    )
 }
 
 case class SpecializationContextConstInterpreter(sym: Symbols, ctx: SpecializationContext) extends ConstInterpreter {
