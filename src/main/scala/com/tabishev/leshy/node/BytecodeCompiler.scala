@@ -26,31 +26,27 @@ object BytecodeCompiler {
   }
   Files.createDirectory(dest)
 
-  def compile(node: Node): Node.Generated = {
-    val name = "GenClass_" + Random.nextLong(Long.MaxValue)
-//    println(s"compile $node into $name")
-    val bytes = new BytecodeCompiler(node, name).compile()
-    Files.write(dest.resolve(name + ".class"), bytes)
-    val clazz = classLoader.loadClass(name)
-    val constructor = clazz.getConstructors().head
-    val returns = NodeTraversal.traverse(node).collect {
-      case NodeTraversal.Statement.Return(node) => node
-    }
-    val generated = constructor.newInstance(returns.toArray:_*).asInstanceOf[Node.Generated]
-    generated
-  }
+  def compile(node: Node): Node.Generated =
+    BytecodeCompiler(node, "GenClass_" + Random.nextLong(Long.MaxValue)).compile()
 }
 
 private class BytecodeCompiler(node: Node, name: String) {
   import BytecodeCompiler._
   private val owner = Type.getObjectType(name)
-  private val statements = NodeTraversal.traverse(node)
-  private val args: Seq[(String, Node)] = statements
-    .collect { case NodeTraversal.Statement.Return(node) => node }
-    .zipWithIndex
-    .map { (node, idx) => (s"node_$idx", node) }
+  private val nodes = traverse(node)
+  private val external = nodes.filter(isExternal)
+  private val nodeToArg = external.zipWithIndex.map { (node, idx) => (node, argName(idx)) }.toMap
 
-  def compile(): Array[Byte] = {
+  def compile(): Node.Generated = {
+    //    println(s"compile $node into $name")
+    Files.write(dest.resolve(name + ".class"), generate())
+    val clazz = classLoader.loadClass(name)
+    val constructor = clazz.getConstructors().head
+    val generated = constructor.newInstance(external.toArray:_*).asInstanceOf[Node.Generated]
+    generated
+  }
+
+  def generate(): Array[Byte] = {
     val writer = new ClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES)
 
     writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, name, null, typeGeneratedNode.getInternalName, Array())
@@ -63,19 +59,19 @@ private class BytecodeCompiler(node: Node, name: String) {
   }
 
   private def writeFields(writer: ClassWriter): Unit =
-    (0 until args.length).foreach { idx =>
-      writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, "node_" + idx, typeNode.getDescriptor, null, null)
+    (0 until external.length).foreach { idx =>
+      writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, argName(idx), typeNode.getDescriptor, null, null)
     }
 
   private def writeConstructor(classWriter: ClassWriter): Unit = {
-    val constructorType = Type.getMethodType(Type.VOID_TYPE, Array.fill(args.length)(typeNode):_*)
+    val constructorType = Type.getMethodType(Type.VOID_TYPE, Array.fill(external.length)(typeNode):_*)
     val writer = classWriter.visitMethod(Opcodes.ACC_PUBLIC, "<init>", constructorType.getDescriptor, null, null)
 
     writer.visitCode()
 
     writer.statement(InvokeSuper(classOf[Node.Generated]))
-    (0 until args.length).foreach { idx =>
-      writer.putField(Field(isStatic = false, "node_" + idx, owner, typeNode), BytecodeExpression.local[Node](idx + 1))
+    (0 until external.length).foreach { idx =>
+      writer.putField(Field(isStatic = false, argName(idx), owner, typeNode), BytecodeExpression.local[Node](idx + 1))
     }
 
     // return
@@ -96,23 +92,35 @@ private class BytecodeCompiler(node: Node, name: String) {
 
     writer.visitLabel(start)
     writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runtime], "stack", BytecodeExpression.local[Runtime](1)))
-    val labels = statements.collect {
-      case NodeTraversal.Statement.Branch(_, target) => target
-      case NodeTraversal.Statement.Jump(target) => target
-    }.map { line => (line, new Label()) }.toMap
+    val labels = nodes.map { _ => new Label() }
+    val nodeToLine = nodes.zipWithIndex.toMap
 
-    statements.zipWithIndex.foreach { (statement, line) =>
-      if (labels.contains(line)) writer.visitLabel(labels(line))
+    def resolve(node: Node): Node = if (node.isInstanceOf[Node.Indirect]) {
+      node.asInstanceOf[Node.Indirect].tryResolve().map(resolve).getOrElse(node)
+    } else node
+    def label(node: Node): Label = labels(nodeToLine(resolve(node)))
+    def jump(fromLine: Int, target: Node): Unit =
+      if (fromLine == nodes.length-1 || resolve(target) != nodes(fromLine + 1)) writer.visitJumpInsn(Opcodes.GOTO, label(target))
+    def ret(node: Node): Unit =
+      writer.ret(Field(isStatic = false, nodeToArg(node), owner, typeNode))
 
-      statement match {
-        case NodeTraversal.Statement.Return(node) =>
-          writer.ret(Field(isStatic = false, argName(node), owner, typeNode))
-        case NodeTraversal.Statement.Run(node) =>
-          node.generate(writer)
-        case NodeTraversal.Statement.Branch(node, ifTrue) =>
-          node.generate(writer, labels(ifTrue))
-        case NodeTraversal.Statement.Jump(target) =>
-          writer.visitJumpInsn(Opcodes.GOTO, labels(target))
+    nodes.zipWithIndex.foreach { (node, line) =>
+      // todo: don't write label per each line?
+      writer.visitLabel(labels(line))
+
+      node match {
+        case run: com.tabishev.leshy.node.Node.Run =>
+          run.generate(writer)
+          jump(line, run.next)
+        case branch: com.tabishev.leshy.node.Node.Branch =>
+          branch.generate(writer, label(branch.ifTrue))
+          jump(line, branch.ifFalse)
+        case indirect: com.tabishev.leshy.node.Node.Indirect =>
+          assert(indirect.tryResolve().isEmpty)
+          jump(line, indirect)
+        case _: com.tabishev.leshy.node.Node.Call => ret(node)
+        case _: com.tabishev.leshy.node.Node.Final => ret(node)
+        case _: com.tabishev.leshy.node.Node.Generated => ret(node)
       }
     }
 
@@ -121,51 +129,41 @@ private class BytecodeCompiler(node: Node, name: String) {
     writer.visitEnd()
   }
 
-  private def argName(node: Node): String = args.find(_._2 == node).get._1
-}
-
-object NodeTraversal {
-  enum Statement {
-    case Run(node: Node.Run)
-    case Branch(node: Node.Branch, ifTrue: Int)
-    case Jump(statement: Int)
-    case Return(node: Node)
-  }
-
-  def traverse(root: Node): Seq[Statement] = {
-    val body = mutable.ArrayBuffer[Statement]()
-    val generated = mutable.HashMap[Node, Int]()
-
-    def add(statement: Statement, node: Node): Unit = {
-      body.addOne(statement)
-      generated.addOne((node, body.length - 1))
-    }
-
-    def ret(node: Node): Unit = add(Statement.Return(node), node)
+  def traverse(root: Node): Seq[Node] = {
+    val nodes = mutable.LinkedHashSet[Node]()
 
     def go(node: Node): Unit = node match {
-      case _ if generated.contains(node) =>
-        body.addOne(Statement.Jump(generated(node)))
+      case _ if nodes.contains(node) =>
+        // do nothing
       case run: com.tabishev.leshy.node.Node.Run =>
-        add(Statement.Run(run), run)
+        nodes.add(run)
         go(run.next)
       case branch: com.tabishev.leshy.node.Node.Branch =>
-        add(Statement.Branch(branch, -1), branch)
-        val idx = body.length - 1
+        nodes.add(branch)
         go(branch.ifFalse)
-        body(idx) = Statement.Branch(branch, body.length)
         go(branch.ifTrue)
       case indirect: com.tabishev.leshy.node.Node.Indirect =>
         indirect.tryResolve() match {
           case Some(resolved) => go(resolved)
-          case None => ret(indirect)
+          case None => nodes.add(node)
         }
-      case _: com.tabishev.leshy.node.Node.Call => ret(node)
-      case _: com.tabishev.leshy.node.Node.Final => ret(node)
-      case _: com.tabishev.leshy.node.Node.Generated => ret(node)
+      case _: com.tabishev.leshy.node.Node.Call => nodes.add(node)
+      case _: com.tabishev.leshy.node.Node.Final => nodes.add(node)
+      case _: com.tabishev.leshy.node.Node.Generated => nodes.add(node)
     }
     go(root)
 
-    body.toSeq
+    nodes.toSeq
   }
+
+  def isExternal(node: Node): Boolean = node match {
+    case node: com.tabishev.leshy.node.Node.Indirect => !node.tryResolve().isDefined
+    case _: com.tabishev.leshy.node.Node.Run => false
+    case _: com.tabishev.leshy.node.Node.Branch => false
+    case node: com.tabishev.leshy.node.Node.Call => true
+    case node: com.tabishev.leshy.node.Node.Final => true
+    case node: com.tabishev.leshy.node.Node.Generated => true
+  }
+
+  def argName(idx: Int): String = s"node_$idx"
 }
