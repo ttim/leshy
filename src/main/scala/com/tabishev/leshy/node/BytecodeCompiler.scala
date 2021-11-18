@@ -1,6 +1,7 @@
 package com.tabishev.leshy.node
 
 import com.tabishev.leshy.bytecode.*
+import com.tabishev.leshy.bytecode.BytecodeExpression.*
 import com.tabishev.leshy.runtime.{Runtime, StackMemory}
 import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
@@ -16,6 +17,9 @@ object BytecodeCompiler {
   private val typeGeneratedNode = Type.getType(classOf[Node.Generated])
   private val typeNode = Type.getType(classOf[Node])
   private val typeRuntime = Type.getType(classOf[Runtime])
+
+  val RuntimeExpression: BytecodeExpression = local[Runtime](1)
+  val StackExpression: BytecodeExpression = local[StackMemory](2)
 
   // prepare dest
   if (Files.exists(dest)) {
@@ -91,7 +95,7 @@ private class BytecodeCompiler(node: Node, name: String) {
     writer.visitLocalVariable("stack", Type.getDescriptor(classOf[StackMemory]), null, start, finish, 2)
 
     writer.visitLabel(start)
-    writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runtime], "stack", BytecodeExpression.local[Runtime](1)))
+    writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runtime], "stack", RuntimeExpression))
     val labels = nodes.map { _ => new Label() }
     val nodeToLine = nodes.zipWithIndex.toMap
 
@@ -101,8 +105,9 @@ private class BytecodeCompiler(node: Node, name: String) {
     def label(node: Node): Label = labels(nodeToLine(resolve(node)))
     def jump(fromLine: Int, target: Node): Unit =
       if (fromLine == nodes.length-1 || resolve(target) != nodes(fromLine + 1)) writer.visitJumpInsn(Opcodes.GOTO, label(target))
-    def ret(node: Node): Unit =
-      writer.ret(Field(isStatic = false, nodeToArg(node), owner, typeNode))
+    def external(node: Node): BytecodeExpression =
+      Field(isStatic = false, nodeToArg(node), owner, typeNode)
+    def ret(node: Node): Unit = writer.ret(external(node))
 
     nodes.zipWithIndex.foreach { (node, line) =>
       // todo: don't write label per each line?
@@ -118,7 +123,19 @@ private class BytecodeCompiler(node: Node, name: String) {
         case indirect: com.tabishev.leshy.node.Node.Indirect =>
           assert(indirect.tryResolve().isEmpty)
           jump(line, indirect)
-        case _: com.tabishev.leshy.node.Node.Call => ret(node)
+        case call: com.tabishev.leshy.node.Node.Call =>
+          // todo: inline better and make jump based on already found next nodes
+          val callNode_ = Cast(external(call), classOf[Node.Call])
+          val callNode = BytecodeExpression.invokeVirtual(classOf[Node.Call], "call", callNode_)
+
+          // todo: preparing "next" arguments in advance
+          writer.push(callNode_)
+
+          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get)))
+          writer.push(BytecodeExpression.invokeVirtual(classOf[Node], "run", callNode, RuntimeExpression))
+          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get)))
+
+          writer.ret(BytecodeExpression.invokeVirtual(classOf[Node.Call], "next")) // callNode_ and final node args are prepared above
         case _: com.tabishev.leshy.node.Node.Final => ret(node)
         case _: com.tabishev.leshy.node.Node.Generated => ret(node)
       }
@@ -147,7 +164,7 @@ private class BytecodeCompiler(node: Node, name: String) {
           case Some(resolved) => go(resolved)
           case None => nodes.add(node)
         }
-      case _: com.tabishev.leshy.node.Node.Call => nodes.add(node)
+      case call: com.tabishev.leshy.node.Node.Call => nodes.add(call)
       case _: com.tabishev.leshy.node.Node.Final => nodes.add(node)
       case _: com.tabishev.leshy.node.Node.Generated => nodes.add(node)
     }
