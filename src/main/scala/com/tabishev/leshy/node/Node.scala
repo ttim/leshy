@@ -65,6 +65,7 @@ object Node {
     def copy(call: Node): Call
 
     def next(returnNode: Node.Final): Node
+    def tryNext: Map[Node.Final, Node]
 
     final override def runInternal(runtime: Runtime): Node = {
       runtime.stack.moveFrame(offset.get)
