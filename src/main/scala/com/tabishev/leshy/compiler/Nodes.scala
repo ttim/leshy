@@ -57,6 +57,8 @@ object Nodes {
         node
       })
 
+    override def tryNext: Map[Node.Final, Node] = next
+
     def invalidate(): Unit = next = Map()
   }
 
