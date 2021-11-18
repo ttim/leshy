@@ -37,8 +37,7 @@ object BytecodeCompiler {
 private class BytecodeCompiler(node: Node, name: String) {
   import BytecodeCompiler._
   private val owner = Type.getObjectType(name)
-  private val nodes = traverse(node)
-  private val external = nodes.filter(isExternal)
+  private val (nodes, external) = traverse(node)
   private val nodeToArg = external.zipWithIndex.map { (node, idx) => (node, argName(idx)) }.toMap
 
   def compile(): Node.Generated = {
@@ -103,11 +102,19 @@ private class BytecodeCompiler(node: Node, name: String) {
       node.asInstanceOf[Node.Indirect].tryResolve().map(resolve).getOrElse(node)
     } else node
     def label(node: Node): Label = labels(nodeToLine(resolve(node)))
-    def jump(fromLine: Int, target: Node): Unit =
-      if (fromLine == nodes.length-1 || resolve(target) != nodes(fromLine + 1)) writer.visitJumpInsn(Opcodes.GOTO, label(target))
-    def external(node: Node): BytecodeExpression =
+    def externalExpression(node: Node): BytecodeExpression =
       Field(isStatic = false, nodeToArg(node), owner, typeNode)
-    def ret(node: Node): Unit = writer.ret(external(node))
+    def ret(node: Node): Unit = writer.ret(externalExpression(node))
+    def jump(fromLine: Int, target: Node): Unit = {
+      val resolved = resolve(target)
+      if (nodes.contains(resolved)) {
+        if (fromLine == nodes.length-1 || resolved != nodes(fromLine + 1)) writer.visitJumpInsn(Opcodes.GOTO, label(resolved))
+      } else {
+        ret(resolved)
+      }
+    }
+
+    // todo: if nodes is empty?
 
     nodes.zipWithIndex.foreach { (node, line) =>
       // todo: don't write label per each line?
@@ -125,7 +132,7 @@ private class BytecodeCompiler(node: Node, name: String) {
           jump(line, indirect)
         case call: com.tabishev.leshy.node.Node.Call =>
           // todo: inline better and make jump based on already found next nodes
-          val callNode_ = Cast(external(call), classOf[Node.Call])
+          val callNode_ = Cast(externalExpression(call), classOf[Node.Call])
           val callNode = BytecodeExpression.invokeVirtual(classOf[Node.Call], "call", callNode_)
 
           // todo: preparing "next" arguments in advance
@@ -146,40 +153,32 @@ private class BytecodeCompiler(node: Node, name: String) {
     writer.visitEnd()
   }
 
-  def traverse(root: Node): Seq[Node] = {
-    val nodes = mutable.LinkedHashSet[Node]()
+  def traverse(root: Node): (Seq[Node], Seq[Node]) = {
+    val internal = mutable.LinkedHashSet[Node]()
+    val external = mutable.LinkedHashSet[Node]()
 
     def go(node: Node): Unit = node match {
-      case _ if nodes.contains(node) =>
+      case _ if internal.contains(node) || external.contains(node) =>
         // do nothing
       case run: com.tabishev.leshy.node.Node.Run =>
-        nodes.add(run)
+        internal.add(run)
         go(run.next)
       case branch: com.tabishev.leshy.node.Node.Branch =>
-        nodes.add(branch)
+        internal.add(branch)
         go(branch.ifFalse)
         go(branch.ifTrue)
       case indirect: com.tabishev.leshy.node.Node.Indirect =>
         indirect.tryResolve() match {
           case Some(resolved) => go(resolved)
-          case None => nodes.add(node)
+          case None => external.add(node)
         }
-      case call: com.tabishev.leshy.node.Node.Call => nodes.add(call)
-      case _: com.tabishev.leshy.node.Node.Final => nodes.add(node)
-      case _: com.tabishev.leshy.node.Node.Generated => nodes.add(node)
+      case call: com.tabishev.leshy.node.Node.Call => external.add(call)
+      case _: com.tabishev.leshy.node.Node.Final => external.add(node)
+      case _: com.tabishev.leshy.node.Node.Generated => external.add(node)
     }
     go(root)
 
-    nodes.toSeq
-  }
-
-  def isExternal(node: Node): Boolean = node match {
-    case node: com.tabishev.leshy.node.Node.Indirect => !node.tryResolve().isDefined
-    case _: com.tabishev.leshy.node.Node.Run => false
-    case _: com.tabishev.leshy.node.Node.Branch => false
-    case node: com.tabishev.leshy.node.Node.Call => true
-    case node: com.tabishev.leshy.node.Node.Final => true
-    case node: com.tabishev.leshy.node.Node.Generated => true
+    (internal.toSeq, external.toSeq)
   }
 
   def argName(idx: Int): String = s"node_$idx"
