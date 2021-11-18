@@ -18,6 +18,8 @@ object BytecodeCompiler {
   private val typeNode = Type.getType(classOf[Node])
   private val typeRuntime = Type.getType(classOf[Runtime])
 
+  def blah(): Unit = System.out.println("blah!")
+
   val RuntimeExpression: BytecodeExpression = local[Runtime](1)
   val StackExpression: BytecodeExpression = local[StackMemory](2)
 
@@ -92,6 +94,7 @@ private class BytecodeCompiler(node: Node, name: String) {
 
     writer.visitCode()
     writer.visitLocalVariable("stack", Type.getDescriptor(classOf[StackMemory]), null, start, finish, 2)
+    writer.visitLocalVariable("finalTmp", Type.getDescriptor(classOf[Node.Final]), null, start, finish, 3)
 
     writer.visitLabel(start)
     writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runtime], "stack", RuntimeExpression))
@@ -131,18 +134,21 @@ private class BytecodeCompiler(node: Node, name: String) {
           assert(indirect.tryResolve().isEmpty)
           jump(line, indirect)
         case call: com.tabishev.leshy.node.Node.Call =>
-          // todo: inline better and make jump based on already found next nodes
-          val callNode_ = Cast(externalExpression(call), classOf[Node.Call])
-          val callNode = BytecodeExpression.invokeVirtual(classOf[Node.Call], "call", callNode_)
-
-          // todo: preparing "next" arguments in advance
-          writer.push(callNode_)
-
+          val callNodeExpression = Cast(externalExpression(call), classOf[Node.Call])
           writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get)))
-          writer.push(BytecodeExpression.invokeVirtual(classOf[Node], "run", callNode, RuntimeExpression))
+          writer.storeVar(3, BytecodeExpression.invokeVirtual(classOf[Node], "run", externalExpression(call.call), RuntimeExpression))
           writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get)))
 
-          writer.ret(BytecodeExpression.invokeVirtual(classOf[Node.Call], "next")) // callNode_ and final node args are prepared above
+          val next = call.tryNext
+          if (next.size == 1) {
+            val (finalNode, nextNode) = next.head
+            // final node equals to expected final node
+            // seems like this equals is rarely true. why?!?
+            writer.push(invokeVirtual(classOf[Object], "equals", local[Node.Final](3), externalExpression(finalNode)))
+            writer.visitJumpInsn(Opcodes.IFGT, label(resolve(nextNode)))
+          }
+          // fallback
+          writer.ret(BytecodeExpression.invokeVirtual(classOf[Node.Call], "next", callNodeExpression, local[Node.Final](3)))
         case _: com.tabishev.leshy.node.Node.Final => ret(node)
         case _: com.tabishev.leshy.node.Node.Generated => ret(node)
       }
@@ -172,7 +178,16 @@ private class BytecodeCompiler(node: Node, name: String) {
           case Some(resolved) => go(resolved)
           case None => external.add(node)
         }
-      case call: com.tabishev.leshy.node.Node.Call => external.add(call)
+      case call: com.tabishev.leshy.node.Node.Call =>
+        external.add(call)
+        val next = call.tryNext
+        if (next.size == 1) {
+          val (finalNode, nextNode) = next.head
+          internal.add(call)
+          external.add(call.call)
+          external.add(finalNode)
+          go(nextNode)
+        }
       case _: com.tabishev.leshy.node.Node.Final => external.add(node)
       case _: com.tabishev.leshy.node.Node.Generated => external.add(node)
     }
