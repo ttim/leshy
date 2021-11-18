@@ -67,5 +67,7 @@ object Nodes {
     Call(origin, node, offset)
   }
 
-  final case class Final(origin: Origin) extends Node.Final
+  final case class Final(origin: Origin) extends Node.Final {
+    override def equals(obj: Any): Boolean = super.equals(obj)
+  }
 }

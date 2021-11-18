@@ -68,5 +68,6 @@ object BytecodeExpressionKind {
     case Type.OBJECT => BytecodeExpressionKind.Object
     case Type.INT => BytecodeExpressionKind.Int
     case Type.LONG => BytecodeExpressionKind.Long
+    case Type.BOOLEAN => BytecodeExpressionKind.Int
   }
 }
