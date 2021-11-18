@@ -2,6 +2,7 @@ package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.bytecode.BytecodeExpression
 import com.tabishev.leshy.bytecode.BytecodeExpression.{const, invokeStatic, invokeVirtual, local}
+import com.tabishev.leshy.node.BytecodeCompiler
 import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
 import org.objectweb.asm.{MethodVisitor, Opcodes}
 
@@ -91,13 +92,11 @@ object LongProvider {
 }
 
 object StackMethods {
-  private val Stack: BytecodeExpression = local[StackMemory](2)
-
   def getRef(offset: BytecodeExpression): BytecodeExpression =
-    invokeVirtual(classOf[StackMemory], "getRef", StackMethods.Stack, offset)
+    invokeVirtual(classOf[StackMemory], "getRef", BytecodeCompiler.StackExpression, offset)
 
   def setFramesize(size: BytecodeExpression): BytecodeExpression =
-    invokeVirtual(classOf[StackMemory], "setFramesize", StackMethods.Stack, size)
+    invokeVirtual(classOf[StackMemory], "setFramesize", BytecodeCompiler.StackExpression, size)
 }
 
 // todo: write about premature optimization: there've been 0 reason to optimize either for interpreter or compiler nodes...

@@ -30,6 +30,14 @@ object BytecodeExpression {
   def local[T: ClassTag](idx: Int): BytecodeExpression = Local(idx, BytecodeExpressionKind.of[T])
 }
 
+case class Cast(expression: BytecodeExpression, clz: Class[_]) extends BytecodeExpression {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = {
+    val kind = writer.push(expression)
+    writer.visitTypeInsn(Opcodes.CHECKCAST, Type.getInternalName(clz))
+    kind
+  }
+}
+
 case class BytecodeConst private[bytecode](kind: BytecodeExpressionKind, value: Any) extends BytecodeExpression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitLdcInsn(value)
