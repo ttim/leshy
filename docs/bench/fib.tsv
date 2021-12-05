@@ -1,19 +1,20 @@
-[info] Benchmark                                (impl)  Mode  Cnt       Score       Error  Units
-[info] FibBench.fib4     specialized/interpreter-check  avgt    3   20993.724 ±   280.832  us/op
-[info] FibBench.fib4  specialized/interpreter-no-check  avgt    3    7035.099 ±   151.106  us/op
-[info] FibBench.fib4       specialized/compiler-no-gen  avgt    3    1120.658 ±    48.589  us/op
-[info] FibBench.fib4          specialized/compiler-gen  avgt    3    1118.759 ±    49.969  us/op
-[info] FibBench.fib4         generic/interpreter-check  avgt    3  335698.305 ±  6837.321  us/op
-[info] FibBench.fib4      generic/interpreter-no-check  avgt    3   16089.983 ±   685.435  us/op
-[info] FibBench.fib4           generic/compiler-no-gen  avgt    3    2651.351 ±   178.123  us/op
-[info] FibBench.fib4              generic/compiler-gen  avgt    3    2359.302 ±    41.721  us/op
-[info] FibBench.fib4                            native  avgt    3      20.015 ±     0.094  us/op
-[info] FibBench.fib8     specialized/interpreter-check  avgt    3   29002.001 ±  1242.425  us/op
-[info] FibBench.fib8  specialized/interpreter-no-check  avgt    3    7896.049 ±   126.919  us/op
-[info] FibBench.fib8       specialized/compiler-no-gen  avgt    3    1115.201 ±    10.940  us/op
-[info] FibBench.fib8          specialized/compiler-gen  avgt    3    1116.437 ±    16.806  us/op
-[info] FibBench.fib8         generic/interpreter-check  avgt    3  580274.507 ± 12019.093  us/op
-[info] FibBench.fib8      generic/interpreter-no-check  avgt    3   16706.267 ±  1219.964  us/op
-[info] FibBench.fib8           generic/compiler-no-gen  avgt    3    2400.093 ±    20.741  us/op
-[info] FibBench.fib8              generic/compiler-gen  avgt    3    2461.827 ±   180.408  us/op
-[info] FibBench.fib8                            native  avgt    3      20.321 ±     0.882  us/op
+# Jmh/run FibBench
+[info] Benchmark                                (impl)  Mode  Cnt       Score      Error  Units
+[info] FibBench.fib4     specialized/interpreter-check  avgt    3   20700.321 ±  594.180  us/op
+[info] FibBench.fib4  specialized/interpreter-no-check  avgt    3    7528.616 ±  145.086  us/op
+[info] FibBench.fib4       specialized/compiler-no-gen  avgt    3     773.632 ±   23.796  us/op
+[info] FibBench.fib4          specialized/compiler-gen  avgt    3     769.149 ±   15.654  us/op
+[info] FibBench.fib4         generic/interpreter-check  avgt    3  339677.847 ± 4095.309  us/op
+[info] FibBench.fib4      generic/interpreter-no-check  avgt    3   17285.302 ±  491.562  us/op
+[info] FibBench.fib4           generic/compiler-no-gen  avgt    3    1725.523 ±  130.049  us/op
+[info] FibBench.fib4              generic/compiler-gen  avgt    3    1755.141 ±  183.659  us/op
+[info] FibBench.fib4                            native  avgt    3      20.015 ±    0.136  us/op
+[info] FibBench.fib8     specialized/interpreter-check  avgt    3   30135.306 ±  705.109  us/op
+[info] FibBench.fib8  specialized/interpreter-no-check  avgt    3    8133.032 ±   54.878  us/op
+[info] FibBench.fib8       specialized/compiler-no-gen  avgt    3     793.076 ±   27.185  us/op
+[info] FibBench.fib8          specialized/compiler-gen  avgt    3     799.159 ±    8.926  us/op
+[info] FibBench.fib8         generic/interpreter-check  avgt    3  561505.069 ± 4936.092  us/op
+[info] FibBench.fib8      generic/interpreter-no-check  avgt    3   17751.454 ±  765.316  us/op
+[info] FibBench.fib8           generic/compiler-no-gen  avgt    3    1808.319 ±   46.103  us/op
+[info] FibBench.fib8              generic/compiler-gen  avgt    3    1789.182 ±   89.567  us/op
+[info] FibBench.fib8                            native  avgt    3      19.997 ±    0.065  us/op

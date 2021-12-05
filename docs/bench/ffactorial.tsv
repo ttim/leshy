@@ -1,15 +1,16 @@
+# Jmh/run FfactorialBench
 [info] Benchmark                                 (impl)  Mode  Cnt      Score     Error  Units
-[info] FfactorialBench.factorial4     interpreter-check  avgt    3  14084.165 ± 382.692  us/op
-[info] FfactorialBench.factorial4  interpreter-no-check  avgt    3   2675.688 ± 175.292  us/op
-[info] FfactorialBench.factorial4          compiler-gen  avgt    3      6.150 ±   0.205  us/op
-[info] FfactorialBench.factorial4       compiler-no-gen  avgt    3    189.886 ±  16.340  us/op
-[info] FfactorialBench.factorial4                native  avgt    3      4.651 ±   0.203  us/op
-[info] FfactorialBench.factorial4           byte buffer  avgt    3     13.363 ±   0.189  us/op
-[info] FfactorialBench.factorial4         memory access  avgt    3     13.702 ±   2.701  us/op
-[info] FfactorialBench.factorial8     interpreter-check  avgt    3  16515.182 ± 405.251  us/op
-[info] FfactorialBench.factorial8  interpreter-no-check  avgt    3   2874.812 ±  32.181  us/op
-[info] FfactorialBench.factorial8          compiler-gen  avgt    3      6.228 ±   4.211  us/op
-[info] FfactorialBench.factorial8       compiler-no-gen  avgt    3    133.249 ±  77.773  us/op
-[info] FfactorialBench.factorial8                native  avgt    3      4.680 ±   0.711  us/op
-[info] FfactorialBench.factorial8           byte buffer  avgt    3     13.468 ±   2.280  us/op
-[info] FfactorialBench.factorial8         memory access  avgt    3     16.008 ±   0.004  us/op
+[info] FfactorialBench.factorial4     interpreter-check  avgt    3  14019.114 ± 329.899  us/op
+[info] FfactorialBench.factorial4  interpreter-no-check  avgt    3   2707.440 ±  37.463  us/op
+[info] FfactorialBench.factorial4          compiler-gen  avgt    3      6.099 ±   1.385  us/op
+[info] FfactorialBench.factorial4       compiler-no-gen  avgt    3    116.967 ±  40.792  us/op
+[info] FfactorialBench.factorial4                native  avgt    3      4.657 ±   0.057  us/op
+[info] FfactorialBench.factorial4           byte buffer  avgt    3     13.364 ±   0.179  us/op
+[info] FfactorialBench.factorial4         memory access  avgt    3     13.587 ±   0.024  us/op
+[info] FfactorialBench.factorial8     interpreter-check  avgt    3  15742.665 ± 352.910  us/op
+[info] FfactorialBench.factorial8  interpreter-no-check  avgt    3   2733.328 ±   7.808  us/op
+[info] FfactorialBench.factorial8          compiler-gen  avgt    3      6.118 ±   5.446  us/op
+[info] FfactorialBench.factorial8       compiler-no-gen  avgt    3    100.577 ±  43.143  us/op
+[info] FfactorialBench.factorial8                native  avgt    3      4.672 ±   0.098  us/op
+[info] FfactorialBench.factorial8           byte buffer  avgt    3     13.803 ±   5.636  us/op
+[info] FfactorialBench.factorial8         memory access  avgt    3     13.587 ±   0.273  us/op
