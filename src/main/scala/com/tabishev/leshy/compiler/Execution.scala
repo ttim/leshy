@@ -5,104 +5,59 @@ import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, Stac
 import org.objectweb.asm.{Label, MethodVisitor, Opcodes, Type}
 import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.bytecode.BytecodeExpression.*
+import com.tabishev.leshy.node.{Command, Condition, MemoryOperand, Runner, Unify}
 
-abstract class Execution {
-  def execute(runtime: Runtime): Unit
-  def write(writer: MethodVisitor): Unit
+sealed abstract class Execution {
+  def command: Command
 
-  def specialize(before: SpecializationContext): SpecializationContext
-}
-
-abstract class BranchExecution {
-  def execute(runtime: Runtime): Boolean
-  def generate(writer: MethodVisitor, ifTrue: Label): Unit
-}
-
-trait UpdatesOnlyConsts extends Execution {
-  final override def specialize(before: SpecializationContext): SpecializationContext =
+  // by default derive from command
+  def specialize(before: SpecializationContext): SpecializationContext =
     SpecializationContext(before.stackSize, updateConsts(before.consts))
 
-  def updateConsts(consts: Consts): Consts
-}
+  private def updateConsts(consts: Consts): Consts = {
+    val output = command.output.get
+    Unify.command(command) match {
+      case Some(Command.Set(length, dst, op: Bytes)) =>
+        markConst(output.dst, consts, op.get())
+      case Some(_) =>
+        throw new IllegalStateException("unify suppose to return Command.Set with bytes")
+      case None =>
+        unmarkConst(output.dst, consts, output.length)
+    }
+  }
 
-abstract class BinaryIntExecution extends Execution with UpdatesOnlyConsts {
-  val dst: MemoryOperand
-  val op1: IntProvider
-  val op2: IntProvider
+  private[compiler] def markConst(op: MemoryOperand, consts: Consts, bytes: Array[Byte]): Consts = op match {
+    case MemoryOperand.Stack(offset) =>
+      consts.markConsts(offset, bytes)
+    case MemoryOperand.Native(offset) =>
+      // do nothing
+      consts
+  }
 
-  def eval(arg1: Int, arg2: Int): Int
-  val expression: BytecodeExpression
-
-  override final def execute(runtime: Runtime): Unit =
-    dst.materialize(runtime).putInt(eval(op1.get(runtime), op2.get(runtime)))
-  override final def write(writer: MethodVisitor): Unit =
-    writer.statement(dst.putInt(expression))
-
-  override final def updateConsts(consts: Consts): Consts = (op1, op2) match {
-    case (IntProvider.Const(v1), IntProvider.Const(v2)) =>
-      dst.markConst(consts, Bytes.fromInt(eval(v1, v2)).get())
-    case _ =>
-      dst.unmarkConst(consts, 4)
+  private[compiler] def unmarkConst(op: MemoryOperand, consts: Consts, length: Int): Consts = op match {
+    case MemoryOperand.Stack(offset) =>
+      consts.unmarkConsts(offset, length)
+    case MemoryOperand.Native(offset) =>
+      // do nothing
+      consts
   }
 }
 
-abstract class BinaryLongExecution extends Execution with UpdatesOnlyConsts {
-  val dst: MemoryOperand
-  val op1: LongProvider
-  val op2: LongProvider
+object Executions {
+  // Specialize can't implemented similarly because execution assumes spec ctx not changing between runs
+  final case class NotSpecialize(dst: MemoryOperand, length: Int) extends Execution {
+    override def command: Command = Command.Noop
 
-  def eval(arg1: Long, arg2: Long): Long
-  val expression: BytecodeExpression
-
-  override final def execute(runtime: Runtime): Unit =
-    dst.materialize(runtime).putLong(eval(op1.get(runtime), op2.get(runtime)))
-  override final def write(writer: MethodVisitor): Unit =
-    writer.statement(dst.putLong(expression))
-
-  override final def updateConsts(consts: Consts): Consts = (op1, op2) match {
-    case (LongProvider.Const(v1), LongProvider.Const(v2)) =>
-      dst.markConst(consts, Bytes.fromLong(eval(v1, v2)).get())
-    case _ =>
-      dst.unmarkConst(consts, 8)
+    override def specialize(before: SpecializationContext): SpecializationContext =
+      SpecializationContext(before.stackSize, unmarkConst(dst, before.consts, length))
   }
-}
 
-abstract class UnaryIntExecution extends Execution with UpdatesOnlyConsts {
-  val dst: MemoryOperand
-  val src: IntProvider
+  final case class SetSize(size: Int) extends Execution {
+    override def command: Command = Command.SetFramesize(size)
 
-  def eval(arg: Int): Int
-  val expression: BytecodeExpression
-
-  override final def execute(runtime: Runtime): Unit =
-    dst.materialize(runtime).putInt(eval(src.get(runtime)))
-  override final def write(writer: MethodVisitor): Unit =
-    writer.statement(dst.putInt(expression))
-
-  override final def updateConsts(consts: Consts): Consts = src match {
-    case IntProvider.Const(v) =>
-      dst.markConst(consts, Bytes.fromInt(eval(v)).get())
-    case _ =>
-      dst.unmarkConst(consts, 4)
+    override def specialize(before: SpecializationContext): SpecializationContext =
+      before.setSize(size)
   }
-}
 
-abstract class UnaryLongExecution extends Execution with UpdatesOnlyConsts {
-  val dst: MemoryOperand
-  val src: LongProvider
-
-  def eval(arg: Long): Long
-  val expression: BytecodeExpression
-
-  override final def execute(runtime: Runtime): Unit =
-    dst.materialize(runtime).putLong(eval(src.get(runtime)))
-  override final def write(writer: MethodVisitor): Unit =
-    writer.statement(dst.putLong(expression))
-
-  override final def updateConsts(consts: Consts): Consts = src match {
-    case LongProvider.Const(v) =>
-      dst.markConst(consts, Bytes.fromLong(eval(v)).get())
-    case _ =>
-      dst.unmarkConst(consts, 8)
-  }
+  final case class Simple(command: Command) extends Execution
 }

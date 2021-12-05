@@ -5,90 +5,27 @@ import org.objectweb.asm.{Label, MethodVisitor, MethodWriter}
 
 import scala.collection.mutable
 
-sealed abstract class Node {
-  final def run(runtime: Runtime): Node.Final = {
-    var node: Node = this
-    while (!node.isInstanceOf[Node.Final]) {
-      debug("start run")
-      val nextNode = node.runInternal(runtime)
-      debug("finish run")
-      node = nextNode
-    }
-
-    node.asInstanceOf[Node.Final]
-  }
-
-  def runInternal(runtime: Runtime): Node
-
-  private inline def debug(inline msg: => String): Unit =
-    if (Node.Debug) println(s"[${toString()}]: $msg")
-}
+trait Node
 
 object Node {
-  private val Debug: Boolean = false
+  trait Run extends Node {
+    def command: Command
 
-  abstract class Indirect extends Node {
-    def resolve(): Node
-    def tryResolve(): Option[Node]
-
-    final override def runInternal(runtime: Runtime): Node = resolve()
+    def next: Node
   }
 
-  abstract class Run extends Node {
-    val next: Node
-    def copy(next: Node): Run
+  trait Branch extends Node {
+    def condition: Condition
 
-    def execute(runtime: Runtime): Unit
-    def generate(writer: MethodVisitor): Unit
-
-    final def runInternal(runtime: Runtime): Node = {
-      execute(runtime)
-      next
-    }
+    def ifTrue: Node
+    def ifFalse: Node
   }
 
-  abstract class Branch extends Node {
-    val ifTrue: Node
-    val ifFalse: Node
-    def copy(ifTrue: Node, ifFalse: Node): Branch
-
-    def execute(runtime: Runtime): Boolean
-    def generate(writer: MethodVisitor, ifTrue: Label): Unit
-
-    final override def runInternal(runtime: Runtime): Node =
-      if (execute(runtime)) ifTrue else ifFalse
-  }
-
-  abstract class Call extends Node {
-    val offset: FrameOffset
-    val call: Node
-    def copy(call: Node): Call
-
+  trait Call extends Node {
+    def offset: FrameOffset
+    def call: Node
     def next(returnNode: Node.Final): Node
-    def tryNext: Map[Node.Final, Node]
-
-    final override def runInternal(runtime: Runtime): Node = {
-      runtime.stack.moveFrame(offset.get)
-      val finalNode = call.run(runtime)
-      runtime.stack.moveFrame(-offset.get)
-      next(finalNode)
-    }
   }
 
-  abstract class Final extends Node {
-    final def runInternal(runtime: Runtime): Node = throw new IllegalStateException()
-  }
-
-  abstract class Generated extends Node {
-    def update(fn: Node => Node): Generated = {
-      // todo: generate this method?
-      val nodes = this.getClass.getDeclaredFields.collect {
-        case field if (field.getType.isAssignableFrom(classOf[Node])) => {
-          fn(field.get(this).asInstanceOf[Node])
-        }
-        case _ => // do nothing
-      }
-      this.getClass.getConstructors.head.newInstance(nodes :_*).asInstanceOf[Generated]
-    }
-  }
+  trait Final extends Node
 }
