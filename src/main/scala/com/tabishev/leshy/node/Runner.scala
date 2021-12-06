@@ -82,11 +82,14 @@ class CallRunner(val ctx: RunnerCtx, val node: Node.Call) extends Runner {
     if (call == null) call = ctx.create(node.call)
     val finalRunner = call.runFully(runtime)
     runtime.stack.moveFrame(-offset)
+    nextRunner(finalRunner)
+  }
+
+  def nextRunner(finalRunner: FinalRunner): Runner =
     next.getOrElse(finalRunner.node, {
       next = next.updated(finalRunner.node, ctx.create(node.next(finalRunner.node)))
       next(finalRunner.node)
     })
-  }
 }
 
 class FinalRunner(val ctx: RunnerCtx, val node: Node.Final) extends Runner {

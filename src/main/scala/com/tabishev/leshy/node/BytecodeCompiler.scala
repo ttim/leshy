@@ -94,15 +94,15 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
 
     writer.visitCode()
     writer.visitLocalVariable("stack", Type.getDescriptor(classOf[StackMemory]), null, start, finish, 2)
-    writer.visitLocalVariable("finalTmp", Type.getDescriptor(classOf[Node.Final]), null, start, finish, 3)
+    writer.visitLocalVariable("finalTmp", Type.getDescriptor(classOf[FinalRunner]), null, start, finish, 3)
 
     writer.visitLabel(start)
     writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runtime], "stack", RuntimeExpression))
 
-    val nodes = internal ++ external
-    assert(internal.intersect(external).isEmpty)
+    val nodes = internal ++ external.diff(internal)
     val labels = nodes.map { node => (node, new Label()) }.toMap
 
+    def externalRunner(node: Node): BytecodeExpression = Field(isStatic = false, nodeToArg(node), owner, typeRunner)
     def label(node: Node): Label = labels(node)
     def jump(fromLine: Int, target: Node): Unit =
       if (fromLine != nodes.length -1 && target == nodes(fromLine + 1)) {
@@ -116,8 +116,9 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
       writer.visitLabel(labels(node))
 
       node match {
-        case _ if external.contains(node) =>
-          writer.ret(Field(isStatic = false, nodeToArg(node), owner, typeRunner))
+        case _ if line >= internal.size =>
+          // external node
+          writer.ret(externalRunner(node))
         case run: com.tabishev.leshy.node.Node.Run =>
           Generate.command(run.command, writer)
           jump(line, run.next)
@@ -125,23 +126,27 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
           Generate.condition(branch.condition, writer, label(branch.ifTrue))
           jump(line, branch.ifFalse)
         case call: com.tabishev.leshy.node.Node.Call =>
-          throw new IllegalStateException("call nodes can't be internal")
-          // todo
-//          val callNodeExpression = Cast(externalExpression(call), classOf[Node.Call])
-//          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get)))
-//          writer.storeVar(3, BytecodeExpression.invokeVirtual(classOf[Node], "run", externalExpression(call.call), RuntimeExpression))
-//          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get)))
+          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get)))
+          writer.storeVar(3, BytecodeExpression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), RuntimeExpression))
+          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get)))
+
+          val next = stats.recordedCallFinals(call)
+          if (next.size == 1) {
+            val (finalNode, nextNode) = next.head
+            // todo: seems like this equals is rarely true. why?!?
+            val actual = invokeVirtual(classOf[Runner], "node", local[FinalRunner](3))
+            val expected = invokeVirtual(classOf[Runner], "node", externalRunner(finalNode))
+            writer.push(invokeVirtual(classOf[Object], "equals", actual, expected))
+            writer.visitJumpInsn(Opcodes.IFGT, label(nextNode))
+          }
+
+          // fallback
+          val callRunnerExpression = Cast(externalRunner(call), classOf[CallRunner])
+          writer.ret(BytecodeExpression.invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](3)))
+
 //
-//          val next = stats.recordedCallFinals(call)
 //          if (next.size == 1) {
-//            val (finalNode, nextNode) = next.head
-//            // final node equals to expected final node
-//            // seems like this equals is rarely true. why?!?
-//            writer.push(invokeVirtual(classOf[Object], "equals", local[Node.Final](3), externalExpression(finalNode)))
-//            writer.visitJumpInsn(Opcodes.IFGT, label(resolve(nextNode)))
 //          }
-//          // fallback
-//          writer.ret(BytecodeExpression.invokeVirtual(classOf[Node.Call], "next", callNodeExpression, local[Node.Final](3)))
         case _: com.tabishev.leshy.node.Node.Final =>
           throw new IllegalStateException("final nodes can't be internal")
       }
@@ -169,16 +174,19 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
         go(branch.ifFalse)
         go(branch.ifTrue)
       case call: com.tabishev.leshy.node.Node.Call =>
+        // call needs to be in external for fallbacks
         external.add(call)
-//        val next = stats.recordedCallFinals(call)
-//        if (next.size == 1) {
-//          val (finalNode, nextNode) = next.head
-//          internal.add(call)
-//          external.add(call.call)
-//          external.add(finalNode)
-//          go(nextNode)
-//        }
-      case _: com.tabishev.leshy.node.Node.Final => external.add(node)
+        // but also it is generateable if recordedCallFinals contains only one elements
+        val next = stats.recordedCallFinals(call)
+        if (next.size == 1) {
+          val (finalNode, nextNode) = next.head
+          internal.add(call)
+          external.add(call.call)
+          external.add(finalNode)
+          go(nextNode)
+        }
+      case _: com.tabishev.leshy.node.Node.Final =>
+        external.add(node)
     }
     go(root)
 
