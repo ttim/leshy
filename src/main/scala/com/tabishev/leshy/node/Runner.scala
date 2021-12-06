@@ -10,7 +10,6 @@ object Runner {
   private val Debug: Boolean = false
 
   def create(ctx: RunnerCtx, node: Node): Runner = node match {
-    case node: Node.Run if node.command == Command.Noop => ctx.create(node.next)
     case node: Node.Run => new CommandRunner(ctx, node)
     case node: Node.Branch => new BranchRunner(ctx, node)
     case node: Node.Call => new CallRunner(ctx, node)
@@ -21,6 +20,8 @@ object Runner {
 sealed abstract class Runner {
   val ctx: RunnerCtx
   val node: Node
+
+  def refresh(): Unit
 
   final def runFully(runtime: Runtime): FinalRunner = {
     var runner: Runner = this
@@ -53,6 +54,9 @@ class CommandRunner(val ctx: RunnerCtx, val node: Node.Run) extends Runner {
     if (next == null) next = ctx.create(node.next)
     next
   }
+
+  override def refresh(): Unit =
+    if (next != null) next = ctx.create(next.node)
 }
 
 class BranchRunner(val ctx: RunnerCtx, val node: Node.Branch) extends Runner {
@@ -68,6 +72,11 @@ class BranchRunner(val ctx: RunnerCtx, val node: Node.Branch) extends Runner {
       if (ifFalse == null) ifFalse = ctx.create(node.ifFalse)
       ifFalse
     }
+  }
+
+  override def refresh(): Unit = {
+    if (ifTrue != null) ifTrue = ctx.create(ifTrue.node)
+    if (ifFalse != null) ifFalse = ctx.create(ifFalse.node)
   }
 }
 
@@ -90,13 +99,28 @@ class CallRunner(val ctx: RunnerCtx, val node: Node.Call) extends Runner {
       next = next.updated(finalRunner.node, ctx.create(node.next(finalRunner.node)))
       next(finalRunner.node)
     })
+
+  override def refresh(): Unit = {
+    if (call != null) call = ctx.create(call.node)
+    next = next.map { case (node, runner) => (node, ctx.create(runner.node)) }
+  }
 }
 
 class FinalRunner(val ctx: RunnerCtx, val node: Node.Final) extends Runner {
   override def runInternal(runtime: Runtime): Runner = throw new IllegalStateException()
+
+  override def refresh(): Unit = ()
 }
 
-abstract class GeneratedRunner extends Runner
+abstract class GeneratedRunner extends Runner {
+  override def refresh(): Unit =
+    this.getClass.getDeclaredFields.foreach {
+      case field if field.getType.isAssignableFrom(classOf[Runner]) =>
+        val prev = field.get(this).asInstanceOf[Runner]
+        field.set(this, prev.ctx.create(prev.node))
+      case _ => // do nothing
+    }
+}
 
 abstract class CommandImpl {
   def run(runtime: Runtime): Unit

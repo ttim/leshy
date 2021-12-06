@@ -65,7 +65,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
 
   private def writeFields(writer: ClassWriter): Unit =
     external.indices.foreach { idx =>
-      writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, argName(idx), typeRunner.getDescriptor, null, null)
+      writer.visitField(Opcodes.ACC_PUBLIC, argName(idx), typeRunner.getDescriptor, null, null)
     }
 
   private def writeConstructor(classWriter: ClassWriter): Unit = {
@@ -143,10 +143,6 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
           // fallback
           val callRunnerExpression = Cast(externalRunner(call), classOf[CallRunner])
           writer.ret(BytecodeExpression.invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](3)))
-
-//
-//          if (next.size == 1) {
-//          }
         case _: com.tabishev.leshy.node.Node.Final =>
           throw new IllegalStateException("final nodes can't be internal")
       }
