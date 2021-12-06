@@ -5,8 +5,6 @@ import com.tabishev.leshy.loader.FnLoader
 import com.tabishev.leshy.node.Executor
 import com.tabishev.leshy.runtime.{FnSpec, Runtime}
 
-import scala.collection.mutable
-
 object Compiler {
   def runner[T, V](
                     loader: FnLoader,

@@ -5,11 +5,8 @@ import com.tabishev.leshy.ast.{Bytes, Fn}
 import com.tabishev.leshy.runtime.Runtime
 import com.tabishev.leshy.common.ConstInterpreter
 import com.tabishev.leshy.loader.FnLoader
-import com.tabishev.leshy.node.{Command, Condition, IntProvider, LongProvider, MemoryOperand, Node}
+import com.tabishev.leshy.node.{Command, Condition, MemoryOperand, Node}
 import com.tabishev.leshy.runtime.{FrameOffset, Symbols}
-
-import scala.annotation.tailrec
-import scala.util.Try
 
 final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) {
   override def toString: String = s"$op, $ctx"
@@ -28,10 +25,7 @@ object Nodes {
 
     val constInterpreter = SpecializationContextConstInterpreter(origin.symbols, origin.ctx)
 
-    def executeNode(execution: Execution): Node = Execute(origin, execution)
     def toOperand(address: ast.Address): MemoryOperand = toOperandFn(constInterpreter, address)
-    def toIntProvider(addressOrConst: ast.Const | ast.Address): IntProvider = IntProvider.create(toIntOrOperandFn(constInterpreter, addressOrConst))
-    def toLongProvider(addressOrConst: ast.Const | ast.Address): LongProvider = LongProvider.create(toLongOrOperandFn(constInterpreter, addressOrConst))
     def arg(length: Int, addressOrConst: ast.Const | ast.Address): Bytes | MemoryOperand = toBytesOrOperandFn(constInterpreter, addressOrConst, length, identity)
 
     origin.op.resolve(fn) match {
@@ -39,10 +33,10 @@ object Nodes {
       case Some(operation) => operation.op match {
         case ast.Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          executeNode(Executions.SetSize(constInterpreter.frameSize() + length))
+          Execute(origin, Executions.SetSize(constInterpreter.frameSize() + length))
         case ast.Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          executeNode(Executions.SetSize(constInterpreter.frameSize() - length))
+          Execute(origin, Executions.SetSize(constInterpreter.frameSize() - length))
         case ast.Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
@@ -70,22 +64,22 @@ object Nodes {
         case ast.Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          executeNode(Executions.Simple(Command.Sum(length, dst, arg(length, op1Ast), arg(length, op2Ast))))
+          Execute(origin, Executions.Simple(Command.Sum(length, dst, arg(length, op1Ast), arg(length, op2Ast))))
         case ast.Operation.Mult(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          executeNode(Executions.Simple(Command.Mult(length, dst, arg(length, op1Ast), arg(length, op2Ast))))
+          Execute(origin, Executions.Simple(Command.Mult(length, dst, arg(length, op1Ast), arg(length, op2Ast))))
         case ast.Operation.Neg(lengthAst, opAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          executeNode(Executions.Simple(Command.Negate(length, dst, arg(length, opAst))))
+          Execute(origin, Executions.Simple(Command.Negate(length, dst, arg(length, opAst))))
         case ast.Operation.Set(lengthAst, srcAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          executeNode(Executions.Simple(Command.Set(length, dst, arg(length, srcAst))))
+          Execute(origin, Executions.Simple(Command.Set(length, dst, arg(length, srcAst))))
         case ast.Operation.NotSpecialize(lengthAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          executeNode(Executions.NotSpecialize(toOperand(dstAst), length))
+          Execute(origin, Executions.NotSpecialize(toOperand(dstAst), length))
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }

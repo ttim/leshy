@@ -1,11 +1,8 @@
 package com.tabishev.leshy.compiler
 
 import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.runtime.{Consts, FrameOffset, MemoryRef, Runtime, StackMemory}
-import org.objectweb.asm.{Label, MethodVisitor, Opcodes, Type}
-import com.tabishev.leshy.bytecode.*
-import com.tabishev.leshy.bytecode.BytecodeExpression.*
-import com.tabishev.leshy.node.{Command, Condition, MemoryOperand, Runner, Unify}
+import com.tabishev.leshy.runtime.Consts
+import com.tabishev.leshy.node.{Command, Condition, MemoryOperand, Unify}
 
 sealed abstract class Execution {
   def command: Command
