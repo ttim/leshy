@@ -1,6 +1,6 @@
-package com.tabishev.leshy.runtime
+package com.tabishev.leshy.lang.common
 
-import com.tabishev.leshy.ast.Bytes
+import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 case class FnSpec[T, V](fn: String, input: T => Input, output: Bytes => V) {
   def map[V2](f: V => V2): FnSpec[T, V2] = FnSpec(fn, input, output.andThen(f))

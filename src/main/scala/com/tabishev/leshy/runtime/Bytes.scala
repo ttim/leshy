@@ -1,21 +1,9 @@
-package com.tabishev.leshy.ast
+package com.tabishev.leshy.runtime
 
-import java.nio.charset.Charset
 import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.charset.Charset
 import java.util.Base64
 import scala.util.Try
-
-enum Const {
-  case Literal(value: Bytes)
-  case Stack(fromOffset: Bytes, length: Bytes)
-  case Symbol(name: String) // get resolved to 4 bytes during execution
-
-  override def toString(): String = this match {
-    case Const.Literal(bytes) => s"$bytes"
-    case Const.Symbol(name) => s":$name"
-    case Const.Stack(from, length) => "${" + from + ", " + length + "}"
-  }
-}
 
 object Bytes {
   val Empty: Bytes = Bytes.fromBytes(Array.emptyByteArray)
@@ -96,4 +84,3 @@ case class Bytes(private val bytes: Array[Byte]) {
     bb
   }
 }
-

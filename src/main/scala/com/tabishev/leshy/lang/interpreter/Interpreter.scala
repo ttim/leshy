@@ -1,9 +1,9 @@
-package com.tabishev.leshy.interpreter
+package com.tabishev.leshy.lang.interpreter
 
-import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource}
-import com.tabishev.leshy.common.ConstInterpreter
-import com.tabishev.leshy.loader.{FileLoader, FnLoader}
-import com.tabishev.leshy.runtime._
+import com.tabishev.leshy.lang.ast.{Address, Const, Operation, OperationWithSource}
+import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, FnSpec, Symbol, Symbols}
+import com.tabishev.leshy.lang.loader.FnLoader
+import com.tabishev.leshy.runtime.*
 
 import java.io.File
 import java.nio.ByteBuffer
@@ -11,21 +11,22 @@ import java.util
 import scala.collection.mutable
 
 class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extends ConstInterpreter {
-  private val runtime = new Runtime()
+  private val stack = new StackMemory()
+  private val interpreterSymbols = new Symbols()
   private var consts = Consts.Empty
 
   def run[T, V](spec: FnSpec[T, V])(input: T): V = {
     val inputObj = spec.input(input)
 
-    assert(runtime.stack.isEmpty())
-    runtime.stack.append(inputObj.bytes)
+    assert(stack.isEmpty())
+    stack.append(inputObj.bytes)
     updateConsts(_ => inputObj.consts)
     try {
       run(spec.fn, 0)
-      assert(runtime.stack.getFrameOffset() == 0)
-      spec.output(Bytes.fromBytes(runtime.stack.currentStackFrame()))
+      assert(stack.getFrameOffset() == 0)
+      spec.output(Bytes.fromBytes(stack.currentStackFrame()))
     } finally {
-      runtime.stack.clean()
+      stack.clean()
       updateConsts(_ => Consts.Empty)
     }
   }
@@ -33,7 +34,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
   // for rest
   private def run(name: String, depth: Int): Unit = {
     val fn = loader.load(name).get
-    runtime.symbols.register(fn)
+    interpreterSymbols.register(fn)
 
     var i = 0
     while (i < fn.ops.length) {
@@ -47,27 +48,27 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
   }
 
   private def run(op: OperationWithSource, depth: Int): Option[Symbol] = {
-    if (debug) println("\t".repeat(depth) + s"${runtime.stack.frameToString(consts)}: ${op.op}")
+    if (debug) println("\t".repeat(depth) + s"${stack.frameToString(consts)}: ${op.op}")
     op.op match {
       case Operation.Extend(lengthAst) =>
         val length = evalLength(lengthAst)
-        runtime.stack.extend(length)
-        updateConsts(_.markConsts(FrameOffset.nonNegative(runtime.stack.frameSize() - length), Array.fill(length)(0)))
+        stack.extend(length)
+        updateConsts(_.markConsts(FrameOffset.nonNegative(stack.frameSize() - length), Array.fill(length)(0)))
         None
       case Operation.Shrink(lengthAst) =>
-        runtime.stack.shrink(evalLength(lengthAst))
+        stack.shrink(evalLength(lengthAst))
         None
       case Operation.Call(offsetAst, targetAst) =>
         val newOffset = evalOffset(offsetAst)
         val target = evalSymbol(targetAst)
-        runtime.stack.moveFrame(newOffset.get)
+        stack.moveFrame(newOffset.get)
         val callerConsts = updateConsts(_.call(newOffset))
         run(target.name, depth + 1)
         updateConsts { callee => callerConsts.returnFromCall(newOffset, callee) }
-        runtime.stack.moveFrame(-newOffset.get)
+        stack.moveFrame(-newOffset.get)
         None
       case Operation.CheckSize(lengthAst) =>
-        assert(evalLength(lengthAst) == runtime.stack.frameSize())
+        assert(evalLength(lengthAst) == stack.frameSize())
         None
       case Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
         val length = evalLength(lengthAst)
@@ -123,7 +124,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
 
   private def addressRef(address: Address): MemoryRef = address match {
     case Address.Stack(offset) =>
-      runtime.stack.getRef(evalOffset(offset))
+      stack.getRef(evalOffset(offset))
     case _ =>
       throw new UnsupportedOperationException(s"unsupported address: $address")
   }
@@ -133,7 +134,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
     case Address.Stack(offsetAst) =>
       val offset = evalOffset(offsetAst)
       if (isConst)
-        updateConsts(_.markConsts(offset, runtime.stack.getRef(offset).get(length)))
+        updateConsts(_.markConsts(offset, stack.getRef(offset).get(length)))
       else
         updateConsts(_.unmarkConsts(offset, length))
     case Address.Native(_) =>
@@ -142,11 +143,11 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
       ???
   }
 
-  override def frameSize(): Int = runtime.stack.frameSize()
+  override def frameSize(): Int = stack.frameSize()
 
-  override def symbols(): Symbols = runtime.symbols
+  override def symbols(): Symbols = interpreterSymbols
 
-  override def get(from: FrameOffset, length: Int): Array[Byte] = runtime.stack.getRef(from).get(length)
+  override def get(from: FrameOffset, length: Int): Array[Byte] = stack.getRef(from).get(length)
 
   override def isConst(from: FrameOffset, length: Int): Boolean =
     !checkConsts || consts.isConst(from, length)

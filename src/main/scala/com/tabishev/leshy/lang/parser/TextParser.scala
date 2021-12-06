@@ -1,6 +1,7 @@
-package com.tabishev.leshy.parser
+package com.tabishev.leshy.lang.parser
 
-import com.tabishev.leshy.ast.{Address, Bytes, Const, Fn, Operation, OperationWithSource, Origin}
+import com.tabishev.leshy.lang.ast.{Address, Const, Fn, Operation, OperationWithSource, Origin}
+import com.tabishev.leshy.runtime.Bytes
 
 import java.nio.{ByteBuffer, ByteOrder}
 import java.nio.charset.Charset

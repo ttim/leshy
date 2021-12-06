@@ -1,4 +1,4 @@
-package com.tabishev.leshy.examples
+package com.tabishev.leshy.lang.examples
 
 object JavaImpl {
   def fib4(n: Int): Int = if (n <= 1) 1 else fib4(n - 1) + fib4(n - 2)

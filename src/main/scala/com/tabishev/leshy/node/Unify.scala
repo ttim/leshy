@@ -1,6 +1,6 @@
 package com.tabishev.leshy.node
 
-import com.tabishev.leshy.ast.Bytes
+import com.tabishev.leshy.runtime.Bytes
 
 object Unify {
   def command(command: Command): Option[Command.Set] = command match {

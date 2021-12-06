@@ -1,6 +1,6 @@
-package com.tabishev.leshy.bench
+package com.tabishev.leshy.lang.bench
 
-import com.tabishev.leshy.examples.Implementations
+import com.tabishev.leshy.lang.examples.Implementations
 import org.openjdk.jmh.annotations.*
 import org.openjdk.jmh.infra.Blackhole
 

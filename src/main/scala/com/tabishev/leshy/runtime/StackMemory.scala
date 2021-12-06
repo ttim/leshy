@@ -1,17 +1,9 @@
 package com.tabishev.leshy.runtime
 
-import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.interpreter.*
+import com.tabishev.leshy.lang.common.Consts
 
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable
-
-final class Runtime {
-  val stack = new StackMemory()
-  val symbols = new Symbols()
-
-  CommonSymbols.register(symbols)
-}
 
 final class StackMemory {
   private val initialSize = 1000

@@ -1,7 +1,7 @@
-package com.tabishev.leshy.loader
+package com.tabishev.leshy.lang.loader
 
-import com.tabishev.leshy.ast.Fn
-import com.tabishev.leshy.parser.TextParser
+import com.tabishev.leshy.lang.ast.Fn
+import com.tabishev.leshy.lang.parser.TextParser
 
 import java.nio.file.{Files, Path}
 

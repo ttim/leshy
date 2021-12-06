@@ -2,7 +2,7 @@ package com.tabishev.leshy.node
 
 import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.bytecode.BytecodeExpression.*
-import com.tabishev.leshy.runtime.{Runtime, StackMemory}
+import com.tabishev.leshy.runtime.StackMemory
 import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
 import java.net.URLClassLoader
@@ -16,10 +16,9 @@ object BytecodeCompiler {
   private val classLoader = new URLClassLoader(Array(dest.toUri.toURL), this.getClass.getClassLoader)
   private val typeGeneratedRunner = Type.getType(classOf[GeneratedRunner])
   private val typeRunner = Type.getType(classOf[Runner])
-  private val typeRuntime = Type.getType(classOf[Runtime])
+  private val typeStack = Type.getType(classOf[StackMemory])
 
-  val RuntimeExpression: BytecodeExpression = local[Runtime](1)
-  val StackExpression: BytecodeExpression = local[StackMemory](2)
+  val StackExpression: BytecodeExpression = local[StackMemory](1)
 
   // prepare dest
   if (Files.exists(dest)) {
@@ -84,18 +83,16 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
   }
 
   private def writeRun(classWriter: ClassWriter): Unit = {
-    val methodType = Type.getMethodType(typeRunner, typeRuntime)
+    val methodType = Type.getMethodType(typeRunner, typeStack)
     val writer = classWriter.visitMethod(Opcodes.ACC_PUBLIC, "runInternal", methodType.getDescriptor, null, null)
 
     val start = new Label()
     val finish = new Label()
 
     writer.visitCode()
-    writer.visitLocalVariable("stack", Type.getDescriptor(classOf[StackMemory]), null, start, finish, 2)
-    writer.visitLocalVariable("finalTmp", Type.getDescriptor(classOf[FinalRunner]), null, start, finish, 3)
+    writer.visitLocalVariable("finalTmp", Type.getDescriptor(classOf[FinalRunner]), null, start, finish, 2)
 
     writer.visitLabel(start)
-    writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runtime], "stack", RuntimeExpression))
 
     val nodes = internal ++ external.diff(internal)
     val labels = nodes.map { node => (node, new Label()) }.toMap
@@ -125,13 +122,13 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
           jump(line, branch.ifFalse)
         case call: Node.Call =>
           writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get)))
-          writer.storeVar(3, BytecodeExpression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), RuntimeExpression))
+          writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), StackExpression))
           writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get)))
 
           val next = stats.recordedCallFinals(call)
           if (next.size == 1) {
             val (finalNode, nextNode) = next.head
-            val actual = invokeVirtual(classOf[Runner], "node", local[FinalRunner](3))
+            val actual = invokeVirtual(classOf[Runner], "node", local[FinalRunner](2))
             val expected = invokeVirtual(classOf[Runner], "node", externalRunner(finalNode))
             writer.push(invokeVirtual(classOf[Object], "equals", actual, expected))
             writer.visitJumpInsn(Opcodes.IFGT, label(nextNode))
@@ -139,7 +136,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
 
           // fallback
           val callRunnerExpression = Cast(externalRunner(call), classOf[CallRunner])
-          writer.ret(BytecodeExpression.invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](3)))
+          writer.ret(BytecodeExpression.invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](2)))
         case _: Node.Final =>
           throw new IllegalStateException("final nodes can't be internal")
       }

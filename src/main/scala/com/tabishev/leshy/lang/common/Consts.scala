@@ -1,6 +1,6 @@
-package com.tabishev.leshy.runtime
+package com.tabishev.leshy.lang.common
 
-import com.tabishev.leshy.ast.Bytes
+import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable

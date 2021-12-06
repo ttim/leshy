@@ -1,7 +1,7 @@
-package com.tabishev.leshy.compiler
+package com.tabishev.leshy.lang.compiler
 
-import com.tabishev.leshy.common.ConstInterpreter
-import com.tabishev.leshy.runtime.{Consts, FrameOffset, Runtime, Symbols}
+import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, Symbols}
+import com.tabishev.leshy.runtime.FrameOffset
 
 import scala.collection.mutable
 

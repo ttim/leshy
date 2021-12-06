@@ -1,7 +1,5 @@
 package com.tabishev.leshy.runtime
 
-import com.tabishev.leshy.ast.Bytes
-
 import java.nio.{ByteBuffer, ByteOrder}
 
 // todo: use MemoryAddress, MemorySegment & MemoryAccess instead?

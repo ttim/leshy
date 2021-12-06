@@ -1,11 +1,10 @@
 package com.tabishev.leshy.node
 
-import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.runtime.{MemoryRef, Runtime}
+import com.tabishev.leshy.runtime.{Bytes, MemoryRef, StackMemory}
 
 extension (op: MemoryOperand) {
-  def materialize(runtime: Runtime): MemoryRef = op match {
-    case MemoryOperand.Stack(offset) => runtime.stack.getRef(offset)
+  def materialize(stack: StackMemory): MemoryRef = op match {
+    case MemoryOperand.Stack(offset) => stack.getRef(offset)
     case MemoryOperand.Native(offset) => ???
   }
 }
@@ -13,9 +12,9 @@ extension (op: MemoryOperand) {
 object Runners {
   def command(command: Command): CommandImpl = command match {
     case Command.Noop =>
-      (runtime: Runtime) => ()
+      (stack: StackMemory) => ()
     case Command.SetFramesize(size) =>
-      (runtime: Runtime) => runtime.stack.setFramesize(size)
+      (stack: StackMemory) => stack.setFramesize(size)
     case Command.Sum(4, dst, op1, op2) =>
       new BinaryIntImpl(dst, intOp(op1), intOp(op2)) {
         override def eval(op1: Int, op2: Int): Int = op1 + op2
@@ -52,19 +51,19 @@ object Runners {
 
   def condition(condition: Condition): ConditionImpl = condition match {
     case Condition.Const(flag) =>
-      (runtime: Runtime) => flag
+      (stack: StackMemory) => flag
     case Condition.Gt(4, op1, op2) =>
       val (op1P, op2P) = (intOp(op1), intOp(op2))
-      (runtime: Runtime) => op1P.get(runtime) > op2P.get(runtime)
+      (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
     case Condition.Gt(8, op1, op2) =>
       val (op1P, op2P) = (longOp(op1), longOp(op2))
-      (runtime: Runtime) => op1P.get(runtime) > op2P.get(runtime)
+      (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
     case Condition.Le(4, op1, op2) =>
       val (op1P, op2P) = (intOp(op1), intOp(op2))
-      (runtime: Runtime) => op1P.get(runtime) <= op2P.get(runtime)
+      (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
     case Condition.Le(8, op1, op2) =>
       val (op1P, op2P) = (longOp(op1), longOp(op2))
-      (runtime: Runtime) => op1P.get(runtime) <= op2P.get(runtime)
+      (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
   }
 
   private def intOp(op: MemoryOperand | Bytes): IntProvider = op match {
@@ -81,43 +80,42 @@ object Runners {
 abstract class BinaryIntImpl(val dst: MemoryOperand, val op1: IntProvider, val op2: IntProvider) extends CommandImpl {
   def eval(op1: Int, op2: Int): Int
 
-  final def run(runtime: Runtime): Unit =
-    dst.materialize(runtime).putInt(eval(op1.get(runtime), op2.get(runtime)))
+  final def run(stack: StackMemory): Unit =
+    dst.materialize(stack).putInt(eval(op1.get(stack), op2.get(stack)))
 }
 
 abstract class BinaryLongImpl(val dst: MemoryOperand, val op1: LongProvider, val op2: LongProvider) extends CommandImpl {
   def eval(op1: Long, op2: Long): Long
 
-  final def run(runtime: Runtime): Unit =
-    dst.materialize(runtime).putLong(eval(op1.get(runtime), op2.get(runtime)))
+  final def run(stack: StackMemory): Unit =
+    dst.materialize(stack).putLong(eval(op1.get(stack), op2.get(stack)))
 }
 
 abstract class UnaryIntImpl(val dst: MemoryOperand, val op: IntProvider) extends CommandImpl {
   def eval(op: Int): Int
 
-  final def run(runtime: Runtime): Unit =
-    dst.materialize(runtime).putInt(eval(op.get(runtime)))
+  final def run(stack: StackMemory): Unit =
+    dst.materialize(stack).putInt(eval(op.get(stack)))
 }
 
 abstract class UnaryLongImpl(val dst: MemoryOperand, val op: LongProvider) extends CommandImpl {
   def eval(op: Long): Long
 
-  final def run(runtime: Runtime): Unit =
-    dst.materialize(runtime).putLong(eval(op.get(runtime)))
+  final def run(stack: StackMemory): Unit =
+    dst.materialize(stack).putLong(eval(op.get(stack)))
 }
 
-
 sealed abstract class IntProvider {
-  def get(runtime: Runtime): Int
+  def get(stack: StackMemory): Int
 }
 
 object IntProvider {
   final case class Const(value: Int) extends IntProvider {
-    override def get(runtime: Runtime): Int = value
+    override def get(stack: StackMemory): Int = value
   }
 
   final case class Operand(value: MemoryOperand) extends IntProvider {
-    override def get(runtime: Runtime): Int = value.materialize(runtime).getInt()
+    override def get(stack: StackMemory): Int = value.materialize(stack).getInt()
   }
 
   def create(constOrOperand: Int | MemoryOperand): IntProvider = constOrOperand match {
@@ -127,16 +125,16 @@ object IntProvider {
 }
 
 sealed abstract class LongProvider {
-  def get(runtime: Runtime): Long
+  def get(stack: StackMemory): Long
 }
 
 object LongProvider {
   final case class Const(value: Long) extends LongProvider {
-    override def get(runtime: Runtime): Long = value
+    override def get(stack: StackMemory): Long = value
   }
 
   final case class Operand(value: MemoryOperand) extends LongProvider {
-    override def get(runtime: Runtime): Long = value.materialize(runtime).getLong()
+    override def get(stack: StackMemory): Long = value.materialize(stack).getLong()
   }
 
   def create(constOrOperand: Long | MemoryOperand): LongProvider = constOrOperand match {
