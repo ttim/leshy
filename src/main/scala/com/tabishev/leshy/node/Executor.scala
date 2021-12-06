@@ -16,6 +16,7 @@ class Executor extends RunnerCtx with Stats {
         (node, BytecodeCompiler.compile(this, this, node)(this))
     }
     runners.addAll(replacement)
+    runners.values.foreach(_.refresh())
   }
 
   override def create(node: Node): Runner = {

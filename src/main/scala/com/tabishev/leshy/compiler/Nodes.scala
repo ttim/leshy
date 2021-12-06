@@ -11,7 +11,9 @@ import com.tabishev.leshy.runtime.{FrameOffset, Symbols}
 import scala.annotation.tailrec
 import scala.util.Try
 
-final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext)
+final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) {
+  override def toString: String = s"$op, $ctx"
+}
 
 trait LeshyNode {
   val origin: Origin
