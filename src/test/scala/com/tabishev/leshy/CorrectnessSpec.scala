@@ -1,6 +1,6 @@
 package com.tabishev.leshy
 
-import com.tabishev.leshy.examples.Implementations
+import com.tabishev.leshy.lang.examples.Implementations
 
 import java.io.File
 

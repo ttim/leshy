@@ -1,4 +1,4 @@
-package com.tabishev.leshy.examples
+package com.tabishev.leshy.lang.examples
 
 import jdk.incubator.foreign.{MemoryAccess, MemoryAddress, MemorySegment, ResourceScope}
 

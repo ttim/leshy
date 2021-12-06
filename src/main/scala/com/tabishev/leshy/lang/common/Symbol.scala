@@ -1,6 +1,7 @@
-package com.tabishev.leshy.runtime
+package com.tabishev.leshy.lang.common
 
-import com.tabishev.leshy.ast.{Bytes, Fn}
+import com.tabishev.leshy.lang.ast.Fn
+import com.tabishev.leshy.runtime.Bytes
 
 import scala.collection.mutable
 
@@ -19,6 +20,8 @@ class Symbols {
   private var nextSymbol: Int = 1
 
   private val loadedFns: mutable.Map[String, Fn] = mutable.HashMap()
+
+  CommonSymbols.register(this)
 
   def register(name: String): Symbol =
     if (symbolsByName.contains(name)) symbolsByName(name) else {

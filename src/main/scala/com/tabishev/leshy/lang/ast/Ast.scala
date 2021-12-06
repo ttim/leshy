@@ -1,4 +1,4 @@
-package com.tabishev.leshy.ast
+package com.tabishev.leshy.lang.ast
 
 import java.nio.file.Path
 

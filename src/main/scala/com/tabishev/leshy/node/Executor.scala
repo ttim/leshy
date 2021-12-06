@@ -1,14 +1,14 @@
 package com.tabishev.leshy.node
 
-import com.tabishev.leshy.runtime.Runtime
+import com.tabishev.leshy.runtime.StackMemory
 
 import scala.collection.mutable
 
 class Executor extends RunnerCtx with Stats {
   private val runners = mutable.HashMap[Node, Runner]()
 
-  def run(node: Node, runtime: Runtime): Node.Final =
-    create(node).runFully(runtime).node
+  def run(node: Node, stack: StackMemory): Node.Final =
+    create(node).runFully(stack).node
 
   def compileNodes(predicate: Node => Boolean): Unit = {
     val replacement = runners.collect {

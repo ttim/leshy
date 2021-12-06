@@ -1,10 +1,11 @@
-package com.tabishev.leshy.examples
+package com.tabishev.leshy.lang.examples
 
-import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.compiler.Compiler
-import com.tabishev.leshy.interpreter.Interpreter
-import com.tabishev.leshy.loader.{FileLoader, FnLoader}
-import com.tabishev.leshy.runtime.{FnSpec, Input, Runtime}
+import com.tabishev.leshy.runtime.{Bytes, StackMemory}
+import com.tabishev.leshy.lang.common
+import com.tabishev.leshy.lang.common.{FnSpec, Input, Symbols}
+import com.tabishev.leshy.lang.compiler.Compiler
+import com.tabishev.leshy.lang.interpreter.Interpreter
+import com.tabishev.leshy.lang.loader.{FileLoader, FnLoader}
 
 import java.io.File
 
@@ -19,13 +20,13 @@ object FnSpecs {
     new Interpreter(loader(), debug, checkConsts)
 
   def createCompiler[V](spec: FnSpec[Int, V], doBytecodeGeneration: Boolean): Int => V =
-    Compiler.runner(loader(), new Runtime(), debugEnabled = false, doBytecodeGeneration, spec, Some(10))
+    Compiler.runner(loader(), new StackMemory(), new Symbols(), debugEnabled = false, doBytecodeGeneration, spec, Some(10))
 
-  val Fib4: FnSpec[Int, Int] = FnSpec("fib4", { input =>
+  val Fib4: FnSpec[Int, Int] = common.FnSpec("fib4", { input =>
     Input.add(Bytes.fromInt(input), isConst = false)
   }, _.asInt)
 
-  val Fib8: FnSpec[Int, Long] = FnSpec("fib8", { input =>
+  val Fib8: FnSpec[Int, Long] = common.FnSpec("fib8", { input =>
     Input.add(Bytes.fromInt(input), isConst = false)
   }, _.asLong)
 
@@ -38,7 +39,7 @@ object FnSpecs {
   val Ffactorial8: FnSpec[Int, Long] = ffactorial(8).map(_.asLong)
 
   private def fibx(length: Int): FnSpec[Int, Bytes] =
-    FnSpec("fibx", { input =>
+    common.FnSpec("fibx", { input =>
       Input
         .add(Bytes.fromInt(length), isConst = true)
         .add(Bytes.fromInt(input), isConst = false)
@@ -49,7 +50,7 @@ object FnSpecs {
     })
 
   private def ffactorial(length: Int): FnSpec[Int, Bytes] =
-    FnSpec("ffactorial", { input =>
+    common.FnSpec("ffactorial", { input =>
       Input
         .add(Bytes.fromInt(length), isConst = true)
         .add(Bytes.fromInt(input), isConst = false)

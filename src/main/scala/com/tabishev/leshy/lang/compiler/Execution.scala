@@ -1,7 +1,7 @@
-package com.tabishev.leshy.compiler
+package com.tabishev.leshy.lang.compiler
 
-import com.tabishev.leshy.ast.Bytes
-import com.tabishev.leshy.runtime.Consts
+import com.tabishev.leshy.runtime.Bytes
+import com.tabishev.leshy.lang.common.Consts
 import com.tabishev.leshy.node.{Command, Condition, MemoryOperand, Unify}
 
 sealed abstract class Execution {

@@ -1,7 +1,7 @@
-package com.tabishev.leshy.common
+package com.tabishev.leshy.lang.common
 
-import com.tabishev.leshy.ast.{Address, Bytes, Const}
-import com.tabishev.leshy.runtime.{FrameOffset, Symbol, Symbols}
+import com.tabishev.leshy.lang.ast.{Address, Const}
+import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 trait ConstInterpreter {
   def frameSize(): Int
