@@ -21,9 +21,7 @@ object Compiler {
 
     warmup.foreach(run)
     if (doBytecodeGeneration) executor.compileNodes {
-      case node: LeshyNode =>
-        val line = node.origin.op.line
-        line == 0
+      case node: LeshyNode => node.origin.op.line == 0
       case _ => false
     }
 
