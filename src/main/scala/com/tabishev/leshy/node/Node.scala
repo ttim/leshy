@@ -23,6 +23,7 @@ object Node {
 
   trait Call extends Node {
     def offset: FrameOffset
+
     def call: Node
     def next(returnNode: Node.Final): Node
   }

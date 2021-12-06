@@ -13,7 +13,7 @@ class Executor extends RunnerCtx with Stats {
   def compileNodes(predicate: Node => Boolean): Unit = {
     val replacement = runners.collect {
       case (node, runner) if predicate(node) =>
-        (node, BytecodeCompiler.compile(this, this, node))
+        (node, BytecodeCompiler.compile(this, this, node)(this))
     }
     runners.addAll(replacement)
   }

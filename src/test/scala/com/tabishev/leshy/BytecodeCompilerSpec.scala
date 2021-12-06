@@ -126,7 +126,7 @@ class BytecodeCompilerSpec extends munit.FunSuite {
 
     val actualRuntime = new Runtime()
     prepare(actualRuntime)
-    val actualFinal = BytecodeCompiler.compile(executor, executor, node).runFully(actualRuntime).node
+    val actualFinal = BytecodeCompiler.compile(executor, executor, node)(executor).runFully(actualRuntime).node
     val actual = actualRuntime.stack.currentStackFrame()
 
     assert(expectedFinal == actualFinal)

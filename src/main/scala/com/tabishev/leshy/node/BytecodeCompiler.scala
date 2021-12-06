@@ -32,23 +32,23 @@ object BytecodeCompiler {
   }
   Files.createDirectory(dest)
 
-  def compile(ctx: RunnerCtx, stats: Stats, node: Node): GeneratedRunner =
-    BytecodeCompiler(node, "GenClass_" + Random.nextLong(Long.MaxValue), ctx, stats).compile()
+  def compile(ctx: RunnerCtx, stats: Stats, node: Node): RunnerCtx => GeneratedRunner =
+    BytecodeCompiler(node, "GenClass_" + Random.nextLong(Long.MaxValue), stats).compile()
 }
 
-private class BytecodeCompiler(node: Node, name: String, ctx: RunnerCtx, stats: Stats) {
+private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
   import BytecodeCompiler._
   private val owner = Type.getObjectType(name)
   private val (internal, external) = traverse(node)
   private val nodeToArg = external.zipWithIndex.map { (node, idx) => (node, argName(idx)) }.toMap
 
-  def compile(): GeneratedRunner = {
+  def compile(): RunnerCtx => GeneratedRunner = {
     //    println(s"compile $node into $name")
     Files.write(dest.resolve(name + ".class"), generate())
     val clazz = classLoader.loadClass(name)
     val constructor = clazz.getConstructors().head
-    val generated = constructor.newInstance(external.map(ctx.create).toArray:_*).asInstanceOf[GeneratedRunner]
-    generated
+
+    ctx => constructor.newInstance(external.map(ctx.create).toArray:_*).asInstanceOf[GeneratedRunner]
   }
 
   def generate(): Array[Byte] = {
