@@ -52,22 +52,22 @@ object Runners {
   def condition(condition: Condition): ConditionImpl = condition match {
     case Condition.Const(flag) =>
       (stack: StackMemory) => flag
-    case Condition.Gt(4, op1, op2) =>
+    case Condition.Binary(4, op1, ConditionModifier.GT, op2) =>
       val (op1P, op2P) = (intOp(op1), intOp(op2))
       (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
-    case Condition.Gt(8, op1, op2) =>
+    case Condition.Binary(8, op1, ConditionModifier.GT, op2) =>
       val (op1P, op2P) = (longOp(op1), longOp(op2))
       (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
-    case Condition.Le(4, op1, op2) =>
+    case Condition.Binary(4, op1, ConditionModifier.LE, op2) =>
       val (op1P, op2P) = (intOp(op1), intOp(op2))
       (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
-    case Condition.Le(8, op1, op2) =>
+    case Condition.Binary(8, op1, ConditionModifier.LE, op2) =>
       val (op1P, op2P) = (longOp(op1), longOp(op2))
       (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
-    case Condition.Eq(4, op1, op2) =>
+    case Condition.Binary(4, op1, ConditionModifier.EQ, op2) =>
       val (op1P, op2P) = (intOp(op1), intOp(op2))
       (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
-    case Condition.Eq(8, op1, op2) =>
+    case Condition.Binary(8, op1, ConditionModifier.EQ, op2) =>
       val (op1P, op2P) = (longOp(op1), longOp(op2))
       (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
   }

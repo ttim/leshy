@@ -33,18 +33,16 @@ object Generate {
   def condition(condition: Condition, writer: MethodVisitor, ifTrue: Label): Unit = condition match {
     case Condition.Const(flag) =>
       if (flag) writer.branch(ifTrue) // else do nothing
-    case Condition.Gt(4, op1, op2) =>
-      writer.branch(intOp(op1), BranchModifier.GT, intOp(op2), ifTrue)
-    case Condition.Gt(8, op1, op2) =>
-      writer.branch(longOp(op1), BranchModifier.GT, longOp(op2), ifTrue)
-    case Condition.Le(4, op1, op2) =>
-      writer.branch(intOp(op1), BranchModifier.LE, intOp(op2), ifTrue)
-    case Condition.Le(8, op1, op2) =>
-      writer.branch(longOp(op1), BranchModifier.LE, longOp(op2), ifTrue)
-    case Condition.Eq(4, op1, op2) =>
-      writer.branch(intOp(op1), BranchModifier.EQ, intOp(op2), ifTrue)
-    case Condition.Eq(8, op1, op2) =>
-      writer.branch(longOp(op1), BranchModifier.EQ, longOp(op2), ifTrue)
+    case Condition.Binary(4, op1, modifier, op2) =>
+      writer.branch(intOp(op1), branchModifier(modifier), intOp(op2), ifTrue)
+    case Condition.Binary(8, op1, modifier, op2) =>
+      writer.branch(longOp(op1), branchModifier(modifier), longOp(op2), ifTrue)
+  }
+
+  private def branchModifier(conditionModifier: ConditionModifier): BranchModifier = conditionModifier match {
+    case ConditionModifier.GT => BranchModifier.GT
+    case ConditionModifier.LE => BranchModifier.LE
+    case ConditionModifier.EQ => BranchModifier.EQ
   }
 
   private def intOp(op: MemoryOperand | Bytes): BytecodeExpression = op match {
