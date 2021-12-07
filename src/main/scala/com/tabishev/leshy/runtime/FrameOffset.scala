@@ -1,6 +1,8 @@
 package com.tabishev.leshy.runtime
 
-case class FrameOffset private (get: Int)
+case class FrameOffset private (get: Int) {
+  def plus(other: FrameOffset): FrameOffset = FrameOffset(get + other.get)
+}
 
 object FrameOffset {
   val Zero: FrameOffset = FrameOffset(0)

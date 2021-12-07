@@ -11,6 +11,7 @@ object Compiler {
                     stack: StackMemory,
                     symbols: Symbols,
                     debugEnabled: Boolean,
+                    doInlining: Boolean,
                     doBytecodeGeneration: Boolean,
                     spec: FnSpec[T, V],
                     warmup: Option[T]
@@ -19,9 +20,15 @@ object Compiler {
     def run(input: T): V = Compiler.run(stack, symbols, loader, executor, spec)(input)
 
     warmup.foreach(run)
-    if (doBytecodeGeneration) executor.compileNodes {
-      case node: LeshyNode => node.origin.op.line == 0
-      case _ => false
+    if (doInlining) {
+      executor.inlineCalls(_ => true)
+      warmup.foreach(run)
+    }
+    if (doBytecodeGeneration) {
+      executor.compile {
+        case node: LeshyNode => node.origin.op.line == 0
+        case _ => false
+      }
     }
 
     input => run(input)

@@ -5,23 +5,39 @@ import com.tabishev.leshy.runtime.StackMemory
 import scala.collection.mutable
 
 class Executor extends RunnerCtx with Stats {
+  private val replaces = mutable.HashMap[Node, Node]()
   private val runners = mutable.HashMap[Node, Runner]()
 
   def run(node: Node, stack: StackMemory): Node.Final =
     create(node).runFully(stack).node
 
-  def compileNodes(predicate: Node => Boolean): Unit = {
+  def inlineCalls(predicate: Node.Call => Boolean): Unit = {
+    val toInline = runners.keys.collect {
+      case node: Node.Call if predicate(node) => node
+    }.toArray
+    toInline.foreach { node =>
+      replaces.addOne(node -> Inliner.inline(node))
+    }
+    refresh()
+  }
+
+  def compile(predicate: Node => Boolean): Unit = {
     val replacement = runners.collect {
       case (node, runner) if predicate(node) =>
         (node, BytecodeCompiler.compile(this, this, node)(this))
     }
     runners.addAll(replacement)
+    refresh()
+  }
+
+  private def refresh(): Unit = {
     runners.values.foreach(_.refresh())
   }
 
   override def create(node: Node): Runner = {
-    runners.getOrElseUpdate(node, {
-      val runner = Runner.create(this, node)
+    val replacement = replaces.getOrElse(node, node)
+    runners.getOrElseUpdate(replacement, {
+      val runner = Runner.create(this, replacement)
       if (runners.size > 100) println(s"too many created nodes ${runners.size}")
       runner
     })
