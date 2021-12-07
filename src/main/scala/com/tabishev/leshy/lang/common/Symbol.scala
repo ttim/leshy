@@ -7,7 +7,7 @@ import scala.collection.mutable
 
 object CommonSymbols {
   def register(symbols: Symbols): Unit =
-    Seq("eq", "neq", "m", "le").foreach(symbols.register)
+    Seq("eq", "ne", "gt", "le").foreach(symbols.register)
 }
 
 case class Symbol(name: String, id: Int) {

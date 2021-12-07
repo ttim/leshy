@@ -2,10 +2,8 @@ package com.tabishev.leshy
 
 import com.tabishev.leshy
 import com.tabishev.leshy.lang.examples.Implementations
-import com.tabishev.leshy.node.{BytecodeCompiler, Command, Condition, Executor, Node}
+import com.tabishev.leshy.node.{BytecodeCompiler, Command, Condition, ConditionModifier, Executor, MemoryOperand, Node, materialize}
 import com.tabishev.leshy.runtime.{Bytes, FrameOffset, StackMemory}
-import com.tabishev.leshy.node.MemoryOperand
-import com.tabishev.leshy.node.materialize
 
 import java.io.File
 import java.util
@@ -91,17 +89,17 @@ class BytecodeCompilerSpec extends munit.FunSuite {
     test4(Condition.Const(true))
     test4(Condition.Const(false))
 
-    test4(Condition.Le(4, intOp, Bytes.fromInt(0)))
-    test4(Condition.Le(4, intOp, Bytes.fromInt(-1)))
-    test4(Condition.Le(4, intOp, Bytes.fromInt(1)))
+    test4(Condition.Binary(4, intOp, ConditionModifier.LE, Bytes.fromInt(0)))
+    test4(Condition.Binary(4, intOp, ConditionModifier.LE, Bytes.fromInt(-1)))
+    test4(Condition.Binary(4, intOp, ConditionModifier.LE, Bytes.fromInt(1)))
 
-    test4(Condition.Gt(4, intOp, Bytes.fromInt(0)))
-    test4(Condition.Gt(4, intOp, Bytes.fromInt(-1)))
-    test4(Condition.Gt(4, intOp, Bytes.fromInt(1)))
+    test4(Condition.Binary(4, intOp, ConditionModifier.GT, Bytes.fromInt(0)))
+    test4(Condition.Binary(4, intOp, ConditionModifier.GT, Bytes.fromInt(-1)))
+    test4(Condition.Binary(4, intOp, ConditionModifier.GT, Bytes.fromInt(1)))
 
-    test8(Condition.Le(8, longOp, Bytes.fromLong(0)))
-    test8(Condition.Le(8, longOp, Bytes.fromLong(-1)))
-    test8(Condition.Le(8, longOp, Bytes.fromLong(1)))
+    test8(Condition.Binary(8, longOp, ConditionModifier.LE, Bytes.fromLong(0)))
+    test8(Condition.Binary(8, longOp, ConditionModifier.LE, Bytes.fromLong(-1)))
+    test8(Condition.Binary(8, longOp, ConditionModifier.LE, Bytes.fromLong(1)))
   }
 
   private def testExecution(prepare: StackMemory => Unit, command: Command): Unit =

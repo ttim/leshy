@@ -4,7 +4,7 @@ import com.tabishev.leshy.runtime.Bytes
 import com.tabishev.leshy.lang.ast.{Address, Const, Fn, Operation}
 import com.tabishev.leshy.lang.common.{ConstInterpreter, Symbols}
 import com.tabishev.leshy.lang.loader.FnLoader
-import com.tabishev.leshy.node.{Command, Condition, MemoryOperand, Node}
+import com.tabishev.leshy.node.{Command, Condition, ConditionModifier, MemoryOperand, Node}
 import com.tabishev.leshy.runtime.FrameOffset
 
 final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) {
@@ -48,15 +48,13 @@ object Nodes {
           val modifier = constInterpreter.evalSymbol(modifierAst).name
           val target = label(fn, origin.op, constInterpreter.evalSymbol(targetAst).name)
 
-          val impl = (length, modifier) match {
-            case (length, "m") => Condition.Gt(length, arg(length, op1Ast), arg(length, op2Ast))
-            case (length, "le") => Condition.Le(length, arg(length, op1Ast), arg(length, op2Ast))
-            case (length, "eq") => Condition.Eq(length, arg(length, op1Ast), arg(length, op2Ast))
-
-            case _ =>
-              throw new UnsupportedOperationException(length + " " + modifier)
+          val conditionModifier = modifier match {
+            case "gt" => ConditionModifier.GT
+            case "le" => ConditionModifier.LE
+            case "eq" => ConditionModifier.EQ
+            case _ => throw new UnsupportedOperationException(modifier)
           }
-
+          val impl = Condition.Binary(length, arg(length, op1Ast), conditionModifier, arg(length, op2Ast))
           Branch(origin, impl, target)
         case Operation.Jump(targetAst) =>
           val target = label(fn, origin.op, constInterpreter.evalSymbol(targetAst).name)

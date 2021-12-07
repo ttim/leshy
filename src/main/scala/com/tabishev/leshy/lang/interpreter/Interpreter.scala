@@ -77,9 +77,9 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
         val op2 = constOrAddressRef(op2Ast, length)
         val flag = modifier.name match {
           case "eq" => Ops.equals(length, op1, op2)
-          case "neq" => !Ops.equals(length, op1, op2)
+          case "ne" => !Ops.equals(length, op1, op2)
           case "le" => Ops.less(length, op1, op2, orEqual = true)
-          case "m" => !Ops.less(length, op1, op2, orEqual = true)
+          case "gt" => !Ops.less(length, op1, op2, orEqual = true)
           case _ => throw new IllegalArgumentException(s"unsupported branch modifier '$modifier''")
         }
         if (flag) Some(evalSymbol(targetAst)) else None
