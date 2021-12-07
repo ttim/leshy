@@ -51,6 +51,7 @@ object Nodes {
           val impl = (length, modifier) match {
             case (length, "m") => Condition.Gt(length, arg(length, op1Ast), arg(length, op2Ast))
             case (length, "le") => Condition.Le(length, arg(length, op1Ast), arg(length, op2Ast))
+            case (length, "eq") => Condition.Eq(length, arg(length, op1Ast), arg(length, op2Ast))
 
             case _ =>
               throw new UnsupportedOperationException(length + " " + modifier)

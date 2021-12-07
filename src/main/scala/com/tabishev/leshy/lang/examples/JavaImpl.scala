@@ -1,8 +1,8 @@
 package com.tabishev.leshy.lang.examples
 
 object JavaImpl {
-  def fib4(n: Int): Int = if (n <= 1) 1 else fib4(n - 1) + fib4(n - 2)
-  def fib8(n: Int): Long = if (n <= 1) 1 else fib8(n - 1) + fib8(n - 2)
+  def fib4(n: Int): Int = if (n == 0) 0 else if (n == 1) 1 else fib4(n - 1) + fib4(n - 2)
+  def fib8(n: Int): Long = if (n == 0) 0 else if (n == 1) 1 else fib8(n - 1) + fib8(n - 2)
 
   def ffactorial4(n: Int): Int = {
     var i = n

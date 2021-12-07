@@ -41,6 +41,10 @@ object Generate {
       writer.branch(intOp(op1), BranchModifier.LE, intOp(op2), ifTrue)
     case Condition.Le(8, op1, op2) =>
       writer.branch(longOp(op1), BranchModifier.LE, longOp(op2), ifTrue)
+    case Condition.Eq(4, op1, op2) =>
+      writer.branch(intOp(op1), BranchModifier.EQ, intOp(op2), ifTrue)
+    case Condition.Eq(8, op1, op2) =>
+      writer.branch(longOp(op1), BranchModifier.EQ, longOp(op2), ifTrue)
   }
 
   private def intOp(op: MemoryOperand | Bytes): BytecodeExpression = op match {

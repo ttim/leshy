@@ -5,17 +5,20 @@ import org.objectweb.asm.{Label, MethodVisitor, Opcodes, Type}
 enum BranchModifier {
   case GT
   case LE
+  case EQ
 
   // int1 :op: int2
   def intOpcode: Int = this match {
     case GT => Opcodes.IF_ICMPGT
     case LE => Opcodes.IF_ICMPLE
+    case EQ => Opcodes.IF_ICMPEQ
   }
 
   // int :op: 0
   def cmpOpcode: Int = this match {
     case GT => Opcodes.IFGT
     case LE => Opcodes.IFLE
+    case EQ => Opcodes.IFEQ
   }
 }
 
