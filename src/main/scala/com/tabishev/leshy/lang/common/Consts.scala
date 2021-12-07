@@ -43,6 +43,15 @@ final case class Consts(offsetToValue: Map[Int, Byte]) {
     val callee = calleeResult.offsetToValue.map { (calleeOffset, result) => (calleeOffset + offset.get, result) }
     Consts(caller ++ callee)
   }
+
+  def frameToString(frameData: Array[Byte]): String = {
+    import scala.io.AnsiColor.RED
+    import scala.io.AnsiColor.RESET
+
+    frameData.zipWithIndex.map { case (byte, index) =>
+      if (!offsetToValue.contains(index)) byte.toString else RED + byte.toString + RESET
+    }.mkString(", ")
+  }
 }
 
 object Consts {

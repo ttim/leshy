@@ -21,6 +21,8 @@ object BytecodeExpression {
   def const(value: Long): BytecodeExpression =  BytecodeConst(BytecodeExpressionKind.Long, value)
   def const(value: Boolean): BytecodeExpression = BytecodeConst(BytecodeExpressionKind.Int, if (value) 1 else 0)
 
+  def void(): BytecodeExpression = BytecodeVoid
+
   def invokeVirtual(clazz: Class[_], name: String, args: BytecodeExpression*): InvokeMethod =
     InvokeMethod(Opcodes.INVOKEVIRTUAL, clazz, name, args.toSeq)
 
@@ -36,6 +38,10 @@ case class Cast(expression: BytecodeExpression, clz: Class[_]) extends BytecodeE
     writer.visitTypeInsn(Opcodes.CHECKCAST, Type.getInternalName(clz))
     kind
   }
+}
+
+case object BytecodeVoid extends BytecodeExpression {
+  override def push(writer: MethodVisitor): BytecodeExpressionKind = BytecodeExpressionKind.Void
 }
 
 case class BytecodeConst private[bytecode](kind: BytecodeExpressionKind, value: Any) extends BytecodeExpression {

@@ -1,6 +1,6 @@
 package com.tabishev.leshy.runtime
 
-object RuntimeOps {
+object Ops {
   // todo: should be flag for unsigned/signed comparison
   // todo: add arbitrary version
   def less(length: Int, arg1: MemoryRef, arg2: MemoryRef, orEqual: Boolean): Boolean = length match {

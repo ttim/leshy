@@ -47,6 +47,13 @@ extension (writer: MethodVisitor) {
     }
   }
 
+  def branch(booleanArg: BytecodeExpression, label: Label): Unit = {
+    writer.push(booleanArg)
+    writer.visitJumpInsn(Opcodes.IFGT, label)
+  }
+
+  def branch(label: Label): Unit = writer.visitJumpInsn(Opcodes.GOTO, label)
+
   def putField(field: Field, value: BytecodeExpression): Unit =
     if (field.isStatic) {
       ???
