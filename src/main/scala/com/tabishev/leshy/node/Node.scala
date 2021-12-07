@@ -60,4 +60,5 @@ enum Condition {
   case Const(flag: Boolean)
   case Gt(length: Int, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes)
   case Le(length: Int, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes)
+  case Eq(length: Int, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes)
 }

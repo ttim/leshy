@@ -64,8 +64,8 @@ object FnSpecs {
     val start = System.currentTimeMillis()
 //    println(createInterpreter(false, true).run(Fib4)(30))
 //    println(createInterpreter(true, true).run(Ffactorial8)(17))
-    assert(createCompiler(Fib8, doBytecodeGeneration = true)(40) == 165580141)
-//    assert(createCompiler(Fibx8, doBytecodeGeneration = true)(38) == 63245986)
+    assert(createCompiler(Fib4, doBytecodeGeneration = true)(39) == 63245986)
+//    assert(createCompiler(Fibx8, doBytecodeGeneration = true)(39) == 63245986)
     println((System.currentTimeMillis() - start)/1000.0)
   }
 }

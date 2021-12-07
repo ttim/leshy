@@ -64,6 +64,12 @@ object Runners {
     case Condition.Le(8, op1, op2) =>
       val (op1P, op2P) = (longOp(op1), longOp(op2))
       (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
+    case Condition.Eq(4, op1, op2) =>
+      val (op1P, op2P) = (intOp(op1), intOp(op2))
+      (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
+    case Condition.Eq(8, op1, op2) =>
+      val (op1P, op2P) = (longOp(op1), longOp(op2))
+      (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
   }
 
   private def intOp(op: MemoryOperand | Bytes): IntProvider = op match {
