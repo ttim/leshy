@@ -1,10 +1,5 @@
 package com.tabishev.leshy.runtime
 
-import com.tabishev.leshy.lang.common.Consts
-
-import java.nio.{ByteBuffer, ByteOrder}
-import scala.collection.mutable
-
 final class StackMemory {
   private val initialSize = 1000
 
@@ -62,14 +57,4 @@ final class StackMemory {
   }
 
   def moveFrame(offset: Int): Unit = frameOffset += offset
-
-  def frameToString(consts: Consts): String = {
-    import scala.io.AnsiColor.RED
-    import scala.io.AnsiColor.RESET
-
-    val frameData = memory.get(frameOffset, size - frameOffset)
-    frameData.zipWithIndex.map { case (byte, index) =>
-      if (!consts.offsetToValue.contains(index)) byte.toString else RED + byte.toString + RESET
-    }.mkString(", ")
-  }
 }

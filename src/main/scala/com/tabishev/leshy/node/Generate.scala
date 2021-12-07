@@ -1,7 +1,7 @@
 package com.tabishev.leshy.node
 
 import com.tabishev.leshy.runtime.{FrameOffset, MemoryRef, StackMemory}
-import org.objectweb.asm.{Label, MethodVisitor, Opcodes}
+import org.objectweb.asm.{Label, MethodVisitor}
 import com.tabishev.leshy.bytecode.{BranchModifier, BytecodeExpression, branch, statement}
 import com.tabishev.leshy.bytecode.BytecodeExpression.*
 import com.tabishev.leshy.runtime.Bytes
@@ -32,7 +32,7 @@ object Generate {
 
   def condition(condition: Condition, writer: MethodVisitor, ifTrue: Label): Unit = condition match {
     case Condition.Const(flag) =>
-      if (flag) writer.visitJumpInsn(Opcodes.GOTO, ifTrue) // else do nothing
+      if (flag) writer.branch(ifTrue) // else do nothing
     case Condition.Gt(4, op1, op2) =>
       writer.branch(intOp(op1), BranchModifier.GT, intOp(op2), ifTrue)
     case Condition.Gt(8, op1, op2) =>

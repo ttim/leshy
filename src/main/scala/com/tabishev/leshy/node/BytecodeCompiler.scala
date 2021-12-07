@@ -77,7 +77,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
     }
 
     // return
-    writer.visitInsn(Opcodes.RETURN)
+    writer.ret(void())
     writer.visitMaxs(1, 1)
     writer.visitEnd()
   }
@@ -103,7 +103,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
       if (fromLine != nodes.length -1 && target == nodes(fromLine + 1)) {
         // do nothing, jump to next instruction
       } else {
-        writer.visitJumpInsn(Opcodes.GOTO, label(target))
+        writer.branch(label(target))
       }
 
     nodes.zipWithIndex.foreach { (node, line) =>
@@ -130,8 +130,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
             val (finalNode, nextNode) = next.head
             val actual = invokeVirtual(classOf[Runner], "node", local[FinalRunner](2))
             val expected = invokeVirtual(classOf[Runner], "node", externalRunner(finalNode))
-            writer.push(invokeVirtual(classOf[Object], "equals", actual, expected))
-            writer.visitJumpInsn(Opcodes.IFGT, label(nextNode))
+            writer.branch(invokeVirtual(classOf[Object], "equals", actual, expected), label(nextNode))
           }
 
           // fallback
