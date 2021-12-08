@@ -1,7 +1,8 @@
 package com.tabishev.leshy.lang.compiler
 
 import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, Symbols}
-import com.tabishev.leshy.runtime.FrameOffset
+import com.tabishev.leshy.node.{Command, MemoryOperand, Unify}
+import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 import scala.collection.mutable
 
@@ -21,6 +22,22 @@ case class SpecializationContext(stackSize: Int, consts: Consts) {
       else
         consts.unmarkConsts(FrameOffset.nonNegative(newSize), stackSize - newSize)
     )
+
+  def afterCommand(command: Command): SpecializationContext =
+    SpecializationContext(stackSize, {
+      val output = command.output.get
+      Unify.command(command) match {
+        case Some(Command.Set(length, dst, op: Bytes)) =>
+          consts.markConst(output.dst, op.get())
+        case Some(_) =>
+          throw new IllegalStateException("unify suppose to return Command.Set with bytes")
+        case None =>
+          consts.unmarkConst(output.dst, output.length)
+      }
+    })
+
+  def notSpecialize(dst: MemoryOperand, length: Int): SpecializationContext =
+    SpecializationContext(stackSize, consts.unmarkConst(dst, length))
 }
 
 case class SpecializationContextConstInterpreter(sym: Symbols, ctx: SpecializationContext) extends ConstInterpreter {
@@ -28,4 +45,22 @@ case class SpecializationContextConstInterpreter(sym: Symbols, ctx: Specializati
   override def symbols(): Symbols = sym
   override def isConst(from: FrameOffset, length: Int): Boolean = ctx.consts.isConst(from, length)
   override def get(from: FrameOffset, length: Int): Array[Byte] = ctx.consts.get(from, length)
+}
+
+extension (consts: Consts) {
+  private[compiler] def markConst(op: MemoryOperand, bytes: Array[Byte]): Consts = op match {
+    case MemoryOperand.Stack(offset) =>
+      consts.markConsts(offset, bytes)
+    case MemoryOperand.Native(offset) =>
+      // do nothing
+      consts
+  }
+
+  private[compiler] def unmarkConst(op: MemoryOperand, length: Int): Consts = op match {
+    case MemoryOperand.Stack(offset) =>
+      consts.unmarkConsts(offset, length)
+    case MemoryOperand.Native(offset) =>
+      // do nothing
+      consts
+  }
 }

@@ -2,9 +2,9 @@ package com.tabishev.leshy.lang.compiler
 
 import com.tabishev.leshy.runtime.Bytes
 import com.tabishev.leshy.lang.ast.{Address, Const, Fn, Operation}
-import com.tabishev.leshy.lang.common.{ConstInterpreter, Symbols}
+import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, Symbols}
 import com.tabishev.leshy.lang.loader.FnLoader
-import com.tabishev.leshy.node.{Command, Condition, ConditionModifier, MemoryOperand, Node}
+import com.tabishev.leshy.node.{Command, Condition, ConditionModifier, MemoryOperand, Node, Unify}
 import com.tabishev.leshy.runtime.FrameOffset
 
 final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) {
@@ -32,10 +32,10 @@ object Nodes {
       case Some(operation) => operation.op match {
         case Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          Execute(origin, Executions.SetSize(constInterpreter.frameSize() + length))
+          SetSize(origin, constInterpreter.frameSize() + length)
         case Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          Execute(origin, Executions.SetSize(constInterpreter.frameSize() - length))
+          SetSize(origin, constInterpreter.frameSize() - length)
         case Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
@@ -62,22 +62,22 @@ object Nodes {
         case Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          Execute(origin, Executions.Simple(Command.Sum(length, dst, arg(length, op1Ast), arg(length, op2Ast))))
+          CommandRun(origin, Command.Sum(length, dst, arg(length, op1Ast), arg(length, op2Ast)))
         case Operation.Mult(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          Execute(origin, Executions.Simple(Command.Mult(length, dst, arg(length, op1Ast), arg(length, op2Ast))))
+          CommandRun(origin, Command.Mult(length, dst, arg(length, op1Ast), arg(length, op2Ast)))
         case Operation.Neg(lengthAst, opAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          Execute(origin, Executions.Simple(Command.Negate(length, dst, arg(length, opAst))))
+          CommandRun(origin, Command.Negate(length, dst, arg(length, opAst)))
         case Operation.Set(lengthAst, srcAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          Execute(origin, Executions.Simple(Command.Set(length, dst, arg(length, srcAst))))
+          CommandRun(origin, Command.Set(length, dst, arg(length, srcAst)))
         case Operation.NotSpecialize(lengthAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          Execute(origin, Executions.NotSpecialize(toOperand(dstAst), length))
+          NotSpecialize(origin, toOperand(dstAst), length)
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }
@@ -113,10 +113,27 @@ object Nodes {
         }
     }
 
-  final case class Execute(origin: Origin, execution: Execution) extends Node.Run with LeshyNode {
-    override def command: Command = execution.command
+  abstract class Execute extends Node.Run with LeshyNode {
+    def specialize(before: SpecializationContext): SpecializationContext
 
-    override def next: Node = Nodes.create(origin.copy(op = origin.op.next, ctx = execution.specialize(origin.ctx)))
+    final override def next: Node = Nodes.create(origin.copy(op = origin.op.next, ctx = specialize(origin.ctx)))
+  }
+
+  final case class CommandRun(origin: Origin, command: Command) extends Execute {
+    override def specialize(before: SpecializationContext): SpecializationContext = before.afterCommand(command)
+  }
+
+  // Specialize can't implemented similarly because execution assumes spec ctx not changing between runs
+  final case class NotSpecialize(origin: Origin, dst: MemoryOperand, length: Int) extends Execute {
+    override def command: Command = Command.Noop
+
+    override def specialize(before: SpecializationContext): SpecializationContext = before.notSpecialize(dst, length)
+  }
+
+  final case class SetSize(origin: Origin, size: Int) extends Execute {
+    override def command: Command = Command.SetFramesize(size)
+
+    override def specialize(before: SpecializationContext): SpecializationContext = before.setSize(size)
   }
 
   final case class Jump(origin: Origin, nextOp: OperationRef) extends Node.Run with LeshyNode {
