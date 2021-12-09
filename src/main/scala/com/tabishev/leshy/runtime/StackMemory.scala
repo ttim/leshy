@@ -22,13 +22,11 @@ final class StackMemory {
 
     val newSize = frameOffset + newFrameSize
     if (newSize > size) {
-      // extend
+      // extend if needed
       if (newSize > memory.size) {
         val memoryExtendSize = Math.min(memory.size, newSize - memory.size)
         memory = memory.extended(memoryExtendSize, ro = false)
       }
-
-      memory.fill(size, newSize - size, 0)
       size = newSize
     } else if (newSize < size) {
       // shrink
