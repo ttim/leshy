@@ -14,5 +14,6 @@ lazy val root = (project in file("."))
     javaOptions ++= Seq(
       "--add-modules", "jdk.incubator.foreign"
     ),
+    javacOptions ++= Seq("-source", "17", "-target", "17"),
     fork := true
   )

@@ -61,11 +61,14 @@ object FnSpecs {
     })
 
   def main(args: Array[String]): Unit = {
+    val fib4 = createCompiler(Fib4, doInlining = true, doBytecodeGeneration = true)
+    fib4(39)
+
     val start = System.currentTimeMillis()
 //    println(createInterpreter(false, true).run(Fib4)(30))
 //    println(createInterpreter(true, true).run(Ffactorial8)(17))
-    assert(createCompiler(Fib4, doInlining = true, doBytecodeGeneration = true)(39) == 63245986)
-//    assert(createCompiler(Fibx8, doBytecodeGeneration = true)(39) == 63245986)
+    assert(fib4(39) == 63245986)
+    //    assert(createCompiler(Fibx8, doBytecodeGeneration = true)(39) == 63245986)
     println((System.currentTimeMillis() - start)/1000.0)
   }
 }
