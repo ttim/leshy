@@ -3,72 +3,48 @@ package com.tabishev.leshy.runtime
 import java.nio.{ByteBuffer, ByteOrder}
 
 // todo: use MemoryAddress, MemorySegment & MemoryAccess instead?
-final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
+final class Memory private (val capacity: Int, val ro: Boolean) {
   private var unloaded: Boolean = false
-  private val mirror = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+  private val bb = ByteBuffer.allocate(capacity).order(ByteOrder.LITTLE_ENDIAN)
 
   def size: Int = read {
-    bytes.length
-  }
-
-  def fill(offset: Int, length: Int, value: Byte): Unit = write {
-    java.util.Arrays.fill(bytes, offset, offset + length, value)
-  }
-
-  def allEquals(offset: Int, length: Int, value: Byte): Boolean = read {
-    var i = 0
-    while (i < length) {
-      if (!(bytes(offset + i) == value)) return false
-      i += 1
-    }
-    true
-  }
-
-  // returns absolute offsets
-  def equalOffsets(offset: Int, length: Int, value: Byte): Array[Int] = {
-    val offsets = scala.collection.mutable.ArrayBuffer[Int]()
-    var i = 0
-    while (i < length) {
-      if (bytes(offset + i) == value) offsets.append(offset + i)
-      i += 1
-    }
-    offsets.toArray
+    bb.limit()
   }
 
   def putInt(offset: Int, value: Int): Unit = write {
-    mirror.putInt(offset, value)
+    bb.putInt(offset, value)
   }
   def putLong(offset: Int, value: Long): Unit = write {
-    mirror.putLong(offset, value)
+    bb.putLong(offset, value)
   }
   def putBytes(offset: Int, value: Bytes): Unit = write {
-    value.copyTo(bytes, offset)
+    value.copyTo(bb, offset)
   }
   def put(offset: Int, value: Array[Byte]): Unit = write {
-    System.arraycopy(value, 0, bytes, offset, value.length)
+    bb.put(offset, value, 0, value.length)
   }
 
   def getByte(offset: Int): Byte = read {
-    bytes(offset)
+    bb.get(offset)
   }
   def getInt(offset: Int): Int = read {
-    mirror.getInt(offset)
+    bb.getInt(offset)
   }
   def getLong(offset: Int): Long = read {
-    mirror.getLong(offset)
+    bb.getLong(offset)
   }
   def get(offset: Int, length: Int): Array[Byte] = read {
     val copyBytes = Array.fill[Byte](length)(0)
-    System.arraycopy(bytes, offset, copyBytes, 0, length)
+    bb.get(offset, copyBytes, 0, length)
     copyBytes
   }
 
   def extended(extendSize: Int, ro: Boolean): Memory = {
     read {
-      val newBytes = Array.fill[Byte](bytes.length + extendSize)(0)
-      System.arraycopy(bytes, 0, newBytes, 0, bytes.length)
+      val newMemory = new Memory(capacity + extendSize, ro)
+      newMemory.bb.put(0, bb, 0, capacity)
       unloaded = true
-      new Memory(newBytes, ro)
+      newMemory
     }
   }
 
@@ -83,8 +59,12 @@ final class Memory private (val bytes: Array[Byte], val ro: Boolean) {
 }
 
 object Memory {
-  def ofSize(size: Int, ro: Boolean): Memory = new Memory(Array.fill[Byte](size)(0), ro)
-  def ofBytes(bytes: Array[Byte], ro: Boolean): Memory = new Memory(bytes.clone(), ro)
+  def ofSize(size: Int, ro: Boolean): Memory = new Memory(size, ro)
+  def ofBytes(bytes: Array[Byte], ro: Boolean): Memory = {
+    val mem = new Memory(bytes.length, ro)
+    mem.bb.put(bytes)
+    mem
+  }
 }
 
 final class MemoryRef(val memory: Memory, val offset: Int) {
