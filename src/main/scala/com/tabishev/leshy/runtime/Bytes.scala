@@ -50,8 +50,8 @@ case class Bytes(private val bytes: Array[Byte]) {
 
   def length(): Int = bytes.length
 
-  def copyTo(dest: Array[Byte], offset: Int): Unit =
-    System.arraycopy(bytes, 0, dest, offset, bytes.length)
+  def copyTo(dest: ByteBuffer, offset: Int): Unit =
+    dest.put(offset, bytes, 0, bytes.length)
 
   def expand(length: Int): Bytes =
     if (bytes.length == length) this else {
