@@ -10,11 +10,15 @@ extension (op: MemoryOperand) {
 }
 
 object Runners {
-  def command(command: Command): CommandImpl = command match {
+  def command(command: Command): CommandRunner.Impl = command match {
     case Command.Noop =>
-      (stack: StackMemory) => ()
+      new CommandRunner.Impl {
+        override def run(stack: StackMemory): Unit = ()
+      }
     case Command.SetFramesize(size) =>
-      (stack: StackMemory) => stack.setFramesize(size)
+      new CommandRunner.Impl {
+        override def run(stack: StackMemory): Unit = stack.setFramesize(size)
+      }
     case Command.Sum(4, dst, op1, op2) =>
       new BinaryIntImpl(dst, intOp(op1), intOp(op2)) {
         override def eval(op1: Int, op2: Int): Int = op1 + op2
@@ -49,27 +53,32 @@ object Runners {
       }
   }
 
-  def condition(condition: Condition): ConditionImpl = condition match {
-    case Condition.Const(flag) =>
-      (stack: StackMemory) => flag
-    case Condition.Binary(4, op1, ConditionModifier.GT, op2) =>
-      val (op1P, op2P) = (intOp(op1), intOp(op2))
-      (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
-    case Condition.Binary(8, op1, ConditionModifier.GT, op2) =>
-      val (op1P, op2P) = (longOp(op1), longOp(op2))
-      (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
-    case Condition.Binary(4, op1, ConditionModifier.LE, op2) =>
-      val (op1P, op2P) = (intOp(op1), intOp(op2))
-      (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
-    case Condition.Binary(8, op1, ConditionModifier.LE, op2) =>
-      val (op1P, op2P) = (longOp(op1), longOp(op2))
-      (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
-    case Condition.Binary(4, op1, ConditionModifier.EQ, op2) =>
-      val (op1P, op2P) = (intOp(op1), intOp(op2))
-      (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
-    case Condition.Binary(8, op1, ConditionModifier.EQ, op2) =>
-      val (op1P, op2P) = (longOp(op1), longOp(op2))
-      (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
+  def condition(condition: Condition): BranchRunner.Impl = {
+    val fn: StackMemory => Boolean = condition match {
+      case Condition.Const(flag) =>
+        (stack: StackMemory) => flag
+      case Condition.Binary(4, op1, ConditionModifier.GT, op2) =>
+        val (op1P, op2P) = (intOp(op1), intOp(op2))
+        (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
+      case Condition.Binary(8, op1, ConditionModifier.GT, op2) =>
+        val (op1P, op2P) = (longOp(op1), longOp(op2))
+        (stack: StackMemory) => op1P.get(stack) > op2P.get(stack)
+      case Condition.Binary(4, op1, ConditionModifier.LE, op2) =>
+        val (op1P, op2P) = (intOp(op1), intOp(op2))
+        (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
+      case Condition.Binary(8, op1, ConditionModifier.LE, op2) =>
+        val (op1P, op2P) = (longOp(op1), longOp(op2))
+        (stack: StackMemory) => op1P.get(stack) <= op2P.get(stack)
+      case Condition.Binary(4, op1, ConditionModifier.EQ, op2) =>
+        val (op1P, op2P) = (intOp(op1), intOp(op2))
+        (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
+      case Condition.Binary(8, op1, ConditionModifier.EQ, op2) =>
+        val (op1P, op2P) = (longOp(op1), longOp(op2))
+        (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
+    }
+    new BranchRunner.Impl {
+      override def run(stack: StackMemory): Boolean = fn(stack)
+    }
   }
 
   private def intOp(op: MemoryOperand | Bytes): IntProvider = op match {
@@ -83,28 +92,28 @@ object Runners {
   }
 }
 
-abstract class BinaryIntImpl(val dst: MemoryOperand, val op1: IntProvider, val op2: IntProvider) extends CommandImpl {
+abstract class BinaryIntImpl(val dst: MemoryOperand, val op1: IntProvider, val op2: IntProvider) extends CommandRunner.Impl {
   def eval(op1: Int, op2: Int): Int
 
   final def run(stack: StackMemory): Unit =
     dst.materialize(stack).putInt(eval(op1.get(stack), op2.get(stack)))
 }
 
-abstract class BinaryLongImpl(val dst: MemoryOperand, val op1: LongProvider, val op2: LongProvider) extends CommandImpl {
+abstract class BinaryLongImpl(val dst: MemoryOperand, val op1: LongProvider, val op2: LongProvider) extends CommandRunner.Impl {
   def eval(op1: Long, op2: Long): Long
 
   final def run(stack: StackMemory): Unit =
     dst.materialize(stack).putLong(eval(op1.get(stack), op2.get(stack)))
 }
 
-abstract class UnaryIntImpl(val dst: MemoryOperand, val op: IntProvider) extends CommandImpl {
+abstract class UnaryIntImpl(val dst: MemoryOperand, val op: IntProvider) extends CommandRunner.Impl {
   def eval(op: Int): Int
 
   final def run(stack: StackMemory): Unit =
     dst.materialize(stack).putInt(eval(op.get(stack)))
 }
 
-abstract class UnaryLongImpl(val dst: MemoryOperand, val op: LongProvider) extends CommandImpl {
+abstract class UnaryLongImpl(val dst: MemoryOperand, val op: LongProvider) extends CommandRunner.Impl {
   def eval(op: Long): Long
 
   final def run(stack: StackMemory): Unit =

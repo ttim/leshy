@@ -2,6 +2,7 @@ package com.tabishev.leshy.node
 
 import com.tabishev.leshy.runtime.StackMemory
 
+import scala.collection.JavaConverters.asScalaSetConverter
 import scala.collection.mutable
 
 class Executor extends RunnerCtx with Stats {
@@ -47,7 +48,7 @@ class Executor extends RunnerCtx with Stats {
 
   override def recordedCallFinals(node: Node.Call): Map[Node.Final, Node] =
     runners.get(node).map { runner =>
-      runner.asInstanceOf[CallRunner].next.map { case (k, v) => (k, v.node) }
+      runner.asInstanceOf[CallRunner].next.keySet().asScala.map { finalNode => (finalNode, node.next(finalNode)) }.toMap
     }.getOrElse(Map())
 }
 
