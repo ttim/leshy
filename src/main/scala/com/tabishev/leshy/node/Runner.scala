@@ -33,7 +33,7 @@ sealed abstract class Runner {
 
   def runInternal(stack: StackMemory): Runner
 
-  private inline def debug(inline msg: => String): Unit =
+  private def debug(msg: String): Unit =
     if (Runner.Debug) println(s"[${toString}]: $msg")
 }
 

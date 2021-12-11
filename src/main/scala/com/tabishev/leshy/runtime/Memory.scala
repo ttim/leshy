@@ -48,11 +48,11 @@ final class Memory private (val capacity: Int, val ro: Boolean) {
     }
   }
 
-  private inline def write[T](inline op: T): T = {
+  private def write[T](op: => T): T = {
     assert(!unloaded && !ro)
     op
   }
-  private inline def read[T](inline op: T): T = {
+  private def read[T](op: => T): T = {
     assert(!unloaded)
     op
   }
