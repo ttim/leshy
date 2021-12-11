@@ -162,6 +162,9 @@ object TextParser {
       throw new IllegalArgumentException(s"can't parse address '$arg'")
     }
 
-  private def parseConstOrAddress(arg: String): Const | Address =
-    if (arg.startsWith("*") || arg.startsWith("#")) parseAddress(arg) else parseConst(arg)
+  private def parseConstOrAddress(arg: String): Either[Const, Address] =
+    if (arg.startsWith("*") || arg.startsWith("#"))
+      Right(parseAddress(arg))
+    else
+      Left(parseConst(arg))
 }

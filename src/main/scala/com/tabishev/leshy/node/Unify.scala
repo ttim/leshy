@@ -4,14 +4,14 @@ import com.tabishev.leshy.runtime.Bytes
 
 object Unify {
   def command(command: Command): Option[Command.Set] = command match {
-    case Command.Sum(length, dst, op1: Bytes, op2: Bytes) =>
-      Some(Command.Set(length, dst, sum(length, op1, op2)))
-    case Command.Mult(length, dst, op1: Bytes, op2: Bytes) =>
-      Some(Command.Set(length, dst, mult(length, op1, op2)))
-    case Command.Set(length, dst, op: Bytes) =>
-      Some(Command.Set(length, dst, op))
-    case Command.Negate(length, dst, op: Bytes) =>
-      Some(Command.Set(length, dst, negate(length, op)))
+    case Command.Sum(length, dst, Left(op1), Left(op2)) =>
+      Some(Command.Set(length, dst, Left(sum(length, op1, op2))))
+    case Command.Mult(length, dst, Left(op1), Left(op2)) =>
+      Some(Command.Set(length, dst, Left(mult(length, op1, op2))))
+    case Command.Set(length, dst, Left(op)) =>
+      Some(Command.Set(length, dst, Left(op)))
+    case Command.Negate(length, dst, Left(op)) =>
+      Some(Command.Set(length, dst, Left(negate(length, op))))
     case _ =>
       None
   }

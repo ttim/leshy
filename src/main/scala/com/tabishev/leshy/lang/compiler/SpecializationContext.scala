@@ -27,7 +27,7 @@ case class SpecializationContext(stackSize: Int, consts: Consts) {
     SpecializationContext(stackSize, {
       val output = command.output.get
       Unify.command(command) match {
-        case Some(Command.Set(length, dst, op: Bytes)) =>
+        case Some(Command.Set(length, dst, Left(op))) =>
           markConst(consts, output.dst, op.get())
         case Some(_) =>
           throw new IllegalStateException("unify suppose to return Command.Set with bytes")

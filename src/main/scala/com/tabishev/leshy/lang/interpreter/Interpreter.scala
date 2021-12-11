@@ -106,7 +106,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
         None
       case Operation.Set(lengthAst, srcAst, dstAst) =>
         val length = evalLength(lengthAst)
-        Ops.set(length, constOrAddressRef(srcAst, length), constOrAddressRef(dstAst, length))
+        Ops.set(length, constOrAddressRef(srcAst, length), addressRef(dstAst))
         markConst(dstAst, length, isConst = checkConst(srcAst, length))
         None
       case _ =>
@@ -114,11 +114,11 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
     }
   }
 
-  private def constOrAddressRef(constOrAddress: Const | Address, constExpectedLength: Int): MemoryRef =
+  private def constOrAddressRef(constOrAddress: Either[Const, Address], constExpectedLength: Int): MemoryRef =
     constOrAddress match {
-      case const: Const =>
+      case Left(const) =>
         new MemoryRef(Memory.ofBytes(evalConst(const).expand(constExpectedLength).get(), ro = true), 0)
-      case address: Address =>
+      case Right(address) =>
         addressRef(address)
     }
 

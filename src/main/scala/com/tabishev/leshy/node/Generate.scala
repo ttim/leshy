@@ -46,14 +46,14 @@ object Generate {
     case ConditionModifier.EQ => BranchModifier.EQ
   }
 
-  private def intOp(op: MemoryOperand | Bytes): BytecodeExpression = op match {
-    case op: MemoryOperand => invokeVirtual(classOf[MemoryRef], "getInt", op.expression)
-    case op: Bytes => const(op.asInt)
+  private def intOp(bytesOrOp: Either[Bytes, MemoryOperand]): BytecodeExpression = bytesOrOp match {
+    case Left(bytes) => const(bytes.asInt)
+    case Right(op) => invokeVirtual(classOf[MemoryRef], "getInt", op.expression)
   }
 
-  private def longOp(op: MemoryOperand | Bytes): BytecodeExpression = op match {
-    case op: MemoryOperand => invokeVirtual(classOf[MemoryRef], "getLong", op.expression)
-    case op: Bytes => const(op.asLong)
+  private def longOp(bytesOrOp: Either[Bytes, MemoryOperand]): BytecodeExpression = bytesOrOp match {
+    case Left(bytes) => const(bytes.asLong)
+    case Right(op) => invokeVirtual(classOf[MemoryRef], "getLong", op.expression)
   }
 
   private implicit class MemoryOperandExtension(op: MemoryOperand) {

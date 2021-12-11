@@ -66,14 +66,14 @@ object Runners {
       (stack: StackMemory) => op1P.get(stack) == op2P.get(stack)
   }
 
-  private def intOp(op: MemoryOperand | Bytes): IntProvider = op match {
-    case op: MemoryOperand => IntProvider.Operand(op)
-    case op: Bytes => IntProvider.Const(op.asInt)
+  private def intOp(bytesOrOp: Either[Bytes, MemoryOperand]): IntProvider = bytesOrOp match {
+    case Left(bytes) => IntProvider.Const(bytes.asInt)
+    case Right(op) => IntProvider.Operand(op)
   }
 
-  private def longOp(op: MemoryOperand | Bytes): LongProvider = op match {
-    case op: MemoryOperand => LongProvider.Operand(op)
-    case op: Bytes => LongProvider.Const(op.asLong)
+  private def longOp(bytesOrOp: Either[Bytes, MemoryOperand]): LongProvider = bytesOrOp match {
+    case Left(bytes) => LongProvider.Const(bytes.asLong)
+    case Right(op) => LongProvider.Operand(op)
   }
 
   implicit class MemoryOperandExtensions(op: MemoryOperand) {
@@ -124,11 +124,6 @@ object IntProvider {
   final case class Operand(value: MemoryOperand) extends IntProvider {
     override def get(stack: StackMemory): Int = value.materialize(stack).getInt()
   }
-
-  def create(constOrOperand: Int | MemoryOperand): IntProvider = constOrOperand match {
-    case const: Int => Const(const)
-    case operand: MemoryOperand => Operand(operand)
-  }
 }
 
 sealed abstract class LongProvider {
@@ -142,11 +137,6 @@ object LongProvider {
 
   final case class Operand(value: MemoryOperand) extends LongProvider {
     override def get(stack: StackMemory): Long = value.materialize(stack).getLong()
-  }
-
-  def create(constOrOperand: Long | MemoryOperand): LongProvider = constOrOperand match {
-    case const: Long => Const(const)
-    case operand: MemoryOperand => Operand(operand)
   }
 }
 

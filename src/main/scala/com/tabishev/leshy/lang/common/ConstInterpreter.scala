@@ -26,20 +26,20 @@ trait ConstInterpreter {
       Bytes.fromBytes(get(from, length))
   }
 
-  final def checkConst(constOrAddress: Const | Address, length: Int): Boolean =
+  final def checkConst(constOrAddress: Either[Const, Address], length: Int): Boolean =
     tryConst(constOrAddress, length).isDefined
 
-  final def tryConst(constOrAddress: Const | Address, length: Int): Option[Bytes] = constOrAddress match {
-    case const: Const =>
+  final def tryConst(constOrAddress: Either[Const, Address], length: Int): Option[Bytes] = constOrAddress match {
+    case Left(const) =>
       Some(evalConst(const).expand(length))
-    case Address.Native(_) =>
+    case Right(Address.Native(_)) =>
       None
-    case Address.Stack(offsetAst) =>
+    case Right(Address.Stack(offsetAst)) =>
       val offset = evalOffset(offsetAst)
       if (isConst(offset, length)) {
         Some(Bytes.fromBytes(get(offset, length)))
       } else None
-    case Address.StackOffset(_, _, _) =>
+    case Right(Address.StackOffset(_, _, _)) =>
       ???
   }
 

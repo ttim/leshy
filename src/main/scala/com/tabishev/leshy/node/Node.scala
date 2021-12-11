@@ -54,11 +54,11 @@ object Command {
   case object Noop extends Command
   case class SetFramesize(size: Int) extends Command
 
-  case class Sum(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes) extends Command
-  case class Mult(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes) extends Command
+  case class Sum(length: Int, dst: MemoryOperand, op1: Either[Bytes, MemoryOperand], op2: Either[Bytes, MemoryOperand]) extends Command
+  case class Mult(length: Int, dst: MemoryOperand, op1: Either[Bytes, MemoryOperand], op2: Either[Bytes, MemoryOperand]) extends Command
 
-  case class Negate(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes) extends Command
-  case class Set(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes) extends Command
+  case class Negate(length: Int, dst: MemoryOperand, op: Either[Bytes, MemoryOperand]) extends Command
+  case class Set(length: Int, dst: MemoryOperand, op: Either[Bytes, MemoryOperand]) extends Command
 }
 
 sealed trait ConditionModifier
@@ -71,5 +71,5 @@ object ConditionModifier {
 sealed trait Condition
 object Condition {
   case class Const(flag: Boolean) extends Condition
-  case class Binary(length: Int, op1: MemoryOperand | Bytes, modifier: ConditionModifier, op2: MemoryOperand | Bytes) extends Condition
+  case class Binary(length: Int, op1: Either[Bytes, MemoryOperand], modifier: ConditionModifier, op2: Either[Bytes, MemoryOperand]) extends Condition
 }

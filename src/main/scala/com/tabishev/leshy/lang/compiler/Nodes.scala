@@ -25,7 +25,7 @@ object Nodes {
     val constInterpreter = SpecializationContextConstInterpreter(origin.symbols, origin.ctx)
 
     def toOperand(address: Address): MemoryOperand = toOperandFn(constInterpreter, address)
-    def arg(length: Int, addressOrConst: Const | Address): Bytes | MemoryOperand = toBytesOrOperandFn(constInterpreter, addressOrConst, length, identity)
+    def arg(length: Int, addressOrConst: Either[Const, Address]): Either[Bytes, MemoryOperand] = toBytesOrOperandFn(constInterpreter, addressOrConst, length)
 
     origin.op.resolve(fn) match {
       case None => Final(origin)
@@ -96,20 +96,14 @@ object Nodes {
       ???
   }
 
-  private def toIntOrOperandFn(constInterpreter: ConstInterpreter, addressOrConst: Address | Const): Int | MemoryOperand =
-    toBytesOrOperandFn(constInterpreter, addressOrConst, 4, _.asInt)
-
-  private def toLongOrOperandFn(constInterpreter: ConstInterpreter, addressOrConst: Address | Const): Long | MemoryOperand =
-    toBytesOrOperandFn(constInterpreter, addressOrConst, 8, _.asLong)
-
-  private def toBytesOrOperandFn[T](constInterpreter: ConstInterpreter, addressOrConst: Address | Const, length: Int, transform: Bytes => T): T | MemoryOperand =
+  private def toBytesOrOperandFn[T](constInterpreter: ConstInterpreter, addressOrConst: Either[Const, Address], length: Int): Either[Bytes, MemoryOperand] =
     addressOrConst match {
-      case const: Const =>
-        transform(constInterpreter.evalConst(const).expand(length))
-      case address: Address =>
-        constInterpreter.tryConst(address, length) match {
-          case Some(bytes) => transform(bytes)
-          case None => toOperandFn(constInterpreter, address)
+      case Left(const) =>
+        Left(constInterpreter.evalConst(const).expand(length))
+      case Right(address) =>
+        constInterpreter.tryConst(Right(address), length) match {
+          case Some(bytes) => Left(bytes)
+          case None => Right(toOperandFn(constInterpreter, address))
         }
     }
 

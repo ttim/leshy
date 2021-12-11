@@ -44,7 +44,7 @@ object Inliner {
       Command.Negate(length, offsetOp(offset, dst), offsetOpOrBytes(offset, op))
   }
 
-  private def offsetCondition(offset: FrameOffset, condition: Condition): Condition =  condition match {
+  private def offsetCondition(offset: FrameOffset, condition: Condition): Condition = condition match {
     case Condition.Const(flag) =>
       Condition.Const(flag)
     case Condition.Binary(length, op1, modifier, op2) =>
@@ -56,9 +56,9 @@ object Inliner {
     case MemoryOperand.Native(_) => ???
   }
 
-  private def offsetOpOrBytes(offset: FrameOffset, op: MemoryOperand | Bytes): MemoryOperand | Bytes =
-    op match {
-      case op: MemoryOperand => offsetOp(offset, op)
-      case op: Bytes => op
+  private def offsetOpOrBytes(offset: FrameOffset, opOrBytes: Either[Bytes, MemoryOperand]): Either[Bytes, MemoryOperand] =
+    opOrBytes match {
+      case Right(op) => Right(offsetOp(offset, op))
+      case Left(bytes) => Left(bytes)
     }
 }
