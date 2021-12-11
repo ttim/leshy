@@ -2,10 +2,8 @@ package com.tabishev.leshy.bytecode
 
 import org.objectweb.asm.{Label, MethodVisitor, Opcodes, Type}
 
-enum BranchModifier {
-  case GT
-  case LE
-  case EQ
+sealed trait BranchModifier {
+  import BranchModifier._
 
   // int1 :op: int2
   def intOpcode: Int = this match {
@@ -20,6 +18,12 @@ enum BranchModifier {
     case LE => Opcodes.IFLE
     case EQ => Opcodes.IFEQ
   }
+}
+
+object BranchModifier {
+  case object GT extends BranchModifier
+  case object LE extends BranchModifier
+  case object EQ extends BranchModifier
 }
 
 extension (writer: MethodVisitor) {
