@@ -1,6 +1,6 @@
 import sbt.Keys.libraryDependencies
 
-ThisBuild / scalaVersion := "3.1.0"
+ThisBuild / scalaVersion := "2.13.7"
 
 enablePlugins(JmhPlugin)
 
