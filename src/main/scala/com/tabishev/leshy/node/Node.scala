@@ -37,6 +37,12 @@ object MemoryOperand {
   case class Native(stackOffset: FrameOffset) extends MemoryOperand
 }
 
+sealed trait MemoryOperandOrBytes
+object MemoryOperandOrBytes {
+  case class MemoryOperand(op: com.tabishev.leshy.node.MemoryOperand) extends MemoryOperandOrBytes
+  case class Bytes(bytes: com.tabishev.leshy.runtime.Bytes) extends MemoryOperandOrBytes
+}
+
 sealed trait Command {
   import Command._
 
@@ -54,11 +60,11 @@ object Command {
   case object Noop extends Command
   case class SetFramesize(size: Int) extends Command
 
-  case class Sum(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes) extends Command
-  case class Mult(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes) extends Command
+  case class Sum(length: Int, dst: MemoryOperand, op1: MemoryOperandOrBytes, op2: MemoryOperandOrBytes) extends Command
+  case class Mult(length: Int, dst: MemoryOperand, op1: MemoryOperandOrBytes, op2: MemoryOperandOrBytes) extends Command
 
-  case class Negate(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes) extends Command
-  case class Set(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes) extends Command
+  case class Negate(length: Int, dst: MemoryOperand, op: MemoryOperandOrBytes) extends Command
+  case class Set(length: Int, dst: MemoryOperand, op: MemoryOperandOrBytes) extends Command
 }
 
 sealed trait ConditionModifier
@@ -71,5 +77,5 @@ object ConditionModifier {
 sealed trait Condition
 object Condition {
   case class Const(flag: Boolean) extends Condition
-  case class Binary(length: Int, op1: MemoryOperand | Bytes, modifier: ConditionModifier, op2: MemoryOperand | Bytes) extends Condition
+  case class Binary(length: Int, op1: MemoryOperandOrBytes, modifier: ConditionModifier, op2: MemoryOperandOrBytes) extends Condition
 }

@@ -1,10 +1,10 @@
 package com.tabishev.leshy.lang.compiler
 
 import com.tabishev.leshy.runtime.Bytes
-import com.tabishev.leshy.lang.ast.{Address, Const, Fn, Operation}
+import com.tabishev.leshy.lang.ast.{Address, Const, ConstOrAddress, Fn, Operation}
 import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, Symbols}
 import com.tabishev.leshy.lang.loader.FnLoader
-import com.tabishev.leshy.node.{Command, Condition, ConditionModifier, MemoryOperand, Node, Unify}
+import com.tabishev.leshy.node.{Command, Condition, ConditionModifier, MemoryOperand, MemoryOperandOrBytes, Node, Unify}
 import com.tabishev.leshy.runtime.FrameOffset
 
 final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) {
@@ -25,7 +25,7 @@ object Nodes {
     val constInterpreter = SpecializationContextConstInterpreter(origin.symbols, origin.ctx)
 
     def toOperand(address: Address): MemoryOperand = toOperandFn(constInterpreter, address)
-    def arg(length: Int, addressOrConst: Const | Address): Bytes | MemoryOperand = toBytesOrOperandFn(constInterpreter, addressOrConst, length, identity)
+    def arg(length: Int, addressOrConst: ConstOrAddress): MemoryOperandOrBytes = toBytesOrOperandFn(constInterpreter, addressOrConst, length)
 
     origin.op.resolve(fn) match {
       case None => Final(origin)
@@ -96,20 +96,14 @@ object Nodes {
       ???
   }
 
-  private def toIntOrOperandFn(constInterpreter: ConstInterpreter, addressOrConst: Address | Const): Int | MemoryOperand =
-    toBytesOrOperandFn(constInterpreter, addressOrConst, 4, _.asInt)
-
-  private def toLongOrOperandFn(constInterpreter: ConstInterpreter, addressOrConst: Address | Const): Long | MemoryOperand =
-    toBytesOrOperandFn(constInterpreter, addressOrConst, 8, _.asLong)
-
-  private def toBytesOrOperandFn[T](constInterpreter: ConstInterpreter, addressOrConst: Address | Const, length: Int, transform: Bytes => T): T | MemoryOperand =
+  private def toBytesOrOperandFn[T](constInterpreter: ConstInterpreter, addressOrConst: ConstOrAddress, length: Int): MemoryOperandOrBytes =
     addressOrConst match {
-      case const: Const =>
-        transform(constInterpreter.evalConst(const).expand(length))
-      case address: Address =>
-        constInterpreter.tryConst(address, length) match {
-          case Some(bytes) => transform(bytes)
-          case None => toOperandFn(constInterpreter, address)
+      case ConstOrAddress.Const(const) =>
+        MemoryOperandOrBytes.Bytes(constInterpreter.evalConst(const).expand(length))
+      case ConstOrAddress.Address(address) =>
+        constInterpreter.tryConst(ConstOrAddress.Address(address), length) match {
+          case Some(bytes) => MemoryOperandOrBytes.Bytes(bytes)
+          case None => MemoryOperandOrBytes.MemoryOperand(toOperandFn(constInterpreter, address))
         }
     }
 

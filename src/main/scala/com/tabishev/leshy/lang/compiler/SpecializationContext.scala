@@ -1,7 +1,7 @@
 package com.tabishev.leshy.lang.compiler
 
 import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, Symbols}
-import com.tabishev.leshy.node.{Command, MemoryOperand, Unify}
+import com.tabishev.leshy.node.{Command, MemoryOperand, MemoryOperandOrBytes, Unify}
 import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 import scala.collection.mutable
@@ -27,7 +27,7 @@ case class SpecializationContext(stackSize: Int, consts: Consts) {
     SpecializationContext(stackSize, {
       val output = command.output.get
       Unify.command(command) match {
-        case Some(Command.Set(length, dst, op: Bytes)) =>
+        case Some(Command.Set(length, dst, MemoryOperandOrBytes.Bytes(op))) =>
           markConst(consts, output.dst, op.get())
         case Some(_) =>
           throw new IllegalStateException("unify suppose to return Command.Set with bytes")

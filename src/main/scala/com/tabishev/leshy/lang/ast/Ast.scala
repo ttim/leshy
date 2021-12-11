@@ -19,6 +19,12 @@ object Address {
   case class Native(stackOffset: Const) extends Address
 }
 
+sealed trait ConstOrAddress
+object ConstOrAddress {
+  case class Const(value: com.tabishev.leshy.lang.ast.Const) extends ConstOrAddress
+  case class Address(value: com.tabishev.leshy.lang.ast.Address) extends ConstOrAddress
+}
+
 sealed trait Operation
 object Operation {
   // Stack operations
@@ -27,7 +33,7 @@ object Operation {
   case class CheckSize(length: Const) extends Operation
 
   // Control flow operations
-  case class Branch(modifier: Const, length: Const, op1: Const | Address, op2: Const | Address, target: Const) extends Operation
+  case class Branch(modifier: Const, length: Const, op1: ConstOrAddress, op2: ConstOrAddress, target: Const) extends Operation
   case class Jump(target: Const) extends Operation
 
   // Call operations
@@ -39,14 +45,15 @@ object Operation {
 
   // Memory operations
   // Should be more different `Set` operations, to cover use cases with offsets and array offsets
-  case class Set(length: Const, src: Const | Address, dst: Address) extends Operation
+  case class Set(length: Const, src: ConstOrAddress, dst: Address) extends Operation
   // `length` is treated as 8 bytes
-  case class SetNative(length: Address, src: Const | Address.Native, dst: Address.Native) extends Operation
+  // todo: src can be only const or native address
+  case class SetNative(length: Address, src: ConstOrAddress, dst: Address.Native) extends Operation
 
   // Integer arithmetic operations
-  case class Add(length: Const, op1: Const | Address, op2: Const | Address, dst: Address) extends Operation
-  case class Mult(length: Const, op1: Const | Address, op2: Const | Address, dst: Address) extends Operation
-  case class Neg(length: Const, op: Const | Address, dst: Address) extends Operation
+  case class Add(length: Const, op1: ConstOrAddress, op2: ConstOrAddress, dst: Address) extends Operation
+  case class Mult(length: Const, op1: ConstOrAddress, op2: ConstOrAddress, dst: Address) extends Operation
+  case class Neg(length: Const, op: ConstOrAddress, dst: Address) extends Operation
 }
 
 case class Origin(path: Path, line: Int)

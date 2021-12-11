@@ -1,6 +1,6 @@
 package com.tabishev.leshy.lang.common
 
-import com.tabishev.leshy.lang.ast.{Address, Const}
+import com.tabishev.leshy.lang.ast.{Address, Const, ConstOrAddress}
 import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 trait ConstInterpreter {
@@ -26,20 +26,20 @@ trait ConstInterpreter {
       Bytes.fromBytes(get(from, length))
   }
 
-  final def checkConst(constOrAddress: Const | Address, length: Int): Boolean =
+  final def checkConst(constOrAddress: ConstOrAddress, length: Int): Boolean =
     tryConst(constOrAddress, length).isDefined
 
-  final def tryConst(constOrAddress: Const | Address, length: Int): Option[Bytes] = constOrAddress match {
-    case const: Const =>
+  final def tryConst(constOrAddress: ConstOrAddress, length: Int): Option[Bytes] = constOrAddress match {
+    case ConstOrAddress.Const(const) =>
       Some(evalConst(const).expand(length))
-    case Address.Native(_) =>
+    case ConstOrAddress.Address(Address.Native(_)) =>
       None
-    case Address.Stack(offsetAst) =>
+    case ConstOrAddress.Address(Address.Stack(offsetAst)) =>
       val offset = evalOffset(offsetAst)
       if (isConst(offset, length)) {
         Some(Bytes.fromBytes(get(offset, length)))
       } else None
-    case Address.StackOffset(_, _, _) =>
+    case ConstOrAddress.Address(Address.StackOffset(_, _, _)) =>
       ???
   }
 

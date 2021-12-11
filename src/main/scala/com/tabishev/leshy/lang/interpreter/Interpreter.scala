@@ -1,6 +1,6 @@
 package com.tabishev.leshy.lang.interpreter
 
-import com.tabishev.leshy.lang.ast.{Address, Const, Operation, OperationWithSource}
+import com.tabishev.leshy.lang.ast.{Address, Const, ConstOrAddress, Operation, OperationWithSource}
 import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, FnSpec, Symbol, Symbols}
 import com.tabishev.leshy.lang.loader.FnLoader
 import com.tabishev.leshy.runtime.*
@@ -106,7 +106,7 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
         None
       case Operation.Set(lengthAst, srcAst, dstAst) =>
         val length = evalLength(lengthAst)
-        Ops.set(length, constOrAddressRef(srcAst, length), constOrAddressRef(dstAst, length))
+        Ops.set(length, constOrAddressRef(srcAst, length), addressRef(dstAst))
         markConst(dstAst, length, isConst = checkConst(srcAst, length))
         None
       case _ =>
@@ -114,11 +114,11 @@ class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extend
     }
   }
 
-  private def constOrAddressRef(constOrAddress: Const | Address, constExpectedLength: Int): MemoryRef =
+  private def constOrAddressRef(constOrAddress: ConstOrAddress, constExpectedLength: Int): MemoryRef =
     constOrAddress match {
-      case const: Const =>
+      case ConstOrAddress.Const(const) =>
         new MemoryRef(Memory.ofBytes(evalConst(const).expand(constExpectedLength).get(), ro = true), 0)
-      case address: Address =>
+      case ConstOrAddress.Address(address) =>
         addressRef(address)
     }
 

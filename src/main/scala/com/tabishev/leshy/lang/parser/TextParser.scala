@@ -1,6 +1,6 @@
 package com.tabishev.leshy.lang.parser
 
-import com.tabishev.leshy.lang.ast.{Address, Const, Fn, Operation, OperationWithSource, Origin}
+import com.tabishev.leshy.lang.ast.{Address, Const, ConstOrAddress, Fn, Operation, OperationWithSource, Origin}
 import com.tabishev.leshy.runtime.Bytes
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -162,6 +162,9 @@ object TextParser {
       throw new IllegalArgumentException(s"can't parse address '$arg'")
     }
 
-  private def parseConstOrAddress(arg: String): Const | Address =
-    if (arg.startsWith("*") || arg.startsWith("#")) parseAddress(arg) else parseConst(arg)
+  private def parseConstOrAddress(arg: String): ConstOrAddress =
+    if (arg.startsWith("*") || arg.startsWith("#"))
+      ConstOrAddress.Address(parseAddress(arg))
+    else
+      ConstOrAddress.Const(parseConst(arg))
 }
