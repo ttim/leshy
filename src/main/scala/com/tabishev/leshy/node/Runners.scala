@@ -1,13 +1,7 @@
 package com.tabishev.leshy.node
 
 import com.tabishev.leshy.runtime.{Bytes, MemoryRef, StackMemory}
-
-extension (op: MemoryOperand) {
-  def materialize(stack: StackMemory): MemoryRef = op match {
-    case MemoryOperand.Stack(offset) => stack.getRef(offset)
-    case MemoryOperand.Native(offset) => ???
-  }
-}
+import com.tabishev.leshy.node.Runners.MemoryOperandExtensions
 
 object Runners {
   def command(command: Command): CommandImpl = command match {
@@ -80,6 +74,13 @@ object Runners {
   private def longOp(op: MemoryOperand | Bytes): LongProvider = op match {
     case op: MemoryOperand => LongProvider.Operand(op)
     case op: Bytes => LongProvider.Const(op.asLong)
+  }
+
+  implicit class MemoryOperandExtensions(op: MemoryOperand) {
+    def materialize(stack: StackMemory): MemoryRef = op match {
+      case MemoryOperand.Stack(offset) => stack.getRef(offset)
+      case MemoryOperand.Native(offset) => ???
+    }
   }
 }
 

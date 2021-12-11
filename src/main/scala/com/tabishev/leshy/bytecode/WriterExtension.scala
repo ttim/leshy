@@ -26,54 +26,56 @@ object BranchModifier {
   case object EQ extends BranchModifier
 }
 
-extension (writer: MethodVisitor) {
-  def statement(value: BytecodeExpression): Unit = {
-    val kind = push(value)
-    kind.popInst.foreach(writer.visitInsn(_))
-  }
-
-  def ret(value: BytecodeExpression): Unit = {
-    val kind = push(value)
-    writer.visitInsn(kind.retInst)
-  }
-
-  def branch(arg1: BytecodeExpression, modifier: BranchModifier, arg2: BytecodeExpression, label: Label): Unit = {
-    val kind = push(arg1)
-    val kind2 = push(arg2)
-    assert(kind == kind2)
-    kind match {
-      case BytecodeExpressionKind.Int =>
-        writer.visitJumpInsn(modifier.intOpcode, label)
-      case BytecodeExpressionKind.Long =>
-        writer.visitInsn(Opcodes.LCMP)
-        writer.visitJumpInsn(modifier.cmpOpcode, label)
-      case BytecodeExpressionKind.Void =>
-        throw new UnsupportedOperationException
-      case BytecodeExpressionKind.Object =>
-        throw new UnsupportedOperationException
-    }
-  }
-
-  def branch(booleanArg: BytecodeExpression, label: Label): Unit = {
-    writer.push(booleanArg)
-    writer.visitJumpInsn(Opcodes.IFGT, label)
-  }
-
-  def branch(label: Label): Unit = writer.visitJumpInsn(Opcodes.GOTO, label)
-
-  def putField(field: Field, value: BytecodeExpression): Unit =
-    if (field.isStatic) {
-      ???
-    } else {
-      writer.push(ThisInstance())
-      writer.push(value)
-      writer.visitFieldInsn(Opcodes.PUTFIELD, field.owner.getInternalName, field.name, field.tpe.getDescriptor)
+object WriterExtension {
+  implicit class Extension(writer: MethodVisitor) {
+    def statement(value: BytecodeExpression): Unit = {
+      val kind = push(value)
+      kind.popInst.foreach(writer.visitInsn(_))
     }
 
-  def storeVar(idx: Int, value: BytecodeExpression): Unit = {
-    val kind = writer.push(value)
-    writer.visitVarInsn(kind.storeInst.get, idx)
-  }
+    def ret(value: BytecodeExpression): Unit = {
+      val kind = push(value)
+      writer.visitInsn(kind.retInst)
+    }
 
-  def push(value: BytecodeExpression): BytecodeExpressionKind = value.push(writer)
+    def branch(arg1: BytecodeExpression, modifier: BranchModifier, arg2: BytecodeExpression, label: Label): Unit = {
+      val kind = push(arg1)
+      val kind2 = push(arg2)
+      assert(kind == kind2)
+      kind match {
+        case BytecodeExpressionKind.Int =>
+          writer.visitJumpInsn(modifier.intOpcode, label)
+        case BytecodeExpressionKind.Long =>
+          writer.visitInsn(Opcodes.LCMP)
+          writer.visitJumpInsn(modifier.cmpOpcode, label)
+        case BytecodeExpressionKind.Void =>
+          throw new UnsupportedOperationException
+        case BytecodeExpressionKind.Object =>
+          throw new UnsupportedOperationException
+      }
+    }
+
+    def branch(booleanArg: BytecodeExpression, label: Label): Unit = {
+      writer.push(booleanArg)
+      writer.visitJumpInsn(Opcodes.IFGT, label)
+    }
+
+    def branch(label: Label): Unit = writer.visitJumpInsn(Opcodes.GOTO, label)
+
+    def putField(field: Field, value: BytecodeExpression): Unit =
+      if (field.isStatic) {
+        ???
+      } else {
+        writer.push(ThisInstance())
+        writer.push(value)
+        writer.visitFieldInsn(Opcodes.PUTFIELD, field.owner.getInternalName, field.name, field.tpe.getDescriptor)
+      }
+
+    def storeVar(idx: Int, value: BytecodeExpression): Unit = {
+      val kind = writer.push(value)
+      writer.visitVarInsn(kind.storeInst.get, idx)
+    }
+
+    def push(value: BytecodeExpression): BytecodeExpressionKind = value.push(writer)
+  }
 }

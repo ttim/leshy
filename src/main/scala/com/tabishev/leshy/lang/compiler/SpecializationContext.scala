@@ -28,27 +28,18 @@ case class SpecializationContext(stackSize: Int, consts: Consts) {
       val output = command.output.get
       Unify.command(command) match {
         case Some(Command.Set(length, dst, op: Bytes)) =>
-          consts.markConst(output.dst, op.get())
+          markConst(consts, output.dst, op.get())
         case Some(_) =>
           throw new IllegalStateException("unify suppose to return Command.Set with bytes")
         case None =>
-          consts.unmarkConst(output.dst, output.length)
+          unmarkConst(consts, output.dst, output.length)
       }
     })
 
   def notSpecialize(dst: MemoryOperand, length: Int): SpecializationContext =
-    SpecializationContext(stackSize, consts.unmarkConst(dst, length))
-}
+    SpecializationContext(stackSize, unmarkConst(consts, dst, length))
 
-case class SpecializationContextConstInterpreter(sym: Symbols, ctx: SpecializationContext) extends ConstInterpreter {
-  override def frameSize(): Int = ctx.stackSize
-  override def symbols(): Symbols = sym
-  override def isConst(from: FrameOffset, length: Int): Boolean = ctx.consts.isConst(from, length)
-  override def get(from: FrameOffset, length: Int): Array[Byte] = ctx.consts.get(from, length)
-}
-
-extension (consts: Consts) {
-  private[compiler] def markConst(op: MemoryOperand, bytes: Array[Byte]): Consts = op match {
+  private[compiler] def markConst(consts: Consts, op: MemoryOperand, bytes: Array[Byte]): Consts = op match {
     case MemoryOperand.Stack(offset) =>
       consts.markConsts(offset, bytes)
     case MemoryOperand.Native(offset) =>
@@ -56,11 +47,18 @@ extension (consts: Consts) {
       consts
   }
 
-  private[compiler] def unmarkConst(op: MemoryOperand, length: Int): Consts = op match {
+  private[compiler] def unmarkConst(consts: Consts, op: MemoryOperand, length: Int): Consts = op match {
     case MemoryOperand.Stack(offset) =>
       consts.unmarkConsts(offset, length)
     case MemoryOperand.Native(offset) =>
       // do nothing
       consts
   }
+}
+
+case class SpecializationContextConstInterpreter(sym: Symbols, ctx: SpecializationContext) extends ConstInterpreter {
+  override def frameSize(): Int = ctx.stackSize
+  override def symbols(): Symbols = sym
+  override def isConst(from: FrameOffset, length: Int): Boolean = ctx.consts.isConst(from, length)
+  override def get(from: FrameOffset, length: Int): Array[Byte] = ctx.consts.get(from, length)
 }
