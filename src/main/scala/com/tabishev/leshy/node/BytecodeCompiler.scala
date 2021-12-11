@@ -32,14 +32,14 @@ object BytecodeCompiler {
   Files.createDirectory(dest)
 
   def compile(ctx: RunnerCtx, stats: Stats, node: Node): RunnerCtx => GeneratedRunner =
-    BytecodeCompiler(node, "GenClass_" + Random.nextLong(Long.MaxValue), stats).compile()
+    new BytecodeCompiler(node, "GenClass_" + Random.nextLong(Long.MaxValue), stats).compile()
 }
 
 private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
   import BytecodeCompiler._
   private val owner = Type.getObjectType(name)
   private val (internal, external) = traverse(node)
-  private val nodeToArg = external.zipWithIndex.map { (node, idx) => (node, argName(idx)) }.toMap
+  private val nodeToArg = external.zipWithIndex.map { case (node, idx) => (node, argName(idx)) }.toMap
 
   def compile(): RunnerCtx => GeneratedRunner = {
     //    println(s"compile $node into $name")
@@ -108,7 +108,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
         writer.branch(label(target))
       }
 
-    nodes.zipWithIndex.foreach { (node, line) =>
+    nodes.zipWithIndex.foreach { case (node, line) =>
       // todo: don't write label per each line?
       writer.visitLabel(labels(node))
 

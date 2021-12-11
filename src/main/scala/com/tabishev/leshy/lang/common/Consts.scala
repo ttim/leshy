@@ -35,12 +35,12 @@ final case class Consts(offsetToValue: Map[Int, Byte]) {
   }
 
   def call(offset: FrameOffset): Consts = Consts(
-    offsetToValue.filter(_._1 >= offset.get).map { (calleeOffset, result) => (calleeOffset - offset.get, result) }
+    offsetToValue.filter(_._1 >= offset.get).map { case (calleeOffset, result) => (calleeOffset - offset.get, result) }
   )
 
   def returnFromCall(offset: FrameOffset, calleeResult: Consts): Consts = {
     val caller = offsetToValue.filter(_._1 < offset.get)
-    val callee = calleeResult.offsetToValue.map { (calleeOffset, result) => (calleeOffset + offset.get, result) }
+    val callee = calleeResult.offsetToValue.map { case (calleeOffset, result) => (calleeOffset + offset.get, result) }
     Consts(caller ++ callee)
   }
 
