@@ -51,7 +51,7 @@ object TextParser {
       }
     }
 
-    Fn(fnName, ops.toArray, labels.toMap)
+    Fn(fnName, ops.toSeq, labels.toMap)
   }
 
   private def parseOperation(text: String): Option[Operation] =
