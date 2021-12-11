@@ -2,49 +2,51 @@ package com.tabishev.leshy.lang.ast
 
 import java.nio.file.Path
 
-enum Address {
+sealed trait Address
+object Address {
   // Address in stack corresponding to `address`
   // #const
-  case Stack(address: Const)
+  case class Stack(address: Const) extends Address
 
   // Address in stack corresponding to 4 bytes in stack starting from `offset` after `base`, and must be less than `limit`
   // #[const, const, const]
   // while `base` and `limit` correspond to actual addresses on stack,
   // `offset` is correspond to stack position, where 4 bytes describe offset
-  case StackOffset(address: Const, limit: Const, offset: Const)
+  case class StackOffset(address: Const, limit: Const, offset: Const) extends Address
 
   // Address in native memory corresponding to 8 bytes in stack starting from `stackOffset`
   // *const
-  case Native(stackOffset: Const)
+  case class Native(stackOffset: Const) extends Address
 }
 
-enum Operation {
+sealed trait Operation
+object Operation {
   // Stack operations
-  case Extend(length: Const)
-  case Shrink(length: Const)
-  case CheckSize(length: Const)
+  case class Extend(length: Const) extends Operation
+  case class Shrink(length: Const) extends Operation
+  case class CheckSize(length: Const) extends Operation
 
   // Control flow operations
-  case Branch(modifier: Const, length: Const, op1: Const | Address, op2: Const | Address, target: Const)
-  case Jump(target: Const)
+  case class Branch(modifier: Const, length: Const, op1: Const | Address, op2: Const | Address, target: Const) extends Operation
+  case class Jump(target: Const) extends Operation
 
   // Call operations
-  case Call(offset: Const, target: Const)
+  case class Call(offset: Const, target: Const) extends Operation
 
   // Constant operations
-  case Specialize(length: Const, dst: Address)
-  case NotSpecialize(length: Const, dst: Address)
+  case class Specialize(length: Const, dst: Address) extends Operation
+  case class NotSpecialize(length: Const, dst: Address) extends Operation
 
   // Memory operations
   // Should be more different `Set` operations, to cover use cases with offsets and array offsets
-  case Set(length: Const, src: Const | Address, dst: Address)
+  case class Set(length: Const, src: Const | Address, dst: Address) extends Operation
   // `length` is treated as 8 bytes
-  case SetNative(length: Address, src: Const | Address.Native, dst: Address.Native)
+  case class SetNative(length: Address, src: Const | Address.Native, dst: Address.Native) extends Operation
 
   // Integer arithmetic operations
-  case Add(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
-  case Mult(length: Const, op1: Const | Address, op2: Const | Address, dst: Address)
-  case Neg(length: Const, op: Const | Address, dst: Address)
+  case class Add(length: Const, op1: Const | Address, op2: Const | Address, dst: Address) extends Operation
+  case class Mult(length: Const, op1: Const | Address, op2: Const | Address, dst: Address) extends Operation
+  case class Neg(length: Const, op: Const | Address, dst: Address) extends Operation
 }
 
 case class Origin(path: Path, line: Int)

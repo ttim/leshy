@@ -31,20 +31,14 @@ object Node {
 
 case class Output(length: Int, dst: MemoryOperand)
 
-enum MemoryOperand {
-  case Stack(offset: FrameOffset)
-  case Native(stackOffset: FrameOffset)
+sealed trait MemoryOperand
+object MemoryOperand {
+  case class Stack(offset: FrameOffset) extends MemoryOperand
+  case class Native(stackOffset: FrameOffset) extends MemoryOperand
 }
 
-enum Command {
-  case Noop
-  case SetFramesize(size: Int)
-
-  case Sum(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes)
-  case Mult(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes)
-
-  case Negate(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes)
-  case Set(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes)
+sealed trait Command {
+  import Command._
 
   def output: Option[Output] = this match {
     case Noop => None
@@ -56,11 +50,26 @@ enum Command {
   }
 }
 
-enum ConditionModifier {
-  case GT, LE, EQ
+object Command {
+  case object Noop extends Command
+  case class SetFramesize(size: Int) extends Command
+
+  case class Sum(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes) extends Command
+  case class Mult(length: Int, dst: MemoryOperand, op1: MemoryOperand | Bytes, op2: MemoryOperand | Bytes) extends Command
+
+  case class Negate(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes) extends Command
+  case class Set(length: Int, dst: MemoryOperand, op: MemoryOperand | Bytes) extends Command
 }
 
-enum Condition {
-  case Const(flag: Boolean)
-  case Binary(length: Int, op1: MemoryOperand | Bytes, modifier: ConditionModifier, op2: MemoryOperand | Bytes)
+sealed trait ConditionModifier
+object ConditionModifier {
+  case object GT extends ConditionModifier
+  case object LE extends ConditionModifier
+  case object EQ extends ConditionModifier
+}
+
+sealed trait Condition
+object Condition {
+  case class Const(flag: Boolean) extends Condition
+  case class Binary(length: Int, op1: MemoryOperand | Bytes, modifier: ConditionModifier, op2: MemoryOperand | Bytes) extends Condition
 }

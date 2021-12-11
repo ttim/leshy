@@ -4,11 +4,8 @@ import org.objectweb.asm.{Opcodes, Type}
 
 import scala.reflect.ClassTag
 
-enum BytecodeExpressionKind {
-  case Void
-  case Object
-  case Int
-  case Long
+sealed trait BytecodeExpressionKind {
+  import BytecodeExpressionKind._
 
   def retInst: Int = this match {
     case Void => Opcodes.RETURN
@@ -61,6 +58,11 @@ enum BytecodeExpressionKind {
 }
 
 object BytecodeExpressionKind {
+  case object Void extends BytecodeExpressionKind
+  case object Object extends BytecodeExpressionKind
+  case object Int extends BytecodeExpressionKind
+  case object Long extends BytecodeExpressionKind
+
   def of[T: ClassTag]: BytecodeExpressionKind = of(Type.getType(implicitly[ClassTag[T]].runtimeClass))
 
   def of(tpe: Type): BytecodeExpressionKind = tpe.getSort match {

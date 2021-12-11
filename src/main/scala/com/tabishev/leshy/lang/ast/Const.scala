@@ -7,14 +7,16 @@ import java.nio.{ByteBuffer, ByteOrder}
 import java.util.Base64
 import scala.util.Try
 
-enum Const {
-  case Literal(value: Bytes)
-  case Stack(fromOffset: Bytes, length: Bytes)
-  case Symbol(name: String) // get resolved to 4 bytes during execution
-
+sealed trait Const {
   override def toString(): String = this match {
     case Const.Literal(bytes) => s"$bytes"
     case Const.Symbol(name) => s":$name"
     case Const.Stack(from, length) => "${" + from + ", " + length + "}"
   }
+}
+
+object Const {
+  case class Literal(value: Bytes) extends Const
+  case class Stack(fromOffset: Bytes, length: Bytes) extends Const
+  case class Symbol(name: String) extends Const // get resolved to 4 bytes during execution
 }
