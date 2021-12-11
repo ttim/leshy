@@ -3,6 +3,8 @@ package com.tabishev.leshy.node
 import com.tabishev.leshy.bytecode.*
 import com.tabishev.leshy.bytecode.BytecodeExpression.*
 import com.tabishev.leshy.runtime.StackMemory
+import com.tabishev.leshy.bytecode.WriterExtension.Extension
+
 import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
 import java.net.URLClassLoader

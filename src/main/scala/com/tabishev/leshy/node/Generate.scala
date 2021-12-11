@@ -2,8 +2,9 @@ package com.tabishev.leshy.node
 
 import com.tabishev.leshy.runtime.{FrameOffset, MemoryRef, StackMemory}
 import org.objectweb.asm.{Label, MethodVisitor}
-import com.tabishev.leshy.bytecode.{BranchModifier, BytecodeExpression, branch, statement}
+import com.tabishev.leshy.bytecode.{BranchModifier, BytecodeExpression}
 import com.tabishev.leshy.bytecode.BytecodeExpression.*
+import com.tabishev.leshy.bytecode.WriterExtension.Extension
 import com.tabishev.leshy.runtime.Bytes
 
 object Generate {
@@ -54,20 +55,20 @@ object Generate {
     case op: MemoryOperand => invokeVirtual(classOf[MemoryRef], "getLong", op.expression)
     case op: Bytes => const(op.asLong)
   }
-}
 
-extension (op: MemoryOperand) {
-  def expression: BytecodeExpression = op match {
-    case MemoryOperand.Stack(offset) =>
-      val frameOffset = invokeStatic(classOf[FrameOffset], "nonNegative", const(offset.get))
-      invokeVirtual(classOf[StackMemory], "getRef", BytecodeCompiler.StackExpression, frameOffset)
-    case MemoryOperand.Native(offset) =>
-      ???
+  private implicit class MemoryOperandExtension(op: MemoryOperand) {
+    def expression: BytecodeExpression = op match {
+      case MemoryOperand.Stack(offset) =>
+        val frameOffset = invokeStatic(classOf[FrameOffset], "nonNegative", const(offset.get))
+        invokeVirtual(classOf[StackMemory], "getRef", BytecodeCompiler.StackExpression, frameOffset)
+      case MemoryOperand.Native(offset) =>
+        ???
+    }
+
+    def putInt(value: BytecodeExpression): BytecodeExpression =
+      invokeVirtual(classOf[MemoryRef], "putInt", expression, value)
+
+    def putLong(value: BytecodeExpression): BytecodeExpression =
+      invokeVirtual(classOf[MemoryRef], "putLong", expression, value)
   }
-
-  def putInt(value: BytecodeExpression): BytecodeExpression =
-    invokeVirtual(classOf[MemoryRef], "putInt", expression, value)
-
-  def putLong(value: BytecodeExpression): BytecodeExpression =
-    invokeVirtual(classOf[MemoryRef], "putLong", expression, value)
 }

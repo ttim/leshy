@@ -34,7 +34,7 @@ object BytecodeExpression {
 
 case class Cast(expression: BytecodeExpression, clz: Class[_]) extends BytecodeExpression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
-    val kind = writer.push(expression)
+    val kind = expression.push(writer)
     writer.visitTypeInsn(Opcodes.CHECKCAST, Type.getInternalName(clz))
     kind
   }
@@ -54,7 +54,7 @@ case class BytecodeConst private[bytecode](kind: BytecodeExpressionKind, value: 
 case class Field(isStatic: Boolean, name: String, owner: Type, tpe: Type) extends BytecodeExpression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     if (!isStatic) {
-      writer.push(ThisInstance())
+      ThisInstance().push(writer)
       writer.visitFieldInsn(Opcodes.GETFIELD, owner.getInternalName, name, tpe.getDescriptor)
     } else {
       ???

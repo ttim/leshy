@@ -2,8 +2,9 @@ package com.tabishev.leshy
 
 import com.tabishev.leshy
 import com.tabishev.leshy.lang.examples.Implementations
-import com.tabishev.leshy.node.{BytecodeCompiler, Command, Condition, ConditionModifier, Executor, MemoryOperand, Node, materialize}
+import com.tabishev.leshy.node.{BytecodeCompiler, Command, Condition, ConditionModifier, Executor, MemoryOperand, Node}
 import com.tabishev.leshy.runtime.{Bytes, FrameOffset, StackMemory}
+import com.tabishev.leshy.node.Runners.MemoryOperandExtensions
 
 import java.io.File
 import java.util
