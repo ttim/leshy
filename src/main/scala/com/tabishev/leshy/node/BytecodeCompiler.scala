@@ -1,7 +1,7 @@
 package com.tabishev.leshy.node
 
-import com.tabishev.leshy.bytecode.*
-import com.tabishev.leshy.bytecode.BytecodeExpression.*
+import com.tabishev.leshy.bytecode._
+import com.tabishev.leshy.bytecode.BytecodeExpression._
 import com.tabishev.leshy.runtime.StackMemory
 import com.tabishev.leshy.bytecode.WriterExtension.Extension
 

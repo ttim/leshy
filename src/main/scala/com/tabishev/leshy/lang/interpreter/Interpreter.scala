@@ -3,7 +3,7 @@ package com.tabishev.leshy.lang.interpreter
 import com.tabishev.leshy.lang.ast.{Address, Const, Operation, OperationWithSource}
 import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, FnSpec, Symbol, Symbols}
 import com.tabishev.leshy.lang.loader.FnLoader
-import com.tabishev.leshy.runtime.*
+import com.tabishev.leshy.runtime._
 
 import java.io.File
 import java.nio.ByteBuffer

@@ -3,7 +3,7 @@ package com.tabishev.leshy.node
 import com.tabishev.leshy.runtime.{FrameOffset, MemoryRef, StackMemory}
 import org.objectweb.asm.{Label, MethodVisitor}
 import com.tabishev.leshy.bytecode.{BranchModifier, BytecodeExpression}
-import com.tabishev.leshy.bytecode.BytecodeExpression.*
+import com.tabishev.leshy.bytecode.BytecodeExpression._
 import com.tabishev.leshy.bytecode.WriterExtension.Extension
 import com.tabishev.leshy.runtime.Bytes
 
