@@ -18,7 +18,7 @@ class Executor extends RunnerCtx with Stats {
     toInline.foreach { node =>
       replaces.addOne(node -> Inliner.inline(node))
     }
-    refresh()
+    invalidate()
   }
 
   def compile(predicate: Node => Boolean): Unit = {
@@ -27,11 +27,11 @@ class Executor extends RunnerCtx with Stats {
         (node, BytecodeCompiler.compile(this, this, node)(this))
     }
     runners.addAll(replacement)
-    refresh()
+    invalidate()
   }
 
-  private def refresh(): Unit = {
-    runners.values.foreach(_.refresh())
+  private def invalidate(): Unit = {
+    runners.values.foreach(_.invalidate())
   }
 
   override def create(node: Node): Runner = {

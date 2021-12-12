@@ -17,7 +17,7 @@ sealed abstract class Runner {
   val ctx: RunnerCtx
   val node: Node
 
-  def refresh(): Unit
+  def invalidate(): Unit
 
   final def runFully(stack: StackMemory): FinalRunner = {
     var runner: Runner = this
@@ -51,8 +51,9 @@ class CommandRunner(val ctx: RunnerCtx, val node: Node.Run) extends Runner {
     next
   }
 
-  override def refresh(): Unit =
-    if (next != null) next = ctx.create(next.node)
+  override def invalidate(): Unit = {
+    next = null
+  }
 }
 
 class BranchRunner(val ctx: RunnerCtx, val node: Node.Branch) extends Runner {
@@ -70,9 +71,9 @@ class BranchRunner(val ctx: RunnerCtx, val node: Node.Branch) extends Runner {
     }
   }
 
-  override def refresh(): Unit = {
-    if (ifTrue != null) ifTrue = ctx.create(ifTrue.node)
-    if (ifFalse != null) ifFalse = ctx.create(ifFalse.node)
+  override def invalidate(): Unit = {
+    ifTrue = null
+    ifFalse = null
   }
 }
 
@@ -96,20 +97,20 @@ class CallRunner(val ctx: RunnerCtx, val node: Node.Call) extends Runner {
       next(finalRunner.node)
     })
 
-  override def refresh(): Unit = {
-    if (call != null) call = ctx.create(call.node)
-    next = next.map { case (node, runner) => (node, ctx.create(runner.node)) }
+  override def invalidate(): Unit = {
+    call = null
+    next = Map.empty
   }
 }
 
 class FinalRunner(val ctx: RunnerCtx, val node: Node.Final) extends Runner {
   override def runInternal(stack: StackMemory): Runner = throw new IllegalStateException()
 
-  override def refresh(): Unit = ()
+  override def invalidate(): Unit = ()
 }
 
 abstract class GeneratedRunner extends Runner {
-  override def refresh(): Unit =
+  override def invalidate(): Unit =
     this.getClass.getDeclaredFields.foreach {
       case field if field.getType.isAssignableFrom(classOf[Runner]) =>
         val prev = field.get(this).asInstanceOf[Runner]
