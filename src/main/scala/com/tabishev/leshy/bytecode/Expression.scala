@@ -5,34 +5,34 @@ import org.objectweb.asm.{MethodVisitor, Opcodes, Type}
 import java.lang.reflect.Method
 import scala.reflect.ClassTag
 
-trait BytecodeExpression {
+trait Expression {
   def push(writer: MethodVisitor): BytecodeExpressionKind
 }
 
-object BytecodeExpression {
-  def negate(arg: BytecodeExpression): BytecodeExpression =
-    BytecodeUnaryOp(_.negateInst.get, arg)
-  def sum(arg1: BytecodeExpression, arg2: BytecodeExpression): BytecodeExpression =
-    BytecodeBinaryOp(_.sumInst.get, arg1, arg2)
-  def mult(arg1: BytecodeExpression, arg2: BytecodeExpression): BytecodeExpression =
-    BytecodeBinaryOp(_.multInst.get, arg1, arg2)
+object Expression {
+  def negate(arg: Expression): Expression =
+    UnaryExpression(_.negateInst.get, arg)
+  def sum(arg1: Expression, arg2: Expression): Expression =
+    BinaryExpression(_.sumInst.get, arg1, arg2)
+  def mult(arg1: Expression, arg2: Expression): Expression =
+    BinaryExpression(_.multInst.get, arg1, arg2)
 
-  def const(value: Int): BytecodeExpression = BytecodeConst(BytecodeExpressionKind.Int, value)
-  def const(value: Long): BytecodeExpression =  BytecodeConst(BytecodeExpressionKind.Long, value)
-  def const(value: Boolean): BytecodeExpression = BytecodeConst(BytecodeExpressionKind.Int, if (value) 1 else 0)
+  def const(value: Int): Expression = ConstExpression(BytecodeExpressionKind.Int, value)
+  def const(value: Long): Expression =  ConstExpression(BytecodeExpressionKind.Long, value)
+  def const(value: Boolean): Expression = ConstExpression(BytecodeExpressionKind.Int, if (value) 1 else 0)
 
-  def void(): BytecodeExpression = BytecodeVoid
+  def void(): Expression = VoidExpression
 
-  def invokeVirtual(clazz: Class[_], name: String, args: BytecodeExpression*): InvokeMethod =
+  def invokeVirtual(clazz: Class[_], name: String, args: Expression*): InvokeMethod =
     InvokeMethod(Opcodes.INVOKEVIRTUAL, clazz, name, args.toSeq)
 
-  def invokeStatic(clazz: Class[_], name: String, args: BytecodeExpression*): InvokeMethod =
+  def invokeStatic(clazz: Class[_], name: String, args: Expression*): InvokeMethod =
     InvokeMethod(Opcodes.INVOKESTATIC, clazz, name, args.toSeq)
 
-  def local[T: ClassTag](idx: Int): BytecodeExpression = Local(idx, BytecodeExpressionKind.of[T])
+  def local[T: ClassTag](idx: Int): Expression = Local(idx, BytecodeExpressionKind.of[T])
 }
 
-case class Cast(expression: BytecodeExpression, clz: Class[_]) extends BytecodeExpression {
+case class Cast(expression: Expression, clz: Class[_]) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     val kind = expression.push(writer)
     writer.visitTypeInsn(Opcodes.CHECKCAST, Type.getInternalName(clz))
@@ -40,18 +40,18 @@ case class Cast(expression: BytecodeExpression, clz: Class[_]) extends BytecodeE
   }
 }
 
-case object BytecodeVoid extends BytecodeExpression {
+case object VoidExpression extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = BytecodeExpressionKind.Void
 }
 
-case class BytecodeConst private[bytecode](kind: BytecodeExpressionKind, value: Any) extends BytecodeExpression {
+case class ConstExpression private[bytecode](kind: BytecodeExpressionKind, value: Any) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitLdcInsn(value)
     kind
   }
 }
 
-case class Field(isStatic: Boolean, name: String, owner: Type, tpe: Type) extends BytecodeExpression {
+case class Field(isStatic: Boolean, name: String, owner: Type, tpe: Type) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     if (!isStatic) {
       ThisInstance().push(writer)
@@ -63,7 +63,7 @@ case class Field(isStatic: Boolean, name: String, owner: Type, tpe: Type) extend
   }
 }
 
-case class InvokeMethod(opcode: Int, clazz: Class[_], name: String, args: Seq[BytecodeExpression]) extends BytecodeExpression {
+case class InvokeMethod(opcode: Int, clazz: Class[_], name: String, args: Seq[Expression]) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     args.foreach { arg =>
       assert(arg.push(writer) != BytecodeExpressionKind.Void)
@@ -79,21 +79,21 @@ case class InvokeMethod(opcode: Int, clazz: Class[_], name: String, args: Seq[By
   }
 }
 
-case class Local(idx: Int, kind: BytecodeExpressionKind) extends BytecodeExpression {
+case class Local(idx: Int, kind: BytecodeExpressionKind) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitVarInsn(kind.loadInst.get, idx)
     kind
   }
 }
 
-case class ThisInstance() extends BytecodeExpression {
+case class ThisInstance() extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitVarInsn(Opcodes.ALOAD, 0)
     BytecodeExpressionKind.Object
   }
 }
 
-case class InvokeSuper(superClass: Class[_]) extends BytecodeExpression {
+case class InvokeSuper(superClass: Class[_]) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     writer.visitVarInsn(Opcodes.ALOAD, 0)
     writer.visitMethodInsn(Opcodes.INVOKESPECIAL, Type.getInternalName(superClass), "<init>", "()V", false)
@@ -101,7 +101,7 @@ case class InvokeSuper(superClass: Class[_]) extends BytecodeExpression {
   }
 }
 
-case class BytecodeBinaryOp(opcode: BytecodeExpressionKind => Int, arg1: BytecodeExpression, arg2: BytecodeExpression) extends BytecodeExpression {
+case class BinaryExpression(opcode: BytecodeExpressionKind => Int, arg1: Expression, arg2: Expression) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     val kind = arg1.push(writer)
     val kind2 = arg2.push(writer)
@@ -111,7 +111,7 @@ case class BytecodeBinaryOp(opcode: BytecodeExpressionKind => Int, arg1: Bytecod
   }
 }
 
-case class BytecodeUnaryOp(op: BytecodeExpressionKind => Int, arg: BytecodeExpression) extends BytecodeExpression {
+case class UnaryExpression(op: BytecodeExpressionKind => Int, arg: Expression) extends Expression {
   override def push(writer: MethodVisitor): BytecodeExpressionKind = {
     val kind = arg.push(writer)
     writer.visitInsn(op(kind))

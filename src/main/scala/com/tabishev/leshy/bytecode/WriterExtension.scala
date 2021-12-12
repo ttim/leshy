@@ -28,17 +28,17 @@ object BranchModifier {
 
 object WriterExtension {
   implicit class Extension(writer: MethodVisitor) {
-    def statement(value: BytecodeExpression): Unit = {
+    def statement(value: Expression): Unit = {
       val kind = push(value)
       kind.popInst.foreach(writer.visitInsn(_))
     }
 
-    def ret(value: BytecodeExpression): Unit = {
+    def ret(value: Expression): Unit = {
       val kind = push(value)
       writer.visitInsn(kind.retInst)
     }
 
-    def branch(arg1: BytecodeExpression, modifier: BranchModifier, arg2: BytecodeExpression, label: Label): Unit = {
+    def branch(arg1: Expression, modifier: BranchModifier, arg2: Expression, label: Label): Unit = {
       val kind = push(arg1)
       val kind2 = push(arg2)
       assert(kind == kind2)
@@ -55,14 +55,14 @@ object WriterExtension {
       }
     }
 
-    def branch(booleanArg: BytecodeExpression, label: Label): Unit = {
+    def branch(booleanArg: Expression, label: Label): Unit = {
       writer.push(booleanArg)
       writer.visitJumpInsn(Opcodes.IFGT, label)
     }
 
     def branch(label: Label): Unit = writer.visitJumpInsn(Opcodes.GOTO, label)
 
-    def putField(field: Field, value: BytecodeExpression): Unit =
+    def putField(field: Field, value: Expression): Unit =
       if (field.isStatic) {
         ???
       } else {
@@ -71,11 +71,11 @@ object WriterExtension {
         writer.visitFieldInsn(Opcodes.PUTFIELD, field.owner.getInternalName, field.name, field.tpe.getDescriptor)
       }
 
-    def storeVar(idx: Int, value: BytecodeExpression): Unit = {
+    def storeVar(idx: Int, value: Expression): Unit = {
       val kind = writer.push(value)
       writer.visitVarInsn(kind.storeInst.get, idx)
     }
 
-    def push(value: BytecodeExpression): BytecodeExpressionKind = value.push(writer)
+    def push(value: Expression): BytecodeExpressionKind = value.push(writer)
   }
 }

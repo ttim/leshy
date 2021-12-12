@@ -1,7 +1,7 @@
 package com.tabishev.leshy.node
 
 import com.tabishev.leshy.bytecode._
-import com.tabishev.leshy.bytecode.BytecodeExpression._
+import com.tabishev.leshy.bytecode.Expression._
 import com.tabishev.leshy.runtime.StackMemory
 import com.tabishev.leshy.bytecode.WriterExtension.Extension
 
@@ -20,7 +20,7 @@ object BytecodeCompiler {
   private val typeRunner = Type.getType(classOf[Runner])
   private val typeStack = Type.getType(classOf[StackMemory])
 
-  val StackExpression: BytecodeExpression = local[StackMemory](1)
+  val StackExpression: Expression = local[StackMemory](1)
 
   // prepare dest
   if (Files.exists(dest)) {
@@ -75,7 +75,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
 
     writer.statement(InvokeSuper(classOf[GeneratedRunner]))
     external.indices.foreach { idx =>
-      writer.putField(Field(isStatic = false, argName(idx), owner, typeRunner), BytecodeExpression.local[Runner](idx + 1))
+      writer.putField(Field(isStatic = false, argName(idx), owner, typeRunner), Expression.local[Runner](idx + 1))
     }
 
     // return
@@ -99,7 +99,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
     val nodes = internal ++ external.diff(internal)
     val labels = nodes.map { node => (node, new Label()) }.toMap
 
-    def externalRunner(node: Node): BytecodeExpression = Field(isStatic = false, nodeToArg(node), owner, typeRunner)
+    def externalRunner(node: Node): Expression = Field(isStatic = false, nodeToArg(node), owner, typeRunner)
     def label(node: Node): Label = labels(node)
     def jump(fromLine: Int, target: Node): Unit =
       if (fromLine != nodes.length -1 && target == nodes(fromLine + 1)) {
@@ -124,7 +124,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
           jump(line, branch.ifFalse)
         case call: Node.Call =>
           writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get)))
-          writer.storeVar(2, BytecodeExpression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), StackExpression))
+          writer.storeVar(2, Expression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), StackExpression))
           writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get)))
 
           val next = stats.recordedCallFinals(call)
@@ -137,7 +137,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
 
           // fallback
           val callRunnerExpression = Cast(externalRunner(call), classOf[CallRunner])
-          writer.ret(BytecodeExpression.invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](2)))
+          writer.ret(Expression.invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](2)))
         case _: Node.Final =>
           throw new IllegalStateException("final nodes can't be internal")
       }

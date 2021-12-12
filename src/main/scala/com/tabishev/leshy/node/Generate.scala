@@ -2,8 +2,8 @@ package com.tabishev.leshy.node
 
 import com.tabishev.leshy.runtime.{FrameOffset, MemoryRef, StackMemory}
 import org.objectweb.asm.{Label, MethodVisitor}
-import com.tabishev.leshy.bytecode.{BranchModifier, BytecodeExpression}
-import com.tabishev.leshy.bytecode.BytecodeExpression._
+import com.tabishev.leshy.bytecode.{BranchModifier, Expression}
+import com.tabishev.leshy.bytecode.Expression._
 import com.tabishev.leshy.bytecode.WriterExtension.Extension
 import com.tabishev.leshy.runtime.Bytes
 
@@ -46,18 +46,18 @@ object Generate {
     case ConditionModifier.EQ => BranchModifier.EQ
   }
 
-  private def intOp(bytesOrOp: Either[Bytes, MemoryOperand]): BytecodeExpression = bytesOrOp match {
+  private def intOp(bytesOrOp: Either[Bytes, MemoryOperand]): Expression = bytesOrOp match {
     case Left(bytes) => const(bytes.asInt)
     case Right(op) => invokeVirtual(classOf[MemoryRef], "getInt", op.expression)
   }
 
-  private def longOp(bytesOrOp: Either[Bytes, MemoryOperand]): BytecodeExpression = bytesOrOp match {
+  private def longOp(bytesOrOp: Either[Bytes, MemoryOperand]): Expression = bytesOrOp match {
     case Left(bytes) => const(bytes.asLong)
     case Right(op) => invokeVirtual(classOf[MemoryRef], "getLong", op.expression)
   }
 
   private implicit class MemoryOperandExtension(op: MemoryOperand) {
-    def expression: BytecodeExpression = op match {
+    def expression: Expression = op match {
       case MemoryOperand.Stack(offset) =>
         val frameOffset = invokeStatic(classOf[FrameOffset], "nonNegative", const(offset.get))
         invokeVirtual(classOf[StackMemory], "getRef", BytecodeCompiler.StackExpression, frameOffset)
@@ -65,10 +65,10 @@ object Generate {
         ???
     }
 
-    def putInt(value: BytecodeExpression): BytecodeExpression =
+    def putInt(value: Expression): Expression =
       invokeVirtual(classOf[MemoryRef], "putInt", expression, value)
 
-    def putLong(value: BytecodeExpression): BytecodeExpression =
+    def putLong(value: Expression): Expression =
       invokeVirtual(classOf[MemoryRef], "putLong", expression, value)
   }
 }
