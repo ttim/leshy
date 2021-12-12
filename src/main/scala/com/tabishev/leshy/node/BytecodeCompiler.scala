@@ -2,8 +2,9 @@ package com.tabishev.leshy.node
 
 import com.tabishev.leshy.bytecode._
 import com.tabishev.leshy.bytecode.Expression._
+import com.tabishev.leshy.bytecode.Statement._
 import com.tabishev.leshy.runtime.StackMemory
-import com.tabishev.leshy.bytecode.WriterExtension.Extension
+import com.tabishev.leshy.bytecode.Statement.WriterExtension
 
 import org.objectweb.asm.{ClassWriter, Label, Opcodes, Type}
 
@@ -73,13 +74,13 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
 
     writer.visitCode()
 
-    writer.statement(InvokeSuper(classOf[GeneratedRunner]))
+    writer.write(Expr(InvokeSuper(classOf[GeneratedRunner])))
     external.indices.foreach { idx =>
-      writer.putField(Field(isStatic = false, argName(idx), owner, typeRunner), Expression.local[Runner](idx + 1))
+      writer.write(PutField(Field(isStatic = false, argName(idx), owner, typeRunner), Expression.local[Runner](idx + 1)))
     }
 
     // return
-    writer.ret(void())
+    writer.write(Return(void()))
     writer.visitMaxs(1, 1)
     writer.visitEnd()
   }
@@ -105,7 +106,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
       if (fromLine != nodes.length -1 && target == nodes(fromLine + 1)) {
         // do nothing, jump to next instruction
       } else {
-        writer.branch(label(target))
+        writer.write(Goto(label(target)))
       }
 
     nodes.zipWithIndex.foreach { case (node, line) =>
@@ -115,7 +116,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
       node match {
         case _ if line >= internal.size =>
           // external node
-          writer.ret(externalRunner(node))
+          writer.write(Return(externalRunner(node)))
         case run: Node.Run =>
           Generate.command(run.command, writer)
           jump(line, run.next)
@@ -123,21 +124,21 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
           Generate.condition(branch.condition, writer, label(branch.ifTrue))
           jump(line, branch.ifFalse)
         case call: Node.Call =>
-          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get)))
-          writer.storeVar(2, Expression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), StackExpression))
-          writer.statement(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get)))
+          writer.write(Expr(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(call.offset.get))))
+          writer.write(StoreVar(2, Expression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), StackExpression)))
+          writer.write(Expr(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get))))
 
           val next = stats.recordedCallFinals(call)
           if (next.size == 1) {
             val (finalNode, nextNode) = next.head
             val actual = invokeVirtual(classOf[Runner], "node", local[FinalRunner](2))
             val expected = invokeVirtual(classOf[Runner], "node", externalRunner(finalNode))
-            writer.branch(invokeVirtual(classOf[Object], "equals", actual, expected), label(nextNode))
+            writer.write(BooleanBranch(invokeVirtual(classOf[Object], "equals", actual, expected), label(nextNode)))
           }
 
           // fallback
           val callRunnerExpression = Cast(externalRunner(call), classOf[CallRunner])
-          writer.ret(Expression.invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](2)))
+          writer.write(Return(invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](2))))
         case _: Node.Final =>
           throw new IllegalStateException("final nodes can't be internal")
       }
