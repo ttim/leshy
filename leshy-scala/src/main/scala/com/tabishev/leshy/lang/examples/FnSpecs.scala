@@ -11,8 +11,8 @@ import java.io.File
 
 object FnSpecs {
   val IncludePaths = Seq(
-    "src/main/lsh/fib.lsh",
-    "src/main/lsh/factorial.lsh"
+    "../examples/fib.lsh",
+    "../examples/factorial.lsh"
   )
   def loader(): FnLoader = FileLoader.fromFiles(IncludePaths.map(p => new File(p).toPath))
 
