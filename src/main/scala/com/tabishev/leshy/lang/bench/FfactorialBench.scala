@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS)
 @State(Scope.Benchmark)
 class FfactorialBench {
-  @Param(Array("interpreter-check", "interpreter-no-check", "compiler-gen", "compiler-no-gen", "native", "byte buffer", "memory access"))
+  @Param(Array("interpreter-check", "interpreter-no-check", "compiler-gen", "compiler-no-gen", "native", "byte buffer"))
   var impl: String = _
 
   @Benchmark

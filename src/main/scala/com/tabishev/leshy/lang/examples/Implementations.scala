@@ -40,7 +40,6 @@ object Implementations {
     "compiler-gen" -> FnSpecs.createCompiler(FnSpecs.Ffactorial4, doInlining = false, doBytecodeGeneration = true),
     "native" -> (n => JavaImpl.ffactorial4(n)),
     "byte buffer" -> (n => ByteBufferImpl.ffactorial4(n)),
-    "memory access" -> (n => MemoryAccessImpl.ffactorial4(n)),
   )
 
   val Fact8: Map[String, Int => Long] = Map(
@@ -50,6 +49,5 @@ object Implementations {
     "compiler-gen" -> FnSpecs.createCompiler(FnSpecs.Ffactorial8, doInlining = false, doBytecodeGeneration = true),
     "native" -> (n => JavaImpl.ffactorial8(n)),
     "byte buffer" -> (n => ByteBufferImpl.ffactorial8(n)),
-    "memory access" -> (n => MemoryAccessImpl.ffactorial8(n)),
   )
 }
