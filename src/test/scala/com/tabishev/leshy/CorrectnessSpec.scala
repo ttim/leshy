@@ -2,8 +2,6 @@ package com.tabishev.leshy
 
 import com.tabishev.leshy.lang.examples.Implementations
 
-import java.io.File
-
 class CorrectnessSpec extends munit.FunSuite {
   private val fibMax = 15
   private val ffactMax = 500

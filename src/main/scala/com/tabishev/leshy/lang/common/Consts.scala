@@ -1,8 +1,7 @@
 package com.tabishev.leshy.lang.common
 
-import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
+import com.tabishev.leshy.runtime.FrameOffset
 
-import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable
 
 final case class Consts(offsetToValue: Map[Int, Byte]) {
@@ -45,8 +44,7 @@ final case class Consts(offsetToValue: Map[Int, Byte]) {
   }
 
   def frameToString(frameData: Array[Byte]): String = {
-    import scala.io.AnsiColor.RED
-    import scala.io.AnsiColor.RESET
+    import scala.io.AnsiColor.{RED, RESET}
 
     frameData.zipWithIndex.map { case (byte, index) =>
       if (!offsetToValue.contains(index)) byte.toString else RED + byte.toString + RESET

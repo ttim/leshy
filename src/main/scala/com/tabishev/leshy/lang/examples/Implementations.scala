@@ -1,8 +1,5 @@
 package com.tabishev.leshy.lang.examples
 
-import com.tabishev.leshy.lang.common.FnSpec
-import com.tabishev.leshy.lang.compiler.Compiler
-
 object Implementations {
   private val interpreter = FnSpecs.createInterpreter(debug = false, checkConsts = true)
   private val interpreterNoCheck = FnSpecs.createInterpreter(debug = false, checkConsts = false)

@@ -1,11 +1,10 @@
 package com.tabishev.leshy.lang.parser
 
-import com.tabishev.leshy.lang.ast.{Address, Const, Fn, Operation, OperationWithSource, Origin}
+import com.tabishev.leshy.lang.ast._
 import com.tabishev.leshy.runtime.Bytes
 
-import java.nio.{ByteBuffer, ByteOrder}
-import java.nio.charset.Charset
 import java.nio.file.Path
+import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable
 
 object TextParser {

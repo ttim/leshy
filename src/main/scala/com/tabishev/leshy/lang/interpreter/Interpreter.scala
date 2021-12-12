@@ -5,11 +5,6 @@ import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, FnSpec, Symbol,
 import com.tabishev.leshy.lang.loader.FnLoader
 import com.tabishev.leshy.runtime._
 
-import java.io.File
-import java.nio.ByteBuffer
-import java.util
-import scala.collection.mutable
-
 class Interpreter(loader: FnLoader, debug: Boolean, checkConsts: Boolean) extends ConstInterpreter {
   private val stack = new StackMemory()
   private val interpreterSymbols = new Symbols()

@@ -4,7 +4,6 @@ import com.tabishev.leshy.lang.examples.Implementations
 import org.openjdk.jmh.annotations._
 import org.openjdk.jmh.infra.Blackhole
 
-import java.io.File
 import java.util.concurrent.TimeUnit
 
 @BenchmarkMode(Array(Mode.AverageTime))

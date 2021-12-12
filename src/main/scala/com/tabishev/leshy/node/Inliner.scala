@@ -1,4 +1,5 @@
 package com.tabishev.leshy.node
+
 import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 object Inliner {

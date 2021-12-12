@@ -2,9 +2,7 @@ package com.tabishev.leshy.lang.compiler
 
 import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, Symbols}
 import com.tabishev.leshy.node.{Command, MemoryOperand, Unify}
-import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
-
-import scala.collection.mutable
+import com.tabishev.leshy.runtime.FrameOffset
 
 case class SpecializationContext(stackSize: Int, consts: Consts) {
   override def toString: String = s"spec[$stackSize, $consts)]"

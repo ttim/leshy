@@ -1,11 +1,10 @@
 package com.tabishev.leshy.lang.compiler
 
-import com.tabishev.leshy.runtime.Bytes
 import com.tabishev.leshy.lang.ast.{Address, Const, Fn, Operation}
-import com.tabishev.leshy.lang.common.{ConstInterpreter, Consts, Symbols}
+import com.tabishev.leshy.lang.common.{ConstInterpreter, Symbols}
 import com.tabishev.leshy.lang.loader.FnLoader
-import com.tabishev.leshy.node.{Command, Condition, ConditionModifier, MemoryOperand, Node, Unify}
-import com.tabishev.leshy.runtime.FrameOffset
+import com.tabishev.leshy.node._
+import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) {
   override def toString: String = s"$op, $ctx"
