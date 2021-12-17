@@ -113,7 +113,7 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
       // todo: don't write label per each line?
       writer.visitLabel(labels(node))
 
-      node match {
+      node.get() match {
         case _ if line >= internal.size =>
           // external node
           writer.write(Return(externalRunner(node)))
@@ -128,18 +128,16 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
           writer.write(StoreVar(2, Expression.invokeVirtual(classOf[Runner], "runFully", externalRunner(call.call), StackExpression)))
           writer.write(Expr(invokeVirtual(classOf[StackMemory], "moveFrame", StackExpression, const(-call.offset.get))))
 
-          val next = stats.recordedCallFinals(call)
+          val next = stats.recordedCallFinals(node)
           if (next.size == 1) {
             val (finalNode, nextNode) = next.head
-            val actual = invokeVirtual(classOf[Runner], "node", local[FinalRunner](2))
-            val expected = invokeVirtual(classOf[Runner], "node", externalRunner(finalNode))
-            writer.write(BooleanBranch(invokeVirtual(classOf[Object], "equals", actual, expected), label(nextNode)))
+            writer.write(BooleanBranch(invokeVirtual(classOf[Object], "equals", local[FinalRunner](2), externalRunner(finalNode)), label(nextNode)))
           }
 
           // fallback
-          val callRunnerExpression = Cast(externalRunner(call), classOf[CallRunner])
+          val callRunnerExpression = Cast(externalRunner(node), classOf[CallRunner])
           writer.write(Return(invokeVirtual(classOf[CallRunner], "nextRunner", callRunnerExpression, local[FinalRunner](2))))
-        case _: Node.Final =>
+        case Node.Final =>
           throw new IllegalStateException("final nodes can't be internal")
       }
     }
@@ -153,31 +151,31 @@ private class BytecodeCompiler(node: Node, name: String, stats: Stats) {
     val internal = mutable.LinkedHashSet[Node]()
     val external = mutable.LinkedHashSet[Node]()
 
-    def go(node: Node): Unit = node match {
+    def go(node: Node): Unit = node.get() match {
       case _ if !stats.isExecuted(node) =>
         external.add(node)
       case _ if internal.contains(node) || external.contains(node) =>
         // do nothing
       case run: Node.Run =>
-        internal.add(run)
+        internal.add(node)
         go(run.next)
       case branch: Node.Branch =>
-        internal.add(branch)
+        internal.add(node)
         go(branch.ifFalse)
         go(branch.ifTrue)
       case call: Node.Call =>
         // call needs to be in external for fallbacks
-        external.add(call)
+        external.add(node)
         // but also it is generateable if recordedCallFinals contains only one elements
-        val next = stats.recordedCallFinals(call)
+        val next = stats.recordedCallFinals(node)
         if (next.size == 1) {
           val (finalNode, nextNode) = next.head
-          internal.add(call)
+          internal.add(node)
           external.add(call.call)
           external.add(finalNode)
           go(nextNode)
         }
-      case _: Node.Final =>
+      case Node.Final =>
         external.add(node)
     }
     go(root)

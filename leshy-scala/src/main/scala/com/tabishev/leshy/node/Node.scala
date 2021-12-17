@@ -3,30 +3,16 @@ package com.tabishev.leshy.node
 import com.tabishev.leshy.runtime.Bytes
 import com.tabishev.leshy.runtime.FrameOffset
 
-trait Node
+trait Node {
+  def get(): Node.Kind
+}
 
 object Node {
-  trait Run extends Node {
-    def command: Command
-
-    def next: Node
-  }
-
-  trait Branch extends Node {
-    def condition: Condition
-
-    def ifTrue: Node
-    def ifFalse: Node
-  }
-
-  trait Call extends Node {
-    def offset: FrameOffset
-
-    def call: Node
-    def next(returnNode: Node.Final): Node
-  }
-
-  trait Final extends Node
+  sealed trait Kind
+  case class Run(command: Command, next: Node) extends Kind
+  case class Branch(condition: Condition, ifTrue: Node, ifFalse: Node) extends Kind
+  case class Call(offset: FrameOffset, call: Node, next: Node => Node) extends Kind
+  case object Final extends Kind
 }
 
 case class Output(length: Int, dst: MemoryOperand)

@@ -26,7 +26,7 @@ object Compiler {
     }
     if (doBytecodeGeneration) {
       executor.compile {
-        case node: LeshyNode => node.origin.op.line == 0
+        case node: LeshyNode => node.op.line == 0
         case _ => false
       }
     }
@@ -39,8 +39,7 @@ object Compiler {
     val inputObj = spec.input(input)
     stack.append(inputObj.bytes)
     val initialContext = SpecializationContext(stack.frameSize(), inputObj.consts)
-    val origin = Origin(loader, symbols, OperationRef(spec.fn, 0), initialContext)
-    executor.run(Nodes.create(origin), stack)
+    executor.run(LeshyNode(loader, symbols, OperationRef(spec.fn, 0), initialContext), stack)
     assert(stack.getFrameOffset() == 0)
     val output = Bytes.fromBytes(stack.currentStackFrame())
     stack.shrink(output.length())

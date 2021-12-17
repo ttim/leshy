@@ -8,7 +8,7 @@ class Executor extends RunnerCtx with Stats {
   private val replaces = mutable.HashMap[Node, Node]()
   private val runners = mutable.HashMap[Node, Runner]()
 
-  def run(node: Node, stack: StackMemory): Node.Final =
+  def run(node: Node, stack: StackMemory): Node =
     create(node).runFully(stack).node
 
   def inlineCalls(predicate: Node.Call => Boolean): Unit = {
@@ -45,15 +45,20 @@ class Executor extends RunnerCtx with Stats {
 
   override def isExecuted(node: Node): Boolean = runners.contains(node)
 
-  override def recordedCallFinals(node: Node.Call): Map[Node.Final, Node] =
+  override def recordedCallFinals(node: Node): Map[Node, Node] = {
+    assert(node.get().isInstanceOf[Node.Call])
     runners.get(node).map { runner =>
-      runner.asInstanceOf[CallRunner].next.map { case (k, v) => (k, v.node) }
+      runner.asInstanceOf[CallRunner].next.map { case (k, v) =>
+        assert(k.node.get() == Node.Final)
+        (k.node, v.node)
+      }
     }.getOrElse(Map())
+  }
 }
 
 // in future will expose more stats on nodes execution
 trait Stats {
   def isExecuted(node: Node): Boolean
   // todo: expose only Node.Final?
-  def recordedCallFinals(node: Node.Call): Map[Node.Final, Node]
+  def recordedCallFinals(node: Node): Map[Node, Node]
 }

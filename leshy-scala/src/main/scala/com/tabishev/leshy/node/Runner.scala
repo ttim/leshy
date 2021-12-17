@@ -5,11 +5,11 @@ import com.tabishev.leshy.runtime.StackMemory
 object Runner {
   private val Debug: Boolean = false
 
-  def create(ctx: RunnerCtx, node: Node): Runner = node match {
-    case node: Node.Run => new CommandRunner(ctx, node)
-    case node: Node.Branch => new BranchRunner(ctx, node)
-    case node: Node.Call => new CallRunner(ctx, node)
-    case node: Node.Final => new FinalRunner(ctx, node)
+  def create(ctx: RunnerCtx, node: Node): Runner = node.get() match {
+    case kind: Node.Run => new CommandRunner(ctx, node, kind)
+    case kind: Node.Branch => new BranchRunner(ctx, node, kind)
+    case kind: Node.Call => new CallRunner(ctx, node, kind)
+    case Node.Final => new FinalRunner(ctx, node)
   }
 }
 
@@ -41,13 +41,13 @@ trait RunnerCtx {
   def create(node: Node): Runner
 }
 
-class CommandRunner(val ctx: RunnerCtx, val node: Node.Run) extends Runner {
-  private val impl = Runners.command(node.command)
+class CommandRunner(val ctx: RunnerCtx, val node: Node, val kind: Node.Run) extends Runner {
+  private val impl = Runners.command(kind.command)
   private var next: Runner = null
 
   override def runInternal(stack: StackMemory): Runner = {
     impl.run(stack)
-    if (next == null) next = ctx.create(node.next)
+    if (next == null) next = ctx.create(kind.next)
     next
   }
 
@@ -56,17 +56,17 @@ class CommandRunner(val ctx: RunnerCtx, val node: Node.Run) extends Runner {
   }
 }
 
-class BranchRunner(val ctx: RunnerCtx, val node: Node.Branch) extends Runner {
-  private val impl = Runners.condition(node.condition)
+class BranchRunner(val ctx: RunnerCtx, val node: Node, val kind: Node.Branch) extends Runner {
+  private val impl = Runners.condition(kind.condition)
   private var ifTrue: Runner = null
   private var ifFalse: Runner = null
 
   override def runInternal(stack: StackMemory): Runner = {
     if (impl.run(stack)) {
-      if (ifTrue == null) ifTrue = ctx.create(node.ifTrue)
+      if (ifTrue == null) ifTrue = ctx.create(kind.ifTrue)
       ifTrue
     } else {
-      if (ifFalse == null) ifFalse = ctx.create(node.ifFalse)
+      if (ifFalse == null) ifFalse = ctx.create(kind.ifFalse)
       ifFalse
     }
   }
@@ -77,24 +77,24 @@ class BranchRunner(val ctx: RunnerCtx, val node: Node.Branch) extends Runner {
   }
 }
 
-class CallRunner(val ctx: RunnerCtx, val node: Node.Call) extends Runner {
-  private val offset = node.offset.get
+class CallRunner(val ctx: RunnerCtx, val node: Node, val kind: Node.Call) extends Runner {
+  private val offset = kind.offset.get
   private var call: Runner = null
   // todo: intern final nodes and make this map from interned id?
-  private[node] var next: Map[Node.Final, Runner] = Map.empty
+  private[node] var next: Map[FinalRunner, Runner] = Map.empty
 
   override def runInternal(stack: StackMemory): Runner = {
     stack.moveFrame(offset)
-    if (call == null) call = ctx.create(node.call)
+    if (call == null) call = ctx.create(kind.call)
     val finalRunner = call.runFully(stack)
     stack.moveFrame(-offset)
     nextRunner(finalRunner)
   }
 
   def nextRunner(finalRunner: FinalRunner): Runner =
-    next.getOrElse(finalRunner.node, {
-      next = next.updated(finalRunner.node, ctx.create(node.next(finalRunner.node)))
-      next(finalRunner.node)
+    next.getOrElse(finalRunner, {
+      next = next.updated(finalRunner, ctx.create(kind.next(finalRunner.node)))
+      next(finalRunner)
     })
 
   override def invalidate(): Unit = {
@@ -103,7 +103,7 @@ class CallRunner(val ctx: RunnerCtx, val node: Node.Call) extends Runner {
   }
 }
 
-class FinalRunner(val ctx: RunnerCtx, val node: Node.Final) extends Runner {
+class FinalRunner(val ctx: RunnerCtx, val node: Node) extends Runner {
   override def runInternal(stack: StackMemory): Runner = throw new IllegalStateException()
 
   override def invalidate(): Unit = ()

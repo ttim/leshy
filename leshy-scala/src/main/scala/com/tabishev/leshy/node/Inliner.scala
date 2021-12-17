@@ -3,30 +3,24 @@ package com.tabishev.leshy.node
 import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
 object Inliner {
-  def inline(call: Node.Call): Node = wrap(call, call.call)
-
-  private def wrap(call: Node.Call, node: Node): Node = node match {
-    case node: Node.Run => InlinedRun(call, node)
-    case node: Node.Branch => InlinedBranch(call, node)
-    case node: Node.Call => InlinedCall(call, node)
-    case node: Node.Final => call.next(node)
+  def inline(call: Node): Node = call.get() match {
+    case call@Node.Call(_, node, _) => InlinedNode(call, node)
+    case _ => throw new IllegalArgumentException(call + " isn't Call node")
   }
 
-  private case class InlinedRun(original: Node.Call, inner: Node.Run) extends Node.Run {
-    override def command: Command = offsetCommand(original.offset, inner.command)
-    override def next: Node = wrap(original, inner.next)
-  }
+  case class InlinedNode private (call: Node.Call, node: Node) extends Node {
+    override def get(): Node.Kind = node.get() match {
+      case Node.Run(command, next) =>
+        Node.Run(offsetCommand(call.offset, command), wrap(next))
+      case Node.Branch(condition, ifTrue, ifFalse) =>
+        Node.Branch(offsetCondition(call.offset, condition), wrap(ifTrue), wrap(ifFalse))
+      case Node.Call(innerOffset, innerCall, innerNext) =>
+        Node.Call(call.offset.plus(innerOffset), innerCall, innerNext.andThen(wrap))
+      case Node.Final =>
+        Node.Run(Command.Noop, call.next(node))
+    }
 
-  private case class InlinedBranch(original: Node.Call, inner: Node.Branch) extends Node.Branch {
-    override def condition: Condition = offsetCondition(original.offset, inner.condition)
-    override def ifTrue: Node = wrap(original, inner.ifTrue)
-    override def ifFalse: Node = wrap(original, inner.ifFalse)
-  }
-
-  private case class InlinedCall(original: Node.Call, inner: Node.Call) extends Node.Call {
-    override def offset: FrameOffset = original.offset.plus(inner.offset)
-    override def call: Node = inner.call
-    override def next(returnNode: Node.Final): Node = wrap(original, inner.next(returnNode))
+    private def wrap(node: Node): Node = InlinedNode(call, node)
   }
 
   private def offsetCommand(offset: FrameOffset, command: Command): Command = command match {

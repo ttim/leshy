@@ -6,46 +6,38 @@ import com.tabishev.leshy.lang.loader.FnLoader
 import com.tabishev.leshy.node._
 import com.tabishev.leshy.runtime.{Bytes, FrameOffset}
 
-final case class Origin(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) {
-  override def toString: String = s"$op, $ctx"
-}
-
-trait LeshyNode {
-  val origin: Origin
-}
-
-object Nodes {
-  def create(origin: Origin): Node = {
+case class LeshyNode(loader: FnLoader, symbols: Symbols, op: OperationRef, ctx: SpecializationContext) extends Node {
+  override def get(): Node.Kind = {
     // todo: do we really need it?
-    val fn = origin.loader.load(origin.op.fn).get
+    val fn = loader.load(op.fn).get
     // todo: make it not running every time
-    origin.symbols.register(fn)
+    symbols.register(fn)
 
-    val constInterpreter = SpecializationContextConstInterpreter(origin.symbols, origin.ctx)
+    val constInterpreter = SpecializationContextConstInterpreter(symbols, ctx)
 
     def toOperand(address: Address): MemoryOperand = toOperandFn(constInterpreter, address)
     def arg(length: Int, addressOrConst: Either[Const, Address]): Either[Bytes, MemoryOperand] = toBytesOrOperandFn(constInterpreter, addressOrConst, length)
 
-    origin.op.resolve(fn) match {
-      case None => Final(origin)
+    op.resolve(fn) match {
+      case None => Node.Final
       case Some(operation) => operation.op match {
         case Operation.Extend(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          SetSize(origin, constInterpreter.frameSize() + length)
+          setSize(constInterpreter.frameSize() + length)
         case Operation.Shrink(lengthAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          SetSize(origin, constInterpreter.frameSize() - length)
+          setSize(constInterpreter.frameSize() - length)
         case Operation.Call(offsetAst, targetAst) =>
           val offset = constInterpreter.evalOffset(offsetAst)
           val target = constInterpreter.evalSymbol(targetAst).name
-          Call(origin, offset, target)
+          call(offset, target)
         case Operation.CheckSize(lengthAst) =>
           assert(constInterpreter.evalLength(lengthAst) == constInterpreter.frameSize())
-          Jump(origin, origin.op.next)
+          jump(op.next)
         case Operation.Branch(modifierAst, lengthAst, op1Ast, op2Ast, targetAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val modifier = constInterpreter.evalSymbol(modifierAst).name
-          val target = label(fn, origin.op, constInterpreter.evalSymbol(targetAst).name)
+          val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
 
           val conditionModifier = modifier match {
             case "gt" => ConditionModifier.GT
@@ -54,29 +46,29 @@ object Nodes {
             case _ => throw new UnsupportedOperationException(modifier)
           }
           val impl = Condition.Binary(length, arg(length, op1Ast), conditionModifier, arg(length, op2Ast))
-          Branch(origin, impl, target)
+          branch(impl, target)
         case Operation.Jump(targetAst) =>
-          val target = label(fn, origin.op, constInterpreter.evalSymbol(targetAst).name)
-          Jump(origin, target)
+          val target = label(fn, op, constInterpreter.evalSymbol(targetAst).name)
+          jump(target)
         case Operation.Add(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          CommandRun(origin, Command.Sum(length, dst, arg(length, op1Ast), arg(length, op2Ast)))
+          commandRun(Command.Sum(length, dst, arg(length, op1Ast), arg(length, op2Ast)))
         case Operation.Mult(lengthAst, op1Ast, op2Ast, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          CommandRun(origin, Command.Mult(length, dst, arg(length, op1Ast), arg(length, op2Ast)))
+          commandRun(Command.Mult(length, dst, arg(length, op1Ast), arg(length, op2Ast)))
         case Operation.Neg(lengthAst, opAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          CommandRun(origin, Command.Negate(length, dst, arg(length, opAst)))
+          commandRun(Command.Negate(length, dst, arg(length, opAst)))
         case Operation.Set(lengthAst, srcAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
           val dst = toOperand(dstAst)
-          CommandRun(origin, Command.Set(length, dst, arg(length, srcAst)))
+          commandRun(Command.Set(length, dst, arg(length, srcAst)))
         case Operation.NotSpecialize(lengthAst, dstAst) =>
           val length = constInterpreter.evalLength(lengthAst)
-          NotSpecialize(origin, toOperand(dstAst), length)
+          notSpecialize(toOperand(dstAst), length)
         case op =>
           throw new IllegalArgumentException(s"unsupported operation '$op''")
       }
@@ -106,51 +98,35 @@ object Nodes {
         }
     }
 
-  abstract class Execute extends Node.Run with LeshyNode {
-    def specialize(before: SpecializationContext): SpecializationContext
+  private def execute(command: Command, specialize: SpecializationContext => SpecializationContext): Node.Run =
+    Node.Run(command, copy(op = op.next, ctx = specialize(ctx)))
 
-    final override def next: Node = Nodes.create(origin.copy(op = origin.op.next, ctx = specialize(origin.ctx)))
-  }
-
-  final case class CommandRun(origin: Origin, command: Command) extends Execute {
-    override def specialize(before: SpecializationContext): SpecializationContext = before.afterCommand(command)
-  }
+  private def commandRun(command: Command): Node.Run = execute(command, _.afterCommand(command))
 
   // Specialize can't implemented similarly because execution assumes spec ctx not changing between runs
-  final case class NotSpecialize(origin: Origin, dst: MemoryOperand, length: Int) extends Execute {
-    override def command: Command = Command.Noop
+  private def notSpecialize(dst: MemoryOperand, length: Int): Node.Run =
+    execute(Command.Noop, _.notSpecialize(dst, length))
 
-    override def specialize(before: SpecializationContext): SpecializationContext = before.notSpecialize(dst, length)
-  }
+  private def setSize(size: Int): Node.Run =
+    execute(Command.SetFramesize(size), _.setSize(size))
 
-  final case class SetSize(origin: Origin, size: Int) extends Execute {
-    override def command: Command = Command.SetFramesize(size)
+  private def jump(nextOp: OperationRef): Node.Run =
+    Node.Run(Command.Noop, copy(op = nextOp))
 
-    override def specialize(before: SpecializationContext): SpecializationContext = before.setSize(size)
-  }
+  private def branch(condition: Condition, target: OperationRef): Node.Branch =
+    Node.Branch(condition, copy(op = target), copy(op = op.next))
 
-  final case class Jump(origin: Origin, nextOp: OperationRef) extends Node.Run with LeshyNode {
-    override def command: Command = Command.Noop
-
-    override def next: Node = Nodes.create(origin.copy(op = nextOp))
-  }
-
-  final case class Branch(origin: Origin, condition: Condition, target: OperationRef) extends Node.Branch with LeshyNode {
-    override def ifTrue: Node = Nodes.create(origin.copy(op = target))
-
-    override def ifFalse: Node = Nodes.create(origin.copy(op = origin.op.next))
-  }
-
-  final case class Call(origin: Origin, offset: FrameOffset, target: String) extends Node.Call with LeshyNode {
-    override def call: Node = Nodes.create(origin.copy(op = OperationRef(target, 0), ctx = origin.ctx.offset(offset)))
-
-    override def next(returnNode: Node.Final): Node = {
-      val calleeCtx = returnNode.asInstanceOf[Final].origin.ctx
+  private def call(offset: FrameOffset, target: String): Node.Call = {
+    val callNode = copy(op = OperationRef(target, 0), ctx = ctx.offset(offset))
+    val nextNode = (returnNode: Node) => {
+      assert(returnNode.get() == Node.Final)
+      val calleeCtx = returnNode.asInstanceOf[LeshyNode].ctx
       // depending on calculation/specializations being made by callee next line node might be different
-      val nextCtx = origin.ctx.fnCall(offset, calleeCtx)
-      Nodes.create(origin.copy(op = origin.op.next, ctx = nextCtx))
+      val nextCtx = ctx.fnCall(offset, calleeCtx)
+      copy(op = op.next, ctx = nextCtx)
     }
+    Node.Call(offset, callNode, nextNode)
   }
 
-  final case class Final(origin: Origin) extends Node.Final with LeshyNode
+  override def toString: String = s"$op, $ctx"
 }

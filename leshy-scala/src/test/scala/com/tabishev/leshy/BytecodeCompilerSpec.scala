@@ -8,9 +8,11 @@ import java.util
 import scala.util.Random
 
 object TestNodes {
-  case class Final(id: Int = Random.nextInt()) extends Node.Final
-  case class Run(command: Command, next: Node) extends Node.Run
-  case class Branch(condition: Condition, ifTrue: Node, ifFalse: Node) extends Node.Branch
+  case class TestNode(id: Int, get: Node.Kind) extends Node
+
+  def finalNode(id: Int = Random.nextInt()): Node = TestNode(id, Node.Final)
+  def run(command: Command, next: Node): Node = TestNode(0, Node.Run(command, next))
+  def branch(condition: Condition, ifTrue: Node, ifFalse: Node): Node = TestNode(0, Node.Branch(condition, ifTrue, ifFalse))
 }
 
 class BytecodeCompilerSpec extends munit.FunSuite {
@@ -105,13 +107,13 @@ class BytecodeCompilerSpec extends munit.FunSuite {
   def longArg(value: Long): Either[Bytes, MemoryOperand] = Left(Bytes.fromLong(value))
 
   private def testExecution(prepare: StackMemory => Unit, command: Command): Unit =
-    check(prepare, TestNodes.Run(command, TestNodes.Final()))
+    check(prepare, TestNodes.run(command, TestNodes.finalNode()))
 
   private def testBranch(prepare: StackMemory => Unit, cond: Condition): Unit =
-    check(prepare, TestNodes.Branch(
+    check(prepare, TestNodes.branch(
       cond,
-      TestNodes.Run(Command.Set(4, MemoryOperand.Stack(FrameOffset.Zero), intArg(777)), TestNodes.Final()),
-      TestNodes.Run(Command.Set(4, MemoryOperand.Stack(FrameOffset.Zero), intArg(888)), TestNodes.Final())
+      TestNodes.run(Command.Set(4, MemoryOperand.Stack(FrameOffset.Zero), intArg(777)), TestNodes.finalNode()),
+      TestNodes.run(Command.Set(4, MemoryOperand.Stack(FrameOffset.Zero), intArg(888)), TestNodes.finalNode())
     ))
 
   private def check(prepare: StackMemory => Unit, node: Node): Unit = {
