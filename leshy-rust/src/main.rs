@@ -1,5 +1,6 @@
 use std::path::Path;
 
+mod example;
 mod lang;
 
 fn main() {
