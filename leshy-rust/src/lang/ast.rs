@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::lang::common::Bytes;
 
@@ -22,16 +23,16 @@ pub enum Address {
     // #[const, const, const]
     // while `base` and `limit` correspond to actual addresses on stack,
     // `offset` is correspond to stack position, where 4 bytes describe offset
-    StackOffset {
-        address: Const,
-        limit: Const,
-        offset: Const,
-    },
+    // StackOffset {
+    //    address: Const,
+    //    limit: Const,
+    //    offset: Const,
+    //},
 
     // Address in native memory corresponding to 8 bytes in stack starting from `stackOffset`
     // *const
     Native {
-        stackOffset: Const,
+        stack_offset: Const,
     },
 }
 
@@ -93,11 +94,11 @@ pub enum Operation {
     // `length` is treated as 8 bytes
     // todo: src can be only const or native address
     // todo: dst can be only Address::Native
-    SetNative {
-        length: Address,
-        src: ConstOrAddress,
-        dst: Address,
-    },
+    // SetNative {
+    //    length: Address,
+    //    src: ConstOrAddress,
+    //    dst: Address,
+    //},
 
     // Integer arithmetic operations
     Add {
@@ -120,17 +121,16 @@ pub enum Operation {
 }
 
 #[derive(Debug)]
-pub struct OperationWithSource {
-    operation: Operation,
-    source_line: i32,
+pub struct Source {
+    pub file: Rc<PathBuf>,
+    pub line: usize,
 }
 
 #[derive(Debug)]
-pub struct Fn {
-    name: String,
-    path: Box<Path>,
-    ops: Vec<OperationWithSource>,
-    labels: HashMap<String, i32>,
+pub struct Func {
+    pub name: String,
+    pub ops: Vec<(Operation, Source)>,
+    pub labels: HashMap<String, usize>,
 }
 
 impl ToString for Const {
@@ -155,14 +155,14 @@ fn test_to_string() {
         }
         .to_string()
     );
-    assert_eq!(
-        String::from("${4, 16_L}"),
-        Const::Stack {
-            from_offset: Bytes::from_i32(4),
-            length: Bytes::from_i64(16)
-        }
-        .to_string()
-    );
+//    assert_eq!(
+//        String::from("${4, 16_L}"),
+//        Const::Stack {
+//            from_offset: Bytes::from_i32(4),
+//            length: Bytes::from_i64(16)
+//        }
+//        .to_string()
+//    );
     assert_eq!(
         String::from(":symbol"),
         Const::Symbol {

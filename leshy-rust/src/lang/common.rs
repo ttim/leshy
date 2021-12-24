@@ -1,4 +1,4 @@
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Bytes {
     content: Vec<u8>,
 }
@@ -6,18 +6,6 @@ pub struct Bytes {
 impl Bytes {
     pub fn from_i32(value: i32) -> Bytes {
         Bytes { content: value.to_le_bytes().to_vec() }
-    }
-
-    pub fn from_i64(value: i64) -> Bytes {
-        Bytes { content: value.to_le_bytes().to_vec() }
-    }
-
-    pub fn from_bytes(value: Vec<u8>) -> Bytes {
-        Bytes { content: value }
-    }
-
-    pub fn from_string(value: String) -> Bytes {
-        Bytes { content: value.into_bytes() }
     }
 
     pub fn as_string(&self) -> Option<String> {
@@ -54,10 +42,8 @@ impl Bytes {
     pub fn as_base64(&self) -> String {
         base64::encode(&self.content)
     }
-}
 
-impl ToString for Bytes {
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         if let Some(s) = self.as_string() {
             return s;
         }
@@ -71,6 +57,12 @@ impl ToString for Bytes {
     }
 }
 
+impl core::fmt::Debug for Bytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_string())
+    }
+}
+
 #[test]
 fn decode_encode_i32() {
     let bytes = Bytes::from_i32(4);
@@ -80,20 +72,20 @@ fn decode_encode_i32() {
     assert_eq!(String::from("BAAAAA=="), bytes.as_base64());
 }
 
-#[test]
-fn decode_encode_i64() {
-    let bytes = Bytes::from_i64(16);
-    assert_eq!(None, bytes.as_i32());
-    assert_eq!(Some(16), bytes.as_i64());
-    assert_eq!(None, bytes.as_string());
-    assert_eq!(String::from("EAAAAAAAAAA="), bytes.as_base64());
-}
-
-#[test]
-fn decode_encode_string() {
-    let bytes = Bytes::from_string(String::from("hello"));
-    assert_eq!(None, bytes.as_i32());
-    assert_eq!(None, bytes.as_i64());
-    assert_eq!(Some(String::from("hello")), bytes.as_string());
-    assert_eq!(String::from("aGVsbG8="), bytes.as_base64());
-}
+//#[test]
+//fn decode_encode_i64() {
+//    let bytes = Bytes::from_i64(16);
+//    assert_eq!(None, bytes.as_i32());
+//    assert_eq!(Some(16), bytes.as_i64());
+//    assert_eq!(None, bytes.as_string());
+//    assert_eq!(String::from("EAAAAAAAAAA="), bytes.as_base64());
+//}
+//
+//#[test]
+//fn decode_encode_string() {
+//    let bytes = Bytes::from_string(String::from("hello"));
+//    assert_eq!(None, bytes.as_i32());
+//    assert_eq!(None, bytes.as_i64());
+//    assert_eq!(Some(String::from("hello")), bytes.as_string());
+//    assert_eq!(String::from("aGVsbG8="), bytes.as_base64());
+//}
