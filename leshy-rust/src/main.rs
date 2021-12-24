@@ -2,6 +2,7 @@ use std::path::Path;
 
 mod example;
 mod lang;
+mod node;
 
 fn main() {
     println!("Hello, leshy!");
