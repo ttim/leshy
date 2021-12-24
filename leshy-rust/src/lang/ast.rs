@@ -15,9 +15,7 @@ pub enum Const {
 pub enum Address {
     // Address in stack corresponding to `address`
     // #const
-    Stack {
-        address: Const,
-    },
+    Stack { address: Const },
 
     // Address in stack corresponding to 4 bytes in stack starting from `offset` after `base`, and must be less than `limit`
     // #[const, const, const]
@@ -31,9 +29,7 @@ pub enum Address {
 
     // Address in native memory corresponding to 8 bytes in stack starting from `stackOffset`
     // *const
-    Native {
-        stack_offset: Const,
-    },
+    Native { stack_offset: Const },
 }
 
 #[derive(Debug)]
@@ -155,14 +151,14 @@ fn test_to_string() {
         }
         .to_string()
     );
-//    assert_eq!(
-//        String::from("${4, 16_L}"),
-//        Const::Stack {
-//            from_offset: Bytes::from_i32(4),
-//            length: Bytes::from_i64(16)
-//        }
-//        .to_string()
-//    );
+    //    assert_eq!(
+    //        String::from("${4, 16_L}"),
+    //        Const::Stack {
+    //            from_offset: Bytes::from_i32(4),
+    //            length: Bytes::from_i64(16)
+    //        }
+    //        .to_string()
+    //    );
     assert_eq!(
         String::from(":symbol"),
         Const::Symbol {

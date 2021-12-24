@@ -1,4 +1,4 @@
-use std::{rc::Rc, collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, rc::Rc};
 
 use crate::lang::{ast::Func, parser::parse};
 
@@ -7,7 +7,7 @@ trait FuncLoader {
 }
 
 struct HashMapLoader {
-    funcs: HashMap<String, Rc<Func>>
+    funcs: HashMap<String, Rc<Func>>,
 }
 
 impl FuncLoader for HashMapLoader {
@@ -17,8 +17,11 @@ impl FuncLoader for HashMapLoader {
 }
 
 pub fn files_loader(paths: Vec<&Path>) -> impl FuncLoader {
-    let funcs: HashMap<String, Rc<Func>> = paths.iter().flat_map(|path| parse(path)).map(|func| {
-        (func.name.clone(), Rc::new(func))
-    }).collect();
-    HashMapLoader { funcs: funcs }
+    HashMapLoader {
+        funcs: paths
+            .iter()
+            .flat_map(|path| parse(path))
+            .map(|func| (func.name.clone(), Rc::new(func)))
+            .collect(),
+    }
 }

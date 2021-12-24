@@ -5,19 +5,24 @@ pub struct Bytes {
 
 impl Bytes {
     pub fn from_i32(value: i32) -> Bytes {
-        Bytes { content: value.to_le_bytes().to_vec() }
+        Bytes {
+            content: value.to_le_bytes().to_vec(),
+        }
     }
 
     pub fn as_string(&self) -> Option<String> {
         match std::str::from_utf8(&self.content) {
-            Ok(str) =>
-                if str.chars().all(|ch| { char::is_ascii_alphanumeric(&ch) || char::is_ascii_whitespace(&ch)}) {
+            Ok(str) => {
+                if str
+                    .chars()
+                    .all(|ch| char::is_ascii_alphanumeric(&ch) || char::is_ascii_whitespace(&ch))
+                {
                     Option::Some(String::from(str))
                 } else {
                     Option::None
                 }
-            Err(_) =>
-                Option::None,
+            }
+            Err(_) => Option::None,
         }
     }
 
