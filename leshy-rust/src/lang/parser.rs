@@ -9,11 +9,11 @@ use crate::lang::{
     common::Bytes,
 };
 
-pub fn parse(path: &Path) -> HashMap<String, Func> {
+pub fn parse(path: &Path) -> Vec<Func> {
     parse_text(path, &std::fs::read_to_string(path).unwrap())
 }
 
-pub fn parse_text(src: &Path, text: &str) -> HashMap<String, Func> {
+pub fn parse_text(src: &Path, text: &str) -> Vec<Func> {
     let src_rc: Rc<PathBuf> = Rc::new(PathBuf::from(src));
 
     let mut current_func: Vec<(usize, &str)> = vec![];
@@ -36,7 +36,7 @@ pub fn parse_text(src: &Path, text: &str) -> HashMap<String, Func> {
             .for_each(|f| funcs.push(f));
     }
 
-    funcs.into_iter().map(|e| (e.name.clone(), e)).collect()
+    funcs
 }
 
 fn parse_func(src: Rc<PathBuf>, lines: &Vec<(usize, &str)>) -> Option<Func> {
