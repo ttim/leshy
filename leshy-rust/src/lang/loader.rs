@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path, rc::Rc};
 
 use crate::lang::{ast::Func, parser::parse};
 
-trait FuncLoader {
+pub trait FuncLoader {
     fn load(&self, name: &str) -> Option<Rc<Func>>;
 }
 

@@ -68,6 +68,33 @@ impl core::fmt::Debug for Bytes {
     }
 }
 
+pub struct Stack {
+    bytes: [u8; 1000],
+    offset: usize,
+    size: usize,
+}
+
+impl Stack {
+    pub fn create() -> Stack {
+        Stack { bytes: [0; 1000], offset: 0, size: 0 }
+    }
+
+    pub fn push(&mut self, bytes: &Bytes) {
+        bytes.content.iter().enumerate().for_each(|(idx, byte)| {
+            self.bytes[self.offset + idx] = byte.clone();
+        });
+        self.size += bytes.content.len();
+    }
+
+    pub fn pull(&mut self) -> Bytes {
+        todo!()
+    }
+
+    pub fn check_frame_size(&self, size: usize) {
+        assert_eq!(size, self.size - self.offset)
+    }
+}
+
 #[test]
 fn decode_encode_i32() {
     let bytes = Bytes::from_i32(4);
