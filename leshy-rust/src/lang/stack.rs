@@ -10,14 +10,12 @@ impl Stack {
     }
 
     pub fn push(&mut self, bytes: &[u8]) {
-        bytes.iter().enumerate().for_each(|(idx, byte)| {
-            self.bytes[self.offset + idx] = byte.clone();
-        });
+        self.bytes.as_mut()[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
         self.size += bytes.len();
     }
 
     pub fn as_slice(&self) -> &[u8] {
-        &self.bytes.as_slice()[self.offset..(self.size-self.offset)]
+        &self.bytes.as_slice()[self.offset..self.size]
     }
 
     pub fn check_frame_size(&self, size: usize) {
