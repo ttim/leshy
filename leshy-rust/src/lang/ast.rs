@@ -1,15 +1,22 @@
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::lang::operations;
 use crate::lang::operations::bytes_to_string;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Const {
     Literal { bytes: Vec<u8> },
     Stack { from_offset: Vec<u8>, length: Vec<u8> },
     Symbol { name: String }, // get resolved to 4 bytes during execution
+}
+
+impl Debug for Const {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_string())
+    }
 }
 
 #[derive(Debug)]

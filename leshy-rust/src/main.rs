@@ -9,5 +9,5 @@ fn main() {
 
     lang::parser::parse(Path::new("../examples/factorial.lsh"))
         .iter()
-        .for_each(|func| println!("{:?}", func))
+        .for_each(|func| println!("{:#?}", func))
 }
