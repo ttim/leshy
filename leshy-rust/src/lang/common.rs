@@ -60,6 +60,10 @@ impl Bytes {
         }
         return self.as_base64();
     }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.content.as_slice()
+    }
 }
 
 impl core::fmt::Debug for Bytes {
