@@ -1,8 +1,7 @@
-use std::borrow::Borrow;
 use std::path::Path;
 use std::rc::Rc;
 use crate::lang::ast::{Address, Const, ConstOrAddress, Func, Operation};
-use crate::lang::common::{Bytes, Stack};
+use crate::lang::stack::Stack;
 use crate::lang::operations;
 use crate::lang::loader::{files_loader, FuncLoader};
 
@@ -20,24 +19,24 @@ fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stac
         Operation::Extend { .. } => { todo!() }
         Operation::Shrink { .. } => { todo!() }
         Operation::CheckSize { length } => {
-            stack.check_frame_size(operations::as_i32(eval_const(length)).unwrap() as usize)
+            stack.check_frame_size(operations::bytes_as_i32(eval_const(length)).unwrap() as usize)
         }
         Operation::Branch { modifier, length, op1, op2, target } => {
-            let modifierV = eval_const(modifier);
-            let lengthV = operations::as_i32(eval_const(length)).unwrap() as usize;
-            let op1V = eval_const_or_address(op1);
-            let op2V = eval_const_or_address(op2);
+            let modifier_v = eval_const(modifier);
+            let length_v = operations::bytes_as_i32(eval_const(length)).unwrap() as usize;
+            let op1_v = eval_const_or_address(op1);
+            let op2_v = eval_const_or_address(op2);
 
-            let branch_result = if modifierV == "eq".as_bytes() {
-                operations::equal(lengthV, op1V, op2V)
-            } else if modifierV == "ne".as_bytes() {
-                !operations::equal(lengthV, op1V, op2V)
-            } else if modifierV == "le".as_bytes() {
-                operations::less(lengthV, op1V, op2V, true)
-            } else if modifierV == "gt".as_bytes() {
-                !operations::less(lengthV, op1V, op2V, false)
+            let branch_result = if modifier_v == "eq".as_bytes() {
+                operations::equal(length_v, op1_v, op2_v)
+            } else if modifier_v == "ne".as_bytes() {
+                !operations::equal(length_v, op1_v, op2_v)
+            } else if modifier_v == "le".as_bytes() {
+                operations::less(length_v, op1_v, op2_v, true)
+            } else if modifier_v == "gt".as_bytes() {
+                !operations::less(length_v, op1_v, op2_v, false)
             } else {
-                panic!("can't interpret {}", String::from_utf8_lossy(modifierV))
+                panic!("can't interpret {}", String::from_utf8_lossy(modifier_v))
             };
 
             if branch_result {
@@ -58,7 +57,7 @@ fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stac
 
 fn eval_const(value: &Const) -> &[u8] {
     match value {
-        Const::Literal { bytes } => { bytes.as_bytes() }
+        Const::Literal { bytes } => { bytes.as_slice() }
         Const::Stack { .. } => { todo!() }
         Const::Symbol { name } => { todo!() }
     }
@@ -83,7 +82,7 @@ fn eval_symbol(value: &Const) -> &str {
 fn test_fib() {
     let loader = files_loader(vec![Path::new("../examples/fib.lsh")]);
     let mut stack = Stack::create();
-    stack.push(&Bytes::from_i32(8));
+    stack.push(&operations::bytes_from_i32(8));
     run(&loader, "fib4", &mut stack);
-    assert_eq!(Some(21), stack.pull().as_i32());
+    assert_eq!(Some(21), operations::bytes_as_i32(stack.as_slice()));
 }

@@ -1,5 +1,5 @@
 pub mod ast;
-pub mod common;
+pub mod stack;
 pub mod interpreter;
 pub mod loader;
 pub mod parser;

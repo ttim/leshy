@@ -4,10 +4,8 @@ use std::{
     rc::Rc,
 };
 
-use crate::lang::{
-    ast::{Address, Const, ConstOrAddress, Func, Operation, Source},
-    common::Bytes,
-};
+use crate::lang::ast::{Address, Const, ConstOrAddress, Func, Operation, Source};
+use crate::lang::operations;
 
 pub fn parse(path: &Path) -> Vec<Func> {
     parse_text(path, &std::fs::read_to_string(path).unwrap())
@@ -193,7 +191,7 @@ fn parse_const(s: &str) -> Const {
     if s.starts_with("$") {
         Const::Stack {
             from_offset: parse_literal(&s[1..]).unwrap(),
-            length: Bytes::from_i32(4),
+            length: operations::bytes_from_i32(4),
         }
     } else if s.starts_with(":") {
         Const::Symbol {
@@ -206,9 +204,9 @@ fn parse_const(s: &str) -> Const {
     }
 }
 
-fn parse_literal(s: &str) -> Option<Bytes> {
+fn parse_literal(s: &str) -> Option<Vec<u8>> {
     let as_i32: Result<i32, _> = s.parse();
-    as_i32.map(Bytes::from_i32).ok()
+    as_i32.map(operations::bytes_from_i32).ok()
 }
 
 #[test]

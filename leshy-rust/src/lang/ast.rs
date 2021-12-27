@@ -2,12 +2,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::lang::common::Bytes;
+use crate::lang::operations;
+use crate::lang::operations::bytes_to_string;
 
 #[derive(Clone, Debug)]
 pub enum Const {
-    Literal { bytes: Bytes },
-    Stack { from_offset: Bytes, length: Bytes },
+    Literal { bytes: Vec<u8> },
+    Stack { from_offset: Vec<u8>, length: Vec<u8> },
     Symbol { name: String }, // get resolved to 4 bytes during execution
 }
 
@@ -132,11 +133,11 @@ pub struct Func {
 impl ToString for Const {
     fn to_string(&self) -> String {
         match self {
-            Const::Literal { bytes } => bytes.to_string(),
+            Const::Literal { bytes } => bytes_to_string(bytes),
             Const::Stack {
                 from_offset,
                 length,
-            } => String::from("${") + &from_offset.to_string() + ", " + &length.to_string() + "}",
+            } => String::from("${") + &bytes_to_string(from_offset) + ", " + &bytes_to_string(length) + "}",
             Const::Symbol { name } => String::from(":") + name,
         }
     }
@@ -147,7 +148,7 @@ fn test_to_string() {
     assert_eq!(
         String::from("4"),
         Const::Literal {
-            bytes: Bytes::from_i32(4)
+            bytes: operations::bytes_from_i32(4)
         }
         .to_string()
     );
