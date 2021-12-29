@@ -17,7 +17,7 @@ pub fn run(loader: &impl FuncLoader, name: &str, stack: &mut Stack) {
 fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stack) -> usize {
     match &func.ops.get(line).unwrap().0 {
         Operation::Extend { length } => { stack.extend(eval_stack_size(stack, length)) }
-        Operation::Shrink { .. } => { todo!() }
+        Operation::Shrink { length } => { stack.shrink(eval_stack_size(stack, length)) }
         Operation::CheckSize { length } => {
             stack.check_frame_size(eval_stack_size(stack, length))
         }
@@ -39,11 +39,31 @@ fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stac
                 return func.labels.get(eval_symbol(target)).unwrap().clone();
             }
         }
-        Operation::Jump { .. } => { todo!() }
-        Operation::Call { .. } => { todo!() }
-        Operation::Specialize { .. } => { todo!() }
-        Operation::NotSpecialize { .. } => { todo!() }
-        Operation::Set { .. } => { todo!() }
+        Operation::Jump { target } => {
+            return *func.labels.get(eval_symbol(target)).unwrap()
+        }
+        Operation::Call { offset, target } => {
+            let offset_v = eval_stack_size(stack, offset);
+            stack.move_forward(offset_v);
+            run(loader, eval_symbol(target), stack);
+            stack.move_back(offset_v);
+        }
+        Operation::Specialize { .. } => {
+            // todo: track consts, noop for now
+        }
+        Operation::NotSpecialize { .. } => {
+            // todo: track consts, noop for now
+        }
+        Operation::Set { length, src, dst } => {
+            let len = eval_stack_size(stack, length);
+            match len {
+                4 => {
+                    let v = operations::get_i32(eval_const_or_address(stack, src)).unwrap();
+                    operations::put_i32(eval_address(stack, dst), v)
+                }
+                _ => { todo!() }
+            }
+        }
         Operation::Add { length, op1, op2, dst } => {
             let len = eval_stack_size(stack, length);
             // todo: is it possible to extract this code into separate function operations::add? seems like borrowing makes it hard
@@ -70,7 +90,7 @@ fn eval_const(value: &Const) -> &[u8] {
     match value {
         Const::Literal { bytes } => { bytes.as_slice() }
         Const::Stack { .. } => { todo!() }
-        Const::Symbol { name } => { todo!() }
+        Const::Symbol { .. } => { todo!() }
     }
 }
 

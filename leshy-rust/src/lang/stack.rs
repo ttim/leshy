@@ -18,6 +18,10 @@ impl Stack {
         self.size += size;
     }
 
+    pub fn shrink(&mut self, size: usize) {
+        self.size -= size;
+    }
+
     pub fn as_slice(&self, offset: usize) -> &[u8] {
         &self.bytes[(self.offset+offset)..self.size]
     }
@@ -32,5 +36,13 @@ impl Stack {
 
     pub fn check_frame_size(&self, size: usize) {
         assert_eq!(size, self.size - self.offset)
+    }
+
+    pub fn move_forward(&mut self, offset: usize) {
+        self.offset += offset;
+    }
+
+    pub fn move_back(&mut self, offset: usize) {
+        self.offset -= offset;
     }
 }
