@@ -78,6 +78,11 @@ fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stac
                     let v2 = operations::get_i32(&eval_const_or_address(stack, op2, len)).unwrap();
                     operations::put_i32(eval_address(stack, dst), v1 + v2)
                 }
+                8 => {
+                    let v1 = operations::get_i64(&eval_const_or_address(stack, op1, len)).unwrap();
+                    let v2 = operations::get_i64(&eval_const_or_address(stack, op2, len)).unwrap();
+                    operations::put_i64(eval_address(stack, dst), v1 + v2)
+                }
                 _ => { todo!() }
             }
         }
