@@ -24,11 +24,20 @@ pub fn bytes_as_i32(bytes: &[u8]) -> Option<i32> {
     get_i32(bytes)
 }
 
-// // Should it be DeRef or AsRef? Or Borrow/BorrowMut? Or AsRef/AsMut?
-// pub fn add(length: usize, op1: *[u8], op2: *[u8], dst: *mut [u8]) {
+// pub trait BytesRef {
+//     type BorrowT: AsRef<[u8]>;
+//     type BorrowMutT: AsMut<[u8]>;
+//
+//     fn borrow(&self) -> Self::BorrowT;
+//     fn borrow_mut(&self) -> Self::BorrowMutT;
+// }
+//
+// pub fn add(length: usize, op1: impl BytesRef, op2: impl BytesRef, dst: impl BytesRef) {
 //     match length {
 //         4 => {
-//             put_i32(dst.as_mut(), get_i32(op1.as_ref()) + get_i32(op2.as_ref()))
+//             let v1 = get_i32(op1.borrow().as_ref()).unwrap();
+//             let v2 = get_i32(op2.borrow().as_ref()).unwrap();
+//             put_i32(dst.borrow_mut().as_mut(), v1 + v2)
 //         }
 //         _ => { todo!() }
 //     }
