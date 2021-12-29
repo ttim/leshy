@@ -58,6 +58,9 @@ pub fn bytes_as_i64(bytes: &[u8]) -> Option<i64> {
 pub fn get_i64(bytes: &[u8]) -> Option<i64> {
     bytes[0..8].try_into().map(i64::from_le_bytes).ok()
 }
+pub fn put_i64(bytes: &mut [u8], value: i64) {
+    bytes[0..8].copy_from_slice(value.to_le_bytes().as_slice())
+}
 
 pub fn bytes_from_i32(value: i32) -> Vec<u8> {
     value.to_le_bytes().to_vec()
