@@ -1,18 +1,52 @@
-pub fn equal(len: usize, r1: &[u8], r2: &[u8]) -> bool {
-    todo!()
+pub fn cmp_eq(len: usize, r1: &[u8], r2: &[u8]) -> bool {
+    match len {
+        4 => { get_i32(r1) == get_i32(r2) }
+        _ => todo!()
+    }
 }
 
-pub fn less(len: usize, r1: &[u8], r2: &[u8], or_equal: bool) -> bool {
-    todo!()
+pub fn cmp_le(len: usize, r1: &[u8], r2: &[u8]) -> bool {
+    match len {
+        4 => { get_i32(r1) < get_i32(r2) }
+        _ => todo!()
+    }
+}
+
+pub fn cmp_gt(len: usize, r1: &[u8], r2: &[u8]) -> bool {
+    match len {
+        4 => { get_i32(r1) > get_i32(r2) }
+        _ => todo!()
+    }
 }
 
 pub fn bytes_as_i32(bytes: &[u8]) -> Option<i32> {
     if bytes.len() != 4 { return None }
+    get_i32(bytes)
+}
+
+// // Should it be DeRef or AsRef? Or Borrow/BorrowMut? Or AsRef/AsMut?
+// pub fn add(length: usize, op1: *[u8], op2: *[u8], dst: *mut [u8]) {
+//     match length {
+//         4 => {
+//             put_i32(dst.as_mut(), get_i32(op1.as_ref()) + get_i32(op2.as_ref()))
+//         }
+//         _ => { todo!() }
+//     }
+// }
+
+pub fn get_i32(bytes: &[u8]) -> Option<i32> {
     bytes[0..4].try_into().map(i32::from_le_bytes).ok()
+}
+pub fn put_i32(bytes: &mut [u8], value: i32) {
+    bytes[0..4].copy_from_slice(value.to_le_bytes().as_slice())
 }
 
 pub fn bytes_as_i64(bytes: &[u8]) -> Option<i64> {
     if bytes.len() != 8 { return None }
+    get_i64(bytes)
+}
+
+pub fn get_i64(bytes: &[u8]) -> Option<i64> {
     bytes[0..8].try_into().map(i64::from_le_bytes).ok()
 }
 

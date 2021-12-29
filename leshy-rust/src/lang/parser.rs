@@ -65,7 +65,7 @@ fn parse_func(src: Rc<PathBuf>, lines: &Vec<(usize, &str)>) -> Option<Func> {
                         operation,
                         Source {
                             file: src.clone(),
-                            line: line_num.clone(),
+                            line: *line_num,
                         },
                     ));
                 });

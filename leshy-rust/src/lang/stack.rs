@@ -10,12 +10,24 @@ impl Stack {
     }
 
     pub fn push(&mut self, bytes: &[u8]) {
-        self.bytes.as_mut()[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
+        self.bytes[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
         self.size += bytes.len();
     }
 
-    pub fn as_slice(&self) -> &[u8] {
-        &self.bytes.as_slice()[self.offset..self.size]
+    pub fn extend(&mut self, size: usize) {
+        self.size += size;
+    }
+
+    pub fn as_slice(&self, offset: usize) -> &[u8] {
+        &self.bytes[(self.offset+offset)..self.size]
+    }
+
+    pub fn as_slice_mut(&mut self, offset: usize) -> &mut [u8] {
+        &mut self.bytes[self.offset+offset..self.size]
+    }
+
+    pub fn frame_offset(&self, raw_offset: i32) -> usize {
+        if raw_offset >= 0 { raw_offset as usize } else { ((self.size - self.offset) as i32 + raw_offset) as usize }
     }
 
     pub fn check_frame_size(&self, size: usize) {

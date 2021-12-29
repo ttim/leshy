@@ -16,27 +16,23 @@ pub fn run(loader: &impl FuncLoader, name: &str, stack: &mut Stack) {
 // returns next line to evaluate
 fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stack) -> usize {
     match &func.ops.get(line).unwrap().0 {
-        Operation::Extend { .. } => { todo!() }
+        Operation::Extend { length } => { stack.extend(eval_stack_size(stack, length)) }
         Operation::Shrink { .. } => { todo!() }
         Operation::CheckSize { length } => {
-            stack.check_frame_size(operations::bytes_as_i32(eval_const(length)).unwrap() as usize)
+            stack.check_frame_size(eval_stack_size(stack, length))
         }
         Operation::Branch { modifier, length, op1, op2, target } => {
-            let modifier_v = eval_const(modifier);
-            let length_v = operations::bytes_as_i32(eval_const(length)).unwrap() as usize;
-            let op1_v = eval_const_or_address(op1);
-            let op2_v = eval_const_or_address(op2);
+            let modifier_v = eval_symbol(modifier);
+            let length_v = eval_stack_size(stack, length);
+            let op1_v = eval_const_or_address(stack, op1);
+            let op2_v = eval_const_or_address(stack, op2);
 
-            let branch_result = if modifier_v == "eq".as_bytes() {
-                operations::equal(length_v, op1_v, op2_v)
-            } else if modifier_v == "ne".as_bytes() {
-                !operations::equal(length_v, op1_v, op2_v)
-            } else if modifier_v == "le".as_bytes() {
-                operations::less(length_v, op1_v, op2_v, true)
-            } else if modifier_v == "gt".as_bytes() {
-                !operations::less(length_v, op1_v, op2_v, false)
-            } else {
-                panic!("can't interpret {}", String::from_utf8_lossy(modifier_v))
+            let branch_result = match modifier_v {
+                "eq" => { operations::cmp_eq(length_v, op1_v, op2_v) }
+                "ne" => { !operations::cmp_eq(length_v, op1_v, op2_v) }
+                "le" => { !operations::cmp_le(length_v, op1_v, op2_v) }
+                "gt" => { !operations::cmp_gt(length_v, op1_v, op2_v) }
+                _ => { panic!("can't interpret {}", modifier_v) }
             };
 
             if branch_result {
@@ -48,11 +44,26 @@ fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stac
         Operation::Specialize { .. } => { todo!() }
         Operation::NotSpecialize { .. } => { todo!() }
         Operation::Set { .. } => { todo!() }
-        Operation::Add { .. } => { todo!() }
+        Operation::Add { length, op1, op2, dst } => {
+            let len = eval_stack_size(stack, length);
+            // todo: is it possible to extract this code into separate function operations::add? seems like borrowing makes it hard
+            match len {
+                4 => {
+                    let v1 = operations::get_i32(eval_const_or_address(stack, op1)).unwrap();
+                    let v2 = operations::get_i32(eval_const_or_address(stack, op2)).unwrap();
+                    operations::put_i32(eval_address(stack, dst), v1 + v2)
+                }
+                _ => { todo!() }
+            }
+        }
         Operation::Mult { .. } => { todo!() }
         Operation::Neg { .. } => { todo!() }
     }
     line + 1
+}
+
+fn eval_stack_size(stack: &Stack, value: &Const) -> usize {
+    stack.frame_offset(operations::bytes_as_i32(eval_const(value)).unwrap())
 }
 
 fn eval_const(value: &Const) -> &[u8] {
@@ -63,19 +74,37 @@ fn eval_const(value: &Const) -> &[u8] {
     }
 }
 
-fn eval_const_or_address(value: &ConstOrAddress) -> &[u8] {
+fn eval_const_or_address<'a>(stack: &'a Stack, value: &'a ConstOrAddress) -> &'a [u8] {
     match value {
         ConstOrAddress::Left { value } => { eval_const(value) }
-        ConstOrAddress::Right { value } => { eval_address(value) }
+        ConstOrAddress::Right { value } => {
+            // todo: can't unify this with eval_address because of different mut requirements, is it possible to unify?
+            match value {
+                Address::Stack { address } => {
+                    let offset = operations::bytes_as_i32(eval_const(address)).unwrap();
+                    stack.as_slice(offset as usize)
+                }
+                Address::Native { .. } => { todo!() }
+            }
+        }
     }
 }
 
-fn eval_address(value: &Address) -> &mut [u8] {
-    todo!()
+fn eval_address<'a>(stack: &'a mut Stack, value: &'a Address) -> &'a mut [u8] {
+    match value {
+        Address::Stack { address } => {
+            stack.as_slice_mut(eval_stack_size(stack, address))
+        }
+        Address::Native { .. } => { todo!() }
+    }
 }
 
 fn eval_symbol(value: &Const) -> &str {
-    todo!()
+    match value {
+        Const::Literal { .. } => { todo!() }
+        Const::Stack { .. } => { todo!() }
+        Const::Symbol { name } => { name }
+    }
 }
 
 #[test]
@@ -84,5 +113,5 @@ fn test_fib() {
     let mut stack = Stack::create();
     stack.push(&operations::bytes_from_i32(8));
     run(&loader, "fib4", &mut stack);
-    assert_eq!(Some(21), operations::bytes_as_i32(stack.as_slice()));
+    assert_eq!(Some(21), operations::bytes_as_i32(stack.as_slice(0)));
 }
