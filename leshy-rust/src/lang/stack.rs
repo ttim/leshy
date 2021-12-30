@@ -1,7 +1,7 @@
 pub struct Stack {
     bytes: [u8; 1000],
-    offset: usize,
-    size: usize,
+    pub offset: usize,
+    pub size: usize,
 }
 
 impl Stack {
@@ -10,7 +10,7 @@ impl Stack {
     }
 
     pub fn push(&mut self, bytes: &[u8]) {
-        self.bytes[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
+        self.bytes[self.size..self.size + bytes.len()].copy_from_slice(bytes);
         self.size += bytes.len();
     }
 
