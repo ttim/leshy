@@ -1,6 +1,7 @@
 pub fn cmp_eq(len: usize, r1: &[u8], r2: &[u8]) -> bool {
     match len {
         4 => { get_i32(r1) == get_i32(r2) }
+        8 => { get_i64(r1) == get_i64(r2) }
         _ => todo!()
     }
 }
@@ -8,6 +9,7 @@ pub fn cmp_eq(len: usize, r1: &[u8], r2: &[u8]) -> bool {
 pub fn cmp_le(len: usize, r1: &[u8], r2: &[u8]) -> bool {
     match len {
         4 => { get_i32(r1) < get_i32(r2) }
+        8 => { get_i64(r1) < get_i64(r2) }
         _ => todo!()
     }
 }
@@ -15,6 +17,7 @@ pub fn cmp_le(len: usize, r1: &[u8], r2: &[u8]) -> bool {
 pub fn cmp_gt(len: usize, r1: &[u8], r2: &[u8]) -> bool {
     match len {
         4 => { get_i32(r1) > get_i32(r2) }
+        8 => { get_i64(r1) > get_i64(r2) }
         _ => todo!()
     }
 }

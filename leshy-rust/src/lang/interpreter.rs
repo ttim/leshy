@@ -32,8 +32,8 @@ fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stac
             let branch_result = match modifier_v {
                 "eq" => { operations::cmp_eq(length_v, &op1_v, &op2_v) }
                 "ne" => { !operations::cmp_eq(length_v, &op1_v, &op2_v) }
-                "le" => { !operations::cmp_le(length_v, &op1_v, &op2_v) }
-                "gt" => { !operations::cmp_gt(length_v, &op1_v, &op2_v) }
+                "le" => { operations::cmp_le(length_v, &op1_v, &op2_v) }
+                "gt" => { operations::cmp_gt(length_v, &op1_v, &op2_v) }
                 _ => { panic!("can't interpret {}", modifier_v) }
             };
 
@@ -87,8 +87,36 @@ fn run_line(loader: &impl FuncLoader, func: &Func, line: usize, stack: &mut Stac
                 _ => { todo!() }
             }
         }
-        Operation::Mult { .. } => { todo!() }
-        Operation::Neg { .. } => { todo!() }
+        Operation::Mult { length, op1, op2, dst } => {
+            let len = eval_stack_size(stack, length);
+            match len {
+                4 => {
+                    let v1 = operations::get_i32(&eval_const_or_address(stack, op1, len)).unwrap();
+                    let v2 = operations::get_i32(&eval_const_or_address(stack, op2, len)).unwrap();
+                    operations::put_i32(eval_address(stack, dst), v1 * v2)
+                }
+                8 => {
+                    let v1 = operations::get_i64(&eval_const_or_address(stack, op1, len)).unwrap();
+                    let v2 = operations::get_i64(&eval_const_or_address(stack, op2, len)).unwrap();
+                    operations::put_i64(eval_address(stack, dst), v1 * v2)
+                }
+                _ => { todo!() }
+            }
+        }
+        Operation::Neg { length, op, dst } => {
+            let len = eval_stack_size(stack, length);
+            match len {
+                4 => {
+                    let v = operations::get_i32(&eval_const_or_address(stack, op, len)).unwrap();
+                    operations::put_i32(eval_address(stack, dst), -v)
+                }
+                8 => {
+                    let v = operations::get_i64(&eval_const_or_address(stack, op, len)).unwrap();
+                    operations::put_i64(eval_address(stack, dst), -v)
+                }
+                _ => { todo!() }
+            }
+        }
     }
     line + 1
 }
@@ -193,4 +221,30 @@ fn test_fibx8() {
     assert_eq!(12, stack.size);
     assert_eq!(Some(8), operations::get_i32(stack.as_slice(0)));
     assert_eq!(Some(21), operations::get_i64(stack.as_slice(4)));
+}
+
+#[test]
+fn test_ffact4() {
+    let loader = files_loader(vec![Path::new("../examples/factorial.lsh")]);
+    let mut stack = Stack::create();
+    stack.push(&operations::bytes_from_i32(4));
+    stack.push(&operations::bytes_from_i32(8));
+    run(&loader, "ffactorial", &mut stack);
+    assert_eq!(0, stack.offset);
+    assert_eq!(8, stack.size);
+    assert_eq!(Some(4), operations::get_i32(stack.as_slice(0)));
+    assert_eq!(Some(8*6*4*2), operations::get_i32(stack.as_slice(4)));
+}
+
+#[test]
+fn test_ffact8() {
+    let loader = files_loader(vec![Path::new("../examples/factorial.lsh")]);
+    let mut stack = Stack::create();
+    stack.push(&operations::bytes_from_i32(8));
+    stack.push(&operations::bytes_from_i32(8));
+    run(&loader, "ffactorial", &mut stack);
+    assert_eq!(0, stack.offset);
+    assert_eq!(12, stack.size);
+    assert_eq!(Some(8), operations::get_i32(stack.as_slice(0)));
+    assert_eq!(Some(8*6*4*2), operations::get_i64(stack.as_slice(4)));
 }
