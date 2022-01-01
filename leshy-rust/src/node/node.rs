@@ -7,9 +7,13 @@ trait Node: Hash + PartialEq + Sized {
 enum NodeKind<N: Node> {
     Command { command: Command, next: N },
     Branch { condition: Condition, if_true: N, if_false: N },
-    Call { offset: u32, call: N, next: fn(N, N) -> N }, // ctx, final => next
+    Call { offset: u32, call: N, next: N },
     Final,
+    // More complicated version of Call where next node depends on returned value ctx, final => next
+    // CallDynamic { offset: u32, call: N, next: fn(N, N) -> N },
     // Specialize { offset: u32, length: u32, next: fn(N, [u8]) -> N }, // ctx, bytes => next
+    // To support invoke_dynamic like functionality
+    // Swap { src: N, dst: fn(N, N) -> N, next: N }, // replaces src node with dst node (as function of context node and previously set dst node) in execution
 }
 
 enum Command {
