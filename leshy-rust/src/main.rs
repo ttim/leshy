@@ -4,6 +4,7 @@ mod example;
 mod lang;
 mod node;
 mod indexed_data;
+mod webasm;
 
 fn main() {
     println!("Hello, leshy!");
