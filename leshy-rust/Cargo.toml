@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 base64 = "0.13.0"
+memmap = "0.7.0"
