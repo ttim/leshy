@@ -1,4 +1,4 @@
-use lazycell::LazyCell;
+use crate::webasm::lazy::Lazy;
 
 #[derive(Debug)]
 pub struct Module {
@@ -110,11 +110,4 @@ pub enum BlockType {
     Empty,
     ValType(ValType),
     TypeIdx(TypeIdx),
-}
-
-pub struct Lazy<T> {
-    pub(crate) start_offset: u32,
-    pub(crate) finish_offset: u32,
-    // todo: replace with OnceCell once it's in stable rust
-    pub(crate) cell: LazyCell<T>,
 }

@@ -1,9 +1,9 @@
-use std::any::type_name;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use lazycell::LazyCell;
 use crate::webasm::ast::*;
+use crate::webasm::lazy::{Lazy, Readable};
 
 // TODO: implement/use serde instead?
 // we can create abstraction of "tagged/with id" sources and keep this (uu)id in structs to enforce usage with same underlying reader
@@ -48,76 +48,76 @@ impl Module {
         Ok(module)
     }
 
-    pub fn hydrate(&self, src: &mut (impl Read + Seek)) {
-        Self::hydrate_section(&self.type_section, src);
-        Self::hydrate_section(&self.func_section, src);
-        Self::hydrate_section(&self.export_section, src);
-        Self::hydrate_section(&self.code_section, src);
-        self.other_sections.iter().for_each(|section| section.1.hydrate(src) );
-    }
-
     fn set_section<T>(dst: &mut Option<Lazy<T>>, start_offset: u32, finish_offset: u32) {
         *dst = Some(Lazy { start_offset, finish_offset, cell: LazyCell::new() })
     }
+}
 
-    fn hydrate_section<T, V: LazyImpl<T>>(dst: &Option<V>, src: &mut (impl Read + Seek)) {
-        if let Some(section) = &dst {
-            section.hydrate(src)
+pub mod hydrate {
+    use std::io::{Read, Seek};
+    use crate::webasm::ast::{CodeSection, Module};
+    use crate::webasm::lazy::{Lazy, Readable};
+    use crate::webasm::parser::hydrate;
+
+    pub fn module(module: &Module, src: &mut (impl Read + Seek)) {
+        hydrate::section(&module.type_section, src);
+        hydrate::section(&module.func_section, src);
+        hydrate::section(&module.export_section, src);
+        hydrate::section(&module.code_section, src);
+        module.other_sections.iter().for_each(|section| { section.1.get(src); });
+
+        if let Some(code) = &module.code_section {
+            hydrate::code_section(code.get(src), src);
         }
     }
-}
 
-pub trait LazyImpl<T> {
-    fn get(&self, src: &mut (impl Read + Seek)) -> &T;
+    fn section<T: Readable>(dst: &Option<Lazy<T>>, src: &mut (impl Read + Seek)) {
+        if let Some(section) = &dst {
+            section.get(src);
+        }
+    }
 
-    fn hydrate(&self, src: &mut (impl Read + Seek)) {
-        self.get(src);
+    fn code_section(section: &CodeSection, src: &mut (impl Read + Seek)) {
+        section.0.iter().for_each(|code| {
+           code.expr.get(src);
+        });
     }
 }
 
-impl LazyImpl<TypeSection> for Lazy<TypeSection> {
-    fn get(&self, src: &mut (impl Read + Seek)) -> &TypeSection {
-        get_lazy(self, src, |src| {
-            Ok(TypeSection(read_vector(src, |src| FuncType::read(src))?))
-        })
+impl Readable for TypeSection {
+    type Error = crate::webasm::parser::Error;
+    fn read(src: &mut (impl Read + Seek), _: u64) -> Result<Self> {
+        Ok(TypeSection(read_vector(src, |src| FuncType::read(src))?))
     }
 }
 
-impl LazyImpl<FuncSection> for Lazy<FuncSection> {
-    fn get(&self, src: &mut (impl Read + Seek)) -> &FuncSection {
-        get_lazy(self, src, |src| {
-            Ok(FuncSection(read_vector(src, |src| TypeIdx::read(src))?))
-        })
+impl Readable for FuncSection {
+    type Error = crate::webasm::parser::Error;
+    fn read(src: &mut (impl Read + Seek), _: u64) -> Result<Self> {
+        Ok(FuncSection(read_vector(src, |src| TypeIdx::read(src))?))
     }
 }
 
-impl LazyImpl<ExportSection> for Lazy<ExportSection> {
-    fn get(&self, src: &mut (impl Read + Seek)) -> &ExportSection {
-        get_lazy(self, src, |src| {
-            Ok(ExportSection(read_vector(src, |src| Export::read(src))?))
-        })
+impl Readable for ExportSection {
+    type Error = crate::webasm::parser::Error;
+    fn read(src: &mut (impl Read + Seek), _: u64) -> Result<Self> {
+        Ok(ExportSection(read_vector(src, |src| Export::read(src))?))
     }
 }
 
-impl LazyImpl<CodeSection> for Lazy<CodeSection> {
-    fn get(&self, src: &mut (impl Read + Seek)) -> &CodeSection {
-        get_lazy(self, src, |src| {
-            Ok(CodeSection(read_vector(src, |src| Code::read(src))?))
-        })
-    }
-
-    fn hydrate(&self, src: &mut (impl Read + Seek)) {
-        self.get(src).0.iter().for_each(|code| code.expr.hydrate(src))
+impl Readable for CodeSection {
+    type Error = crate::webasm::parser::Error;
+    fn read(src: &mut (impl Read + Seek), _: u64) -> Result<Self> {
+        Ok(CodeSection(read_vector(src, |src| Code::read(src))?))
     }
 }
 
-impl LazyImpl<UnrecognizedSection> for Lazy<UnrecognizedSection> {
-    fn get(&self, src: &mut (impl Read + Seek)) -> &UnrecognizedSection {
-        get_lazy(self, src, |src| {
-            let name = read_string(src)?;
-            src.seek(SeekFrom::Start(self.finish_offset as u64));
-            Ok(UnrecognizedSection(name))
-        })
+impl Readable for UnrecognizedSection {
+    type Error = crate::webasm::parser::Error;
+    fn read(src: &mut (impl Read + Seek), finish_offset: u64) -> Result<Self> {
+        let name = read_string(src)?;
+        src.seek(SeekFrom::Start(finish_offset))?;
+        Ok(UnrecognizedSection(name))
     }
 }
 
@@ -154,9 +154,10 @@ impl Code {
     }
 }
 
-impl LazyImpl<Vec<Instruction>> for Lazy<Vec<Instruction>> {
-    fn get(&self, src: &mut (impl Read + Seek)) -> &Vec<Instruction> {
-        get_lazy(self, src, |src| { Instruction::read_multiple(src) })
+impl Readable for Vec<Instruction> {
+    type Error = crate::webasm::parser::Error;
+    fn read(src: &mut (impl Read + Seek), _: u64) -> Result<Self> {
+        Instruction::read_multiple(src)
     }
 }
 
@@ -288,25 +289,6 @@ fn read_string(src: &mut (impl Read + Seek)) -> Result<String> {
     Ok(String::from_utf8(read_vector(src, |src| read_u8(src))?)?)
 }
 
-fn get_lazy<'a, 'b, T, S: Read + Seek, F: Fn(&mut S) -> Result<T>>(lazy: &'a Lazy<T>, src: &'b mut S, read: F) -> &'a T {
-    lazy.cell.borrow_with(|| {
-        src.seek(SeekFrom::Start(lazy.start_offset as u64)).unwrap();
-        let result = read(src).unwrap();
-        assert_eq!(lazy.finish_offset as u64, src.stream_position().unwrap());
-        result
-    })
-}
-
-impl<T: Debug> std::fmt::Debug for Lazy<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.cell.filled() {
-            self.cell.borrow().unwrap().fmt(f)
-        } else {
-            f.write_str(&format!("<lazy {} {}..{}>", type_name::<T>(), self.start_offset, self.finish_offset))
-        }
-    }
-}
-
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -322,6 +304,6 @@ impl<T: std::error::Error + 'static> From<T> for Error {
 fn test() {
     let mut file = File::open("data/fib.wasm").unwrap();
     let module = Module::read(&mut file).unwrap();
-    module.hydrate(&mut file);
+    hydrate::module(&module, &mut file);
     println!("{:#?}", module);
 }
