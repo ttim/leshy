@@ -158,7 +158,7 @@ impl Lazy<Vec<Instruction>> {
                 let bt = Self::read_block_type(src)?;
                 let finish_opcode = Self::read_internal(src, |opcode| opcode == 0x0B || opcode == 0x05, instructions)?;
                 if finish_opcode == 0x0B {
-                    let next = InstructionId(instructions.len() as u32);
+                    let next = InstructionIdx(instructions.len() as u32);
                     instructions[idx] = Instruction::If { bt, if_false: None, next };
                 } else {
                     todo!()

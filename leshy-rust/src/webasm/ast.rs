@@ -44,7 +44,7 @@ pub struct TypeIdx(pub u32);
 #[derive(Debug)]
 pub struct LocalIdx(pub u32);
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq)]
 pub struct FuncIdx(pub u32);
 
 #[derive(Debug)]
@@ -79,7 +79,7 @@ pub struct Locals {
 
 #[derive(Debug)]
 pub enum Instruction {
-    If { bt: BlockType, if_false: Option<InstructionId>, next: InstructionId },
+    If { bt: BlockType, if_false: Option<InstructionIdx>, next: InstructionIdx },
     Return,
     Call(FuncIdx),
     LocalGet(LocalIdx),
@@ -90,8 +90,8 @@ pub enum Instruction {
     __Temporary,
 }
 
-#[derive(Debug)]
-pub struct InstructionId(pub u32);
+#[derive(Debug, Hash, PartialEq)]
+pub struct InstructionIdx(pub u32);
 
 #[derive(Debug)]
 pub enum BlockType {
