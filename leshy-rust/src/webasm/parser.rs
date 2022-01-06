@@ -9,7 +9,7 @@ use crate::webasm::ast::*;
 // we can create abstraction of "tagged/with id" sources and keep this (uu)id in structs to enforce usage with same underlying reader
 
 impl Module {
-    fn read(src: &mut (impl Read + Seek)) -> Result<Module> {
+    pub fn read(src: &mut (impl Read + Seek)) -> Result<Module> {
         let mut asm_buf: [u8; 4] = [0; 4];
         src.read_exact(&mut asm_buf)?;
         assert_eq!("\0asm".as_bytes(), asm_buf);
@@ -67,7 +67,7 @@ impl Module {
     }
 }
 
-trait LazyImpl<T> {
+pub trait LazyImpl<T> {
     fn get(&self, src: &mut (impl Read + Seek)) -> &T;
 
     fn hydrate(&self, src: &mut (impl Read + Seek)) {
@@ -307,10 +307,10 @@ impl<T: Debug> std::fmt::Debug for Lazy<T> {
     }
 }
 
-type Result<T> = core::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
-struct Error(Box<dyn std::error::Error>);
+pub struct Error(Box<dyn std::error::Error>);
 
 impl<T: std::error::Error + 'static> From<T> for Error {
     fn from(error: T) -> Self {
@@ -320,8 +320,7 @@ impl<T: std::error::Error + 'static> From<T> for Error {
 
 #[test]
 fn test() {
-    let name = "data/fib.wasm";
-    let mut file = File::open(name).unwrap();
+    let mut file = File::open("data/fib.wasm").unwrap();
     let module = Module::read(&mut file).unwrap();
     module.hydrate(&mut file);
     println!("{:#?}", module);

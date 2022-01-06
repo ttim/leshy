@@ -56,7 +56,7 @@ pub struct TypeIdx(pub u32);
 #[derive(Debug)]
 pub struct LocalIdx(pub u32);
 
-#[derive(Debug, Hash, PartialEq)]
+#[derive(Debug)]
 pub struct FuncIdx(pub u32);
 
 #[derive(Debug)]
@@ -69,7 +69,7 @@ pub struct Export {
     pub idx: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ExportTag {
     Func,
     Table,
@@ -102,7 +102,7 @@ pub enum Instruction {
     __Temporary,
 }
 
-#[derive(Debug, Hash, PartialEq)]
+#[derive(Debug)]
 pub struct InstructionIdx(pub u32);
 
 #[derive(Debug)]
