@@ -6,7 +6,7 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::api::{Node, NodeKind, traverse_node};
 use crate::webasm::ast::{Code, ExportTag, FuncIdx, Instruction, InstructionIdx, Module};
-use crate::webasm::parser::hydrate;
+use crate::webasm::parser::hydrate::hydrate_module;
 
 struct Source {
     uuid: u128,
@@ -102,7 +102,7 @@ fn test_node_creation() {
     let name = String::from("data/fib.wasm");
     let mut file = File::open(&name).unwrap();
     let module = Module::read(&mut file).unwrap();
-    hydrate::module(&module, &mut file);
+    hydrate_module(&module, &mut file);
     let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
     let fib = WebAsmNode::exported_func(source.clone(), "fib");
     traverse_node(fib);
