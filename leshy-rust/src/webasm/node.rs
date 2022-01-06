@@ -55,7 +55,7 @@ impl WebAsmNode {
                 let code = section.get(src_ref.deref_mut());
                 let entry: &Code = code.0.get(self.func.0 as usize).unwrap();
                 let instructions = entry.expr.get(src_ref.deref_mut());
-                let inst = instructions.get(self.inst.0 as usize).unwrap();
+                let inst = instructions.0.get(self.inst.0 as usize).unwrap();
                 inst
             }
         }

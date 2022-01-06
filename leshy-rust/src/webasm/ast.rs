@@ -78,9 +78,12 @@ pub enum ExportTag {
 }
 
 #[derive(Debug)]
+pub struct Instructions(pub Vec<Instruction>);
+
+#[derive(Debug)]
 pub struct Code {
     pub locals: Vec<Locals>,
-    pub expr: Lazy<Vec<Instruction>>,
+    pub expr: Lazy<Instructions>,
 }
 
 #[derive(Debug)]

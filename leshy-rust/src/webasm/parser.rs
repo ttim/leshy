@@ -154,10 +154,10 @@ impl Code {
     }
 }
 
-impl Readable for Vec<Instruction> {
+impl Readable for Instructions {
     type Error = crate::webasm::parser::Error;
     fn read(src: &mut (impl Read + Seek), _: u64) -> Result<Self> {
-        Instruction::read_multiple(src)
+        Ok(Instructions(Instruction::read_multiple(src)?))
     }
 }
 
