@@ -1,10 +1,10 @@
 use std::hash::Hash;
 
-trait Node: Hash + PartialEq + Sized {
+pub trait Node: Hash + PartialEq + Sized {
     fn get(&self) -> NodeKind<Self>;
 }
 
-enum NodeKind<N: Node> {
+pub enum NodeKind<N: Node> {
     Command { command: Command, next: N },
     Branch { condition: Condition, if_true: N, if_false: N },
     Call { offset: u32, call: N, next: N },
@@ -16,10 +16,10 @@ enum NodeKind<N: Node> {
     // Swap { src: N, dst: fn(N, N) -> N, next: N }, // replaces src node with dst node (as function of context node and previously set dst node) in execution
 }
 
-enum Command {
+pub enum Command {
 }
 
-enum Condition {
+pub enum Condition {
 }
 
 #[derive(Hash, PartialEq)]

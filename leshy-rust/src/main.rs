@@ -2,7 +2,7 @@ use std::path::Path;
 
 mod example;
 mod lang;
-mod node;
+mod api;
 mod indexed_data;
 mod webasm;
 
