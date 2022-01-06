@@ -41,7 +41,7 @@ pub enum NumType {
 #[derive(Debug)]
 pub enum RefType {
     Func,
-    Extern,
+    // Extern,
 }
 
 #[derive(Debug)]
@@ -108,6 +108,6 @@ pub struct InstructionIdx(pub u32);
 #[derive(Debug)]
 pub enum BlockType {
     Empty,
-    ValType(ValType),
-    TypeIdx(TypeIdx),
+    // ValType(ValType),
+    // TypeIdx(TypeIdx),
 }

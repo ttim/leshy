@@ -10,6 +10,7 @@ pub enum NodeKind<N: Node> {
     Branch { condition: Condition, if_true: N, if_false: N },
     Call { offset: u32, call: N, next: N },
     Final,
+
     // More complicated version of Call where next node depends on returned value ctx, final => next
     // CallDynamic { offset: u32, call: N, next: fn(N, N) -> N },
     // Specialize { offset: u32, length: u32, next: fn(N, [u8]) -> N }, // ctx, bytes => next
