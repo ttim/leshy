@@ -18,55 +18,105 @@ impl Module {
         src.read_exact(&mut version_buf)?;
         assert_eq!(1, u32::from_le_bytes(version_buf));
 
-        let mut sections = Vec::new();
+        let mut module = Module {
+            type_section: None,
+            func_section: None,
+            export_section: None,
+            code_section: None,
+            other_sections: vec![],
+        };
         loop {
-            let start_offset = src.stream_position()? as u32;
-
-            if src.read(&mut [0; 1])? == 0 { break; }
+            let mut id = [0u8; 1];
+            if src.read(&mut id)? == 0 { break; }
 
             let content_size = read_u32(src)? as i64;
+            let start_offset = src.stream_position()? as u32;
             let finish_offset = src.seek(SeekFrom::Current(content_size))? as u32;
-            sections.push(Lazy { start_offset, finish_offset, cell: LazyCell::new() });
+
+            match id[0] {
+                1 => { Self::set_section(&mut module.type_section, start_offset, finish_offset) }
+                3 => { Self::set_section(&mut module.func_section, start_offset, finish_offset) }
+                7 => { Self::set_section(&mut module.export_section, start_offset, finish_offset) }
+                10 => { Self::set_section(&mut module.code_section, start_offset, finish_offset) }
+                other => {
+                    let section = Lazy::<UnrecognizedSection> { start_offset, finish_offset, cell: LazyCell::new() };
+                    module.other_sections.push((other, section));
+                }
+            }
         }
 
-        Ok(Module(sections))
-    }
-
-    fn hydrate(&self, src: &mut (impl Read + Seek)) {
-        self.0.iter().for_each(|section| section.hydrate(src))
-    }
-}
-
-impl Lazy<Section> {
-    pub fn get(&self, src: &mut (impl Read + Seek)) -> &Section {
-        self.cell.borrow_with(|| {
-            src.seek(SeekFrom::Start(self.start_offset as u64)).unwrap();
-            Self::read(src).unwrap()
-        })
+        Ok(module)
     }
 
     pub fn hydrate(&self, src: &mut (impl Read + Seek)) {
-        match self.get(src) {
-            Section::Type(..) => {}
-            Section::Func(..) => {}
-            Section::Export(..) => {}
-            Section::Code(codes) => { codes.iter().for_each(|code| code.expr.hydrate(src)) }
-            Section::NotRecognized => {}
-        }
+        Self::hydrate_section(&self.type_section, src);
+        Self::hydrate_section(&self.func_section, src);
+        Self::hydrate_section(&self.export_section, src);
+        Self::hydrate_section(&self.code_section, src);
+        self.other_sections.iter().for_each(|section| section.1.hydrate(src) );
     }
 
-    fn read(src: &mut (impl Read + Seek)) -> Result<Section> {
-        let id = read_u8(src)?;
-        let size = read_u32(src)?;
-        Ok(match id {
-            1 => { Section::Type(read_vector(src, |src| FuncType::read(src))?) }
-            3 => { Section::Func(read_vector(src, |src| TypeIdx::read(src))?) }
-            7 => { Section::Export(read_vector(src, |src| Export::read(src))?) }
-            10 => { Section::Code(read_vector(src, |src| Code::read(src))?) }
-            _ => {
-                src.seek(SeekFrom::Current(size as i64))?;
-                Section::NotRecognized
-            }
+    fn set_section<T>(dst: &mut Option<Lazy<T>>, start_offset: u32, finish_offset: u32) {
+        *dst = Some(Lazy { start_offset, finish_offset, cell: LazyCell::new() })
+    }
+
+    fn hydrate_section<T, V: LazyImpl<T>>(dst: &Option<V>, src: &mut (impl Read + Seek)) {
+        if let Some(section) = &dst {
+            section.hydrate(src)
+        }
+    }
+}
+
+trait LazyImpl<T> {
+    fn get(&self, src: &mut (impl Read + Seek)) -> &T;
+
+    fn hydrate(&self, src: &mut (impl Read + Seek)) {
+        self.get(src);
+    }
+}
+
+impl LazyImpl<TypeSection> for Lazy<TypeSection> {
+    fn get(&self, src: &mut (impl Read + Seek)) -> &TypeSection {
+        get_lazy(self, src, |src| {
+            Ok(TypeSection(read_vector(src, |src| FuncType::read(src))?))
+        })
+    }
+}
+
+impl LazyImpl<FuncSection> for Lazy<FuncSection> {
+    fn get(&self, src: &mut (impl Read + Seek)) -> &FuncSection {
+        get_lazy(self, src, |src| {
+            Ok(FuncSection(read_vector(src, |src| TypeIdx::read(src))?))
+        })
+    }
+}
+
+impl LazyImpl<ExportSection> for Lazy<ExportSection> {
+    fn get(&self, src: &mut (impl Read + Seek)) -> &ExportSection {
+        get_lazy(self, src, |src| {
+            Ok(ExportSection(read_vector(src, |src| Export::read(src))?))
+        })
+    }
+}
+
+impl LazyImpl<CodeSection> for Lazy<CodeSection> {
+    fn get(&self, src: &mut (impl Read + Seek)) -> &CodeSection {
+        get_lazy(self, src, |src| {
+            Ok(CodeSection(read_vector(src, |src| Code::read(src))?))
+        })
+    }
+
+    fn hydrate(&self, src: &mut (impl Read + Seek)) {
+        self.get(src).0.iter().for_each(|code| code.expr.hydrate(src))
+    }
+}
+
+impl LazyImpl<UnrecognizedSection> for Lazy<UnrecognizedSection> {
+    fn get(&self, src: &mut (impl Read + Seek)) -> &UnrecognizedSection {
+        get_lazy(self, src, |src| {
+            let name = read_string(src)?;
+            src.seek(SeekFrom::Start(self.finish_offset as u64));
+            Ok(UnrecognizedSection(name))
         })
     }
 }
@@ -104,21 +154,14 @@ impl Code {
     }
 }
 
-impl Lazy<Vec<Instruction>> {
-    pub fn get(&self, src: &mut (impl Read + Seek)) -> &Vec<Instruction> {
-        self.cell.borrow_with(|| {
-            src.seek(SeekFrom::Start(self.start_offset as u64)).unwrap();
-            let result = Self::read(src).unwrap();
-            assert_eq!(self.finish_offset, src.stream_position().unwrap() as u32);
-            result
-        })
+impl LazyImpl<Vec<Instruction>> for Lazy<Vec<Instruction>> {
+    fn get(&self, src: &mut (impl Read + Seek)) -> &Vec<Instruction> {
+        get_lazy(self, src, |src| { Instruction::read_multiple(src) })
     }
+}
 
-    pub fn hydrate(&self, src: &mut (impl Read + Seek)) {
-        self.get(src);
-    }
-
-    fn read(src: &mut (impl Read + Seek)) -> Result<Vec<Instruction>> {
+impl Instruction {
+    fn read_multiple(src: &mut (impl Read + Seek)) -> Result<Vec<Instruction>> {
         let mut vec = vec![];
         Self::read_internal(src, |b| b == 0x0B, &mut vec)?;
         Ok(vec)
@@ -243,6 +286,15 @@ fn read_vector<T: Read + Seek, V, F: Fn(&mut T) -> Result<V>>(src: &mut T, parse
 
 fn read_string(src: &mut (impl Read + Seek)) -> Result<String> {
     Ok(String::from_utf8(read_vector(src, |src| read_u8(src))?)?)
+}
+
+fn get_lazy<'a, 'b, T, S: Read + Seek, F: Fn(&mut S) -> Result<T>>(lazy: &'a Lazy<T>, src: &'b mut S, read: F) -> &'a T {
+    lazy.cell.borrow_with(|| {
+        src.seek(SeekFrom::Start(lazy.start_offset as u64)).unwrap();
+        let result = read(src).unwrap();
+        assert_eq!(lazy.finish_offset as u64, src.stream_position().unwrap());
+        result
+    })
 }
 
 impl<T: Debug> std::fmt::Debug for Lazy<T> {

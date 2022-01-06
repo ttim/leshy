@@ -1,16 +1,28 @@
 use lazycell::LazyCell;
 
 #[derive(Debug)]
-pub struct Module(pub Vec<Lazy<Section>>);
+pub struct Module {
+    pub type_section: Option<Lazy<TypeSection>>,
+    pub func_section: Option<Lazy<FuncSection>>,
+    pub export_section: Option<Lazy<ExportSection>>,
+    pub code_section: Option<Lazy<CodeSection>>,
+    pub other_sections: Vec<(u8, Lazy<UnrecognizedSection>)>,
+}
 
 #[derive(Debug)]
-pub enum Section {
-    Type(Vec<FuncType>),
-    Func(Vec<TypeIdx>),
-    Export(Vec<Export>),
-    Code(Vec<Code>),
-    NotRecognized,
-}
+pub struct TypeSection(pub Vec<FuncType>);
+
+#[derive(Debug)]
+pub struct FuncSection(pub Vec<TypeIdx>);
+
+#[derive(Debug)]
+pub struct ExportSection(pub Vec<Export>);
+
+#[derive(Debug)]
+pub struct CodeSection(pub Vec<Code>);
+
+#[derive(Debug)]
+pub struct UnrecognizedSection(pub String);
 
 #[derive(Debug)]
 pub struct FuncType {
