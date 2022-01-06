@@ -142,9 +142,9 @@ impl Lazy<Vec<Instruction>> {
             0x10 => { Instruction::Call(FuncIdx::read(src)?) }
             0x20 => { Instruction::LocalGet(LocalIdx::read(src)?) }
             0x41 => { Instruction::I32Const(read_i32(src)?) }
-            0x46 => { Instruction::Eq(ValType::I32) }
-            0x6A => { Instruction::Add(ValType::I32) }
-            0x6B => { Instruction::Sub(ValType::I32) }
+            0x46 => { Instruction::Eq(NumType::I32) }
+            0x6A => { Instruction::Add(NumType::I32) }
+            0x6B => { Instruction::Sub(NumType::I32) }
             _ => { panic!("unsupported opcode {}", opcode) }
         })
     }
@@ -193,10 +193,12 @@ impl FuncType {
 impl ValType {
     fn read(src: &mut (impl Read + Seek)) -> Result<ValType> {
         Ok(match read_u8(src)? {
-            0x7F => { ValType::I32 }
-            0x7E => { ValType::I64 }
-            0x7D => { ValType::F32 }
-            0x7C => { ValType::F64 }
+            0x7F => { ValType::Num(NumType::I32) }
+            0x7E => { ValType::Num(NumType::I64) }
+            0x7D => { ValType::Num(NumType::F32) }
+            0x7C => { ValType::Num(NumType::F64) }
+            0x70 => { ValType::Ref(RefType::Func) }
+            0x6F => { ValType::Ref(RefType::Func) }
             other => { panic!("unsupported val type {}", other); }
         })
     }

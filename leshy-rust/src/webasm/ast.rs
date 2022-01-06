@@ -19,11 +19,23 @@ pub struct FuncType {
 }
 
 #[derive(Debug)]
-pub enum ValType {
+pub enum NumType {
     I32,
     I64,
     F32,
     F64,
+}
+
+#[derive(Debug)]
+pub enum RefType {
+    Func,
+    Extern,
+}
+
+#[derive(Debug)]
+pub enum ValType {
+    Num(NumType),
+    Ref(RefType),
 }
 
 #[derive(Debug)]
@@ -72,9 +84,9 @@ pub enum Instruction {
     Call(FuncIdx),
     LocalGet(LocalIdx),
     I32Const(i32),
-    Eq(ValType),
-    Add(ValType),
-    Sub(ValType),
+    Eq(NumType),
+    Add(NumType),
+    Sub(NumType),
     __Temporary,
 }
 
