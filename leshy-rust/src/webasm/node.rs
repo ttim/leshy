@@ -1,12 +1,11 @@
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::api::{Node, NodeKind, traverse_node};
-use crate::webasm::ast::{ExportSection, ExportTag, FuncIdx, InstructionIdx, Lazy, Module};
+use crate::webasm::ast::{Code, ExportTag, FuncIdx, Instruction, InstructionIdx, Module};
 use crate::webasm::parser::LazyImpl;
 
 struct Source {
@@ -47,6 +46,20 @@ impl WebAsmNode {
             }
         }
     }
+
+    fn instruction(&self) -> &Instruction {
+        match &self.source.module.code_section {
+            None => { panic!() }
+            Some(section) => {
+                let mut src_ref = self.source.file.borrow_mut();
+                let code = section.get(src_ref.deref_mut());
+                let entry: &Code = code.0.get(self.func.0 as usize).unwrap();
+                let instructions = entry.expr.get(src_ref.deref_mut());
+                let inst = instructions.get(self.inst.0 as usize).unwrap();
+                inst
+            }
+        }
+    }
 }
 
 impl Hash for WebAsmNode {
@@ -70,13 +83,23 @@ impl PartialEq<Self> for WebAsmNode {
 impl Node for WebAsmNode {
     fn get(&self) -> NodeKind<Self> {
         println!("getting content for {:?}", &self);
-        todo!()
+        match self.instruction() {
+            Instruction::If { .. } => { todo!() }
+            Instruction::Return => { todo!() }
+            Instruction::Call(_) => { todo!() }
+            Instruction::LocalGet(_) => { todo!() }
+            Instruction::I32Const(_) => { todo!() }
+            Instruction::Eq(_) => { todo!() }
+            Instruction::Add(_) => { todo!() }
+            Instruction::Sub(_) => { todo!() }
+            Instruction::__Temporary => { todo!() }
+        }
     }
 }
 
 #[test]
 fn test_node_creation() {
-    let mut name = String::from("data/fib.wasm");
+    let name = String::from("data/fib.wasm");
     let mut file = File::open(&name).unwrap();
     let module = Module::read(&mut file).unwrap();
     module.hydrate(&mut file);
