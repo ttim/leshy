@@ -114,12 +114,12 @@ impl InstructionNode {
         }
     }
 
-    fn next(&self, stack_size_change: i32) -> WebAsmNode {
+    fn next(&self, stack_size_delta: i32) -> WebAsmNode {
         WebAsmNode::Instruction(InstructionNode {
             source: self.source.clone(),
             func: self.func.clone(),
             inst: InstructionIdx(self.inst.0 + 1),
-            stack_size: ((self.stack_size as i32) + stack_size_change) as u32
+            stack_size: ((self.stack_size as i32) + stack_size_delta) as u32
         })
     }
 
@@ -143,23 +143,23 @@ impl InstructionNode {
                 Instruction::Return => { todo!() }
                 Instruction::Call(_) => { todo!() }
                 Instruction::LocalGet(id) => {
-                    self.command(Command::Push { src: self.local_ref(id), size: self.local_size(id) as u32 })
+                    self.push(self.local_size(id) as u32, self.local_ref(id))
                 }
                 Instruction::I32Const(value) => {
-                    self.command(Command::PushConst { bytes: value.to_le_bytes().to_vec() })
+                    self.push_const(value.to_le_bytes().to_vec())
                 }
                 Instruction::Eq(num_type) => {
                     let size = InstructionNode::num_type_size(num_type) as u32;
 
                     let next_node = |byte_to_write: u32| -> WebAsmNode {
-                        let shrink_size = size * 2 - 4; // - 2 operands + 1 bool
+                        let delta = - ((size * 2 - 4) as i32); // - 2 operands + 1 bool
                         let dst = Ref::Stack { offset: self.stack_size - size * 2 };
                         WebAsmNode::Intermediate(Box::new(NodeKind::Command {
                             command: Command::WriteConst { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
                             next: WebAsmNode::Intermediate(
                                 Box::new(NodeKind::Command {
-                                    command: Command::Shrink { size: shrink_size },
-                                    next: self.next(-(shrink_size as i32)),
+                                    command: Command::Resize { delta },
+                                    next: self.next(delta),
                                 })
                             ),
                         }))
@@ -183,6 +183,21 @@ impl InstructionNode {
 
         println!("computed: {:?}", kind);
         kind
+    }
+
+    fn push_const(&self, bytes: Vec<u8>) -> NodeKind<WebAsmNode> {
+        let delta = bytes.len() as i32;
+        NodeKind::Command {
+            command: Command::PushConst { bytes },
+            next: self.next(delta),
+        }
+    }
+
+    fn push(&self, size: u32, src: Ref) -> NodeKind<WebAsmNode> {
+        NodeKind::Command {
+            command: Command::Push { size, src },
+            next: self.next(size as i32),
+        }
     }
 }
 

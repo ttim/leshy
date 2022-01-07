@@ -30,14 +30,14 @@ pub enum Command {
     Push { size: u32, src: Ref },
     PushConst { bytes: Vec<u8> },
     WriteConst { dst: Ref, bytes: Vec<u8> },
-    Shrink { size: u32 },
+    Resize { delta: i32 },
 }
 
 pub fn stack_size_change(command: &Command) -> i32 {
     match command {
         Command::Push { size, .. } => { *size as i32 }
         Command::PushConst { bytes } => { bytes.len() as i32 }
-        Command::Shrink { size } => { -(*size as i32) }
+        Command::Resize { delta } => { *delta }
         Command::WriteConst { .. } => { 0 }
     }
 }
