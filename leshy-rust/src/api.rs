@@ -32,8 +32,8 @@ pub enum Command {
     Resize { delta: i32 },
     CheckSize { stack_size: u32 },
 
-    WriteConst { dst: Ref, bytes: Vec<u8> },
-    Write { dst: Ref, size: u32, src: Ref },
+    Set { dst: Ref, bytes: Vec<u8> },
+    Copy { dst: Ref, size: u32, src: Ref },
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]

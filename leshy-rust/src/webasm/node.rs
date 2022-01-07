@@ -207,7 +207,7 @@ impl InstructionNode {
                     let delta = -((size * 2 - 4) as i32); // - 2 operands + 1 bool
                     let dst = Ref::Stack(self.stack_size - size * 2);
                     WebAsmNode::Intermediate(Box::new(NodeKind::Command {
-                        command: Command::WriteConst { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
+                        command: Command::Set { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
                         next: WebAsmNode::Intermediate(
                             Box::new(NodeKind::Command {
                                 command: Command::Resize { delta },
@@ -240,7 +240,7 @@ impl InstructionNode {
         NodeKind::Command {
             command: Command::Resize { delta },
             next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
-                command: Command::WriteConst { dst: Ref::Stack(self.stack_size), bytes },
+                command: Command::Set { dst: Ref::Stack(self.stack_size), bytes },
                 next: self.next(delta),
             })),
         }
@@ -251,7 +251,7 @@ impl InstructionNode {
         NodeKind::Command {
             command: Command::Resize { delta },
             next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
-                command: Command::Write { size, dst: Ref::Stack(self.stack_size), src },
+                command: Command::Copy { size, dst: Ref::Stack(self.stack_size), src },
                 next: self.next(delta),
             })),
         }
@@ -261,7 +261,7 @@ impl InstructionNode {
         let ret_size = self.ctx.func_type().results.iter().map(|tpe| InstructionNode::val_type_size(tpe) as u32).sum();
         NodeKind::Command {
             // copy result
-            command: Command::Write {
+            command: Command::Copy {
                 dst: Ref::Stack(0),
                 size: ret_size,
                 src: Ref::Stack(self.stack_size - ret_size),
