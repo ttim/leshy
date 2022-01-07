@@ -4,7 +4,7 @@ use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
-use crate::api::{Command, Condition, Node, NodeKind, Ref, stack_size_change, traverse_node};
+use crate::api::{Command, Condition, Node, NodeKind, Ref, traverse_node};
 use crate::webasm::ast::{Code, ExportTag, FuncIdx, FuncType, Instruction, InstructionIdx, LocalIdx, Module, NumType, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
 use crate::webasm::parser::hydrate::hydrate_module;
@@ -123,9 +123,13 @@ impl InstructionNode {
         })
     }
 
-    fn command(&self, command: Command) -> NodeKind<WebAsmNode> {
-        let change = stack_size_change(&command);
-        NodeKind::Command { command, next: self.next(change) }
+    fn goto(&self, op: &InstructionIdx) -> WebAsmNode {
+        WebAsmNode::Instruction(InstructionNode {
+            source: self.source.clone(),
+            func: self.func.clone(),
+            inst: (*op).clone(),
+            stack_size: self.stack_size
+        })
     }
 
     fn after_last_instruction(&self) -> bool {
@@ -139,7 +143,19 @@ impl InstructionNode {
             NodeKind::Final
         } else {
             match self.instruction() {
-                Instruction::If { .. } => { todo!() }
+                // block type not really needed apart from validation purposes
+                Instruction::If { bt: _, if_false, next } => {
+                    NodeKind::Branch {
+                        condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
+                        if_true: self.next(0),
+                        if_false:
+                        if let Some(if_false_idx) = if_false {
+                            self.goto(if_false_idx)
+                        } else {
+                            self.goto(next)
+                        },
+                    }
+                }
                 Instruction::Return => { todo!() }
                 Instruction::Call(_) => { todo!() }
                 Instruction::LocalGet(id) => {

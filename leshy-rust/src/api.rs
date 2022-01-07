@@ -32,17 +32,10 @@ pub enum Command {
     Resize { delta: i32 },
 }
 
-pub fn stack_size_change(command: &Command) -> i32 {
-    match command {
-        Command::Resize { delta } => { *delta }
-        Command::WriteConst { .. } => { 0 }
-        Command::Write { .. } => { 0 }
-    }
-}
-
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum Condition {
     Eq { size: u32, op1: Ref, op2: Ref },
+    Ne0 { size: u32, src: Ref }, // not equal to zero, similar to c ifs
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
