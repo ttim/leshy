@@ -29,8 +29,7 @@ pub enum Ref {
 pub enum Command {
     Push { size: u32, src: Ref },
     PushConst { bytes: Vec<u8> },
-    // todo: can be implemented using condition + two different writes, should it be?
-    Eq { size: u32, op1: Ref, op2: Ref, dst: Ref },
+    WriteConst { dst: Ref, bytes: Vec<u8> },
     Shrink { size: u32 },
 }
 
@@ -38,13 +37,14 @@ pub fn stack_size_change(command: &Command) -> i32 {
     match command {
         Command::Push { size, .. } => { *size as i32 }
         Command::PushConst { bytes } => { bytes.len() as i32 }
-        Command::Eq { .. } => { 0 }
         Command::Shrink { size } => { -(*size as i32) }
+        Command::WriteConst { .. } => { 0 }
     }
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum Condition {
+    Eq { size: u32, op1: Ref, op2: Ref },
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]

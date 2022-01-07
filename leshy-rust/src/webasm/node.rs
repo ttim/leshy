@@ -4,7 +4,7 @@ use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
-use crate::api::{Command, Node, NodeKind, Ref, stack_size_change, traverse_node};
+use crate::api::{Command, Condition, Node, NodeKind, Ref, stack_size_change, traverse_node};
 use crate::webasm::ast::{Code, ExportTag, FuncIdx, FuncType, Instruction, InstructionIdx, LocalIdx, Module, NumType, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
 use crate::webasm::parser::hydrate::hydrate_module;
@@ -150,19 +150,29 @@ impl InstructionNode {
                 }
                 Instruction::Eq(num_type) => {
                     let size = InstructionNode::num_type_size(num_type) as u32;
-                    let shrink_size = size * 2 - 4;
-                    let cmd1 = Command::Eq {
-                        size,
-                        op1: Ref::Stack { offset: self.stack_size - size * 2 },
-                        op2: Ref::Stack { offset: self.stack_size - size },
-                        dst: Ref::Stack { offset: self.stack_size - size * 2 },
-                    };
-                    let cmd2 = Command::Shrink { size: shrink_size }; // - 2 operands + 1 bool
-                    let inner_cmd = NodeKind::Command { command: cmd2, next: self.next(-(shrink_size as i32)) };
 
-                    NodeKind::Command {
-                        command: cmd1,
-                        next: WebAsmNode::Intermediate(Box::new(inner_cmd)),
+                    let next_node = |byte_to_write: u32| -> WebAsmNode {
+                        let shrink_size = size * 2 - 4; // - 2 operands + 1 bool
+                        let dst = Ref::Stack { offset: self.stack_size - size * 2 };
+                        WebAsmNode::Intermediate(Box::new(NodeKind::Command {
+                            command: Command::WriteConst { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
+                            next: WebAsmNode::Intermediate(
+                                Box::new(NodeKind::Command {
+                                    command: Command::Shrink { size: shrink_size },
+                                    next: self.next(-(shrink_size as i32)),
+                                })
+                            ),
+                        }))
+                    };
+
+                    NodeKind::Branch {
+                        condition: Condition::Eq {
+                            size,
+                            op1: Ref::Stack { offset: self.stack_size - size * 2 },
+                            op2: Ref::Stack { offset: self.stack_size - size },
+                        },
+                        if_true: next_node(0),
+                        if_false: next_node(1),
                     }
                 }
                 Instruction::Add(_) => { todo!() }
