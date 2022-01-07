@@ -149,8 +149,19 @@ impl InstructionNode {
                     self.command(Command::PushConst { bytes: value.to_le_bytes().to_vec() })
                 }
                 Instruction::Eq(num_type) => {
-                    // we need intermediate command
-                    todo!()
+                    let size = InstructionNode::num_type_size(num_type) as u32;
+                    let shrink_size = size * 2 - 4;
+                    let cmd1 = Command::Eq {
+                        size,
+                        op1: Ref::Stack { offset: self.stack_size - size * 2 },
+                        op2: Ref::Stack { offset: self.stack_size - size },
+                        dst: Ref::Stack { offset: self.stack_size - size * 2 },
+                    };
+                    let cmd2 = Command::Shrink { size: shrink_size }; // - 2 operands + 1 bool
+                    NodeKind::Command {
+                        command: cmd1,
+                        next: WebAsmNode::Intermediate(cmd2, self.next(-(shrink_size as i32))),
+                    }
                 }
                 Instruction::Add(_) => { todo!() }
                 Instruction::Sub(_) => { todo!() }

@@ -29,6 +29,7 @@ pub enum Ref {
 pub enum Command {
     Push { size: u32, src: Ref },
     PushConst { bytes: Vec<u8> },
+    // todo: can be implemented using condition + two different writes, should it be?
     Eq { size: u32, op1: Ref, op2: Ref, dst: Ref },
     Shrink { size: u32 },
 }
