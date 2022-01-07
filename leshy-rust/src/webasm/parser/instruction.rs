@@ -5,6 +5,7 @@ use crate::webasm::parser::common::{read_i32, Result};
 impl Instruction {
     pub fn read_non_blocked(src: &mut (impl Read + Seek), opcode: u8) -> Result<Instruction> {
         Ok(match opcode {
+            0x01 => { Instruction::Nop }
             0x0F => { Instruction::Return }
             0x10 => { Instruction::Call(FuncIdx::read(src)?) }
             0x20 => { Instruction::LocalGet(LocalIdx::read(src)?) }

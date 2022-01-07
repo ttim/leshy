@@ -136,6 +136,12 @@ impl Instructions {
         let mut blocks = HashMap::new();
         let mut current_blocks = vec![];
 
+        // todo: is it possible to make this closure?
+        fn push_block(inst: Instruction, instructions: &mut Vec<Instruction>, current_blocks: &mut Vec<InstructionIdx>) {
+            instructions.push(inst);
+            current_blocks.push(InstructionIdx((instructions.len() - 1) as u32));
+        }
+
         loop {
             match read_u8(src)? {
                 // end block
@@ -155,11 +161,14 @@ impl Instructions {
                     todo!()
                 }
                 0x04 => {
-                    current_blocks.push(InstructionIdx(instructions.len() as u32));
-                    instructions.push(Instruction::If { bt: Self::read_block_type(src)? });
+                    push_block(Instruction::If { bt: Self::read_block_type(src)? }, &mut instructions, &mut current_blocks);
                 }
                 0x05 => {
-                    todo!()
+                    // `else` is:
+                    // 1) end of `if` block
+                    blocks.insert(current_blocks.pop().unwrap(), InstructionIdx(instructions.len() as u32));
+                    // 2) beginning of new block
+                    push_block(Instruction::Else, &mut instructions, &mut current_blocks);
                 }
                 other => {
                     instructions.push(Instruction::read_non_blocked(src, other)?)

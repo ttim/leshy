@@ -149,6 +149,9 @@ impl InstructionNode {
         println!("getting: {:?}", &self);
 
         let kind = match self.instruction() {
+            Instruction::Nop => {
+                NodeKind::Command { command: Command::Noop, next: self.next(0) }
+            }
             // block type not really needed apart from validation purposes
             Instruction::If { bt: _ } => {
                 NodeKind::Branch {

@@ -99,6 +99,7 @@ pub struct Locals {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
+    Nop,
     If { bt: BlockType },
     Else,
     BlockEnd,
