@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use lazycell::LazyCell;
@@ -131,44 +132,41 @@ impl Readable for Instructions {
 
 impl Instructions {
     fn read(src: &mut (impl Read + Seek)) -> Result<Instructions> {
-        let mut vec = vec![];
-        Self::read_internal(src, |b| b == 0x0B, &mut vec)?;
-        Ok(Instructions(vec))
-    }
+        let mut instructions = vec![];
+        let mut blocks = HashMap::new();
+        let mut current_blocks = vec![];
 
-    fn read_internal<F: Fn(u8) -> bool>(src: &mut (impl Read + Seek), break_on: F, instructions: &mut Vec<Instruction>) -> Result<u8> {
         loop {
-            let opcode = read_u8(src)?;
-            if break_on(opcode) { return Ok(opcode); };
-            if opcode == 0x02 || opcode == 0x03 || opcode == 0x04 {
-                Self::read_block(src, opcode, instructions)?
-            } else {
-                instructions.push(Instruction::read(src, opcode)?)
-            }
-        }
-    }
-
-    fn read_block(src: &mut (impl Read + Seek), opcode: u8, instructions: &mut Vec<Instruction>) -> Result<()> {
-        instructions.push(Instruction::__Temporary);
-        let idx = instructions.len() - 1;
-
-        match opcode {
-            0x04 => {
-                let bt = Self::read_block_type(src)?;
-                let finish_opcode = Self::read_internal(src, |opcode| opcode == 0x0B || opcode == 0x05, instructions)?;
-                if finish_opcode == 0x0B {
-                    let next = InstructionIdx(instructions.len() as u32);
-                    instructions[idx] = Instruction::If { bt, if_false: None, next };
-                } else {
+            match read_u8(src)? {
+                // end block
+                0x0B => {
+                    match current_blocks.pop() {
+                        None => { break; }
+                        Some(block) => {
+                            blocks.insert(block, InstructionIdx(instructions.len() as u32));
+                            instructions.push(Instruction::BlockEnd);
+                        }
+                    }
+                }
+                0x02 => {
                     todo!()
                 }
-            }
-            other => {
-                panic!("unsupported block opcode {}", other)
+                0x03 => {
+                    todo!()
+                }
+                0x04 => {
+                    current_blocks.push(InstructionIdx(instructions.len() as u32));
+                    instructions.push(Instruction::If { bt: Self::read_block_type(src)? });
+                }
+                0x05 => {
+                    todo!()
+                }
+                other => {
+                    instructions.push(Instruction::read_non_blocked(src, other)?)
+                }
             }
         }
-
-        Ok(())
+        Ok(Instructions { instructions, blocks })
     }
 
     fn read_block_type(src: &mut (impl Read + Seek)) -> Result<BlockType> {

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::webasm::lazy::Lazy;
 
 #[derive(Debug)]
@@ -30,7 +31,7 @@ pub struct FuncType {
     pub results: Vec<ValType>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum NumType {
     I32,
     I64,
@@ -53,10 +54,10 @@ pub enum ValType {
 #[derive(Debug)]
 pub struct TypeIdx(pub u32);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct LocalIdx(pub u32);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct FuncIdx(pub u32);
 
 #[derive(Debug)]
@@ -78,7 +79,11 @@ pub enum ExportTag {
 }
 
 #[derive(Debug)]
-pub struct Instructions(pub Vec<Instruction>);
+pub struct Instructions {
+    pub instructions: Vec<Instruction>,
+    // (idx of blocked instruction) -> (idx of next instruction after block)
+    pub blocks: HashMap<InstructionIdx, InstructionIdx>,
+}
 
 #[derive(Debug)]
 pub struct Code {
@@ -92,23 +97,25 @@ pub struct Locals {
     pub tpe: ValType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Instruction {
-    If { bt: BlockType, if_false: Option<InstructionIdx>, next: InstructionIdx },
+    If { bt: BlockType },
+    Else,
+    BlockEnd,
     Return,
     Call(FuncIdx),
+
     LocalGet(LocalIdx),
     I32Const(i32),
     Eq(NumType),
     Add(NumType),
     Sub(NumType),
-    __Temporary,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstructionIdx(pub u32);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum BlockType {
     Empty,
     // ValType(ValType),

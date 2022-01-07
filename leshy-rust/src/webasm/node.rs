@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::api::{Command, Condition, Node, NodeKind, Ref, traverse_node};
-use crate::webasm::ast::{Code, ExportTag, FuncIdx, FuncType, Instruction, InstructionIdx, LocalIdx, Module, NumType, ValType};
+use crate::webasm::ast::{Code, CodeSection, ExportTag, FuncIdx, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
 use crate::webasm::parser::hydrate::hydrate_module;
 
@@ -55,14 +55,12 @@ impl InstructionNode {
         }
     }
 
-    fn instruction(&self) -> &Instruction {
-        let instructions = self.get(&self.code().expr);
-        instructions.0.get(self.inst.0 as usize).unwrap()
-    }
-
-    fn code(&self) -> &Code {
-        self.get_option(&self.source.module.code_section).0.get(self.func.0 as usize).unwrap()
-    }
+    fn code_section(&self) -> &CodeSection { self.get_option(&self.source.module.code_section) }
+    fn code(&self) -> &Code { self.code_section().0.get(self.func.0 as usize).unwrap() }
+    fn instructions(&self) -> &Instructions { self.get(&self.code().expr) }
+    fn instruction(&self, idx: &InstructionIdx) -> &Instruction { self.instructions().instructions.get(idx.0 as usize).unwrap() }
+    fn current_instruction(&self) -> &Instruction { self.instruction(&self.inst) }
+    fn block_end(&self, idx: &InstructionIdx) -> &InstructionIdx { self.instructions().blocks.get(idx).unwrap() }
 
     fn func_type(&self) -> &FuncType {
         let type_id = self.get_option(&self.source.module.func_section).0.get(self.func.0 as usize).unwrap();
@@ -123,17 +121,17 @@ impl InstructionNode {
         })
     }
 
-    fn goto(&self, op: &InstructionIdx) -> WebAsmNode {
+    fn goto(&self, op: InstructionIdx) -> WebAsmNode {
         WebAsmNode::Instruction(InstructionNode {
             source: self.source.clone(),
             func: self.func.clone(),
-            inst: (*op).clone(),
+            inst: op,
             stack_size: self.stack_size
         })
     }
 
     fn after_last_instruction(&self) -> bool {
-        self.inst.0 as usize == self.get(&self.code().expr).0.len()
+        self.inst.0 as usize == self.get(&self.code().expr).instructions.len()
     }
 
     fn get_kind(&self) -> NodeKind<WebAsmNode> {
@@ -142,20 +140,21 @@ impl InstructionNode {
         let kind = if self.after_last_instruction() {
             NodeKind::Final
         } else {
-            match self.instruction() {
+            match self.current_instruction() {
                 // block type not really needed apart from validation purposes
-                Instruction::If { bt: _, if_false, next } => {
+                Instruction::If { bt: _ } => {
                     NodeKind::Branch {
                         condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
                         if_true: self.next(0),
-                        if_false:
-                        if let Some(if_false_idx) = if_false {
-                            self.goto(if_false_idx)
-                        } else {
-                            self.goto(next)
-                        },
+                        if_false: {
+                            let block_end = self.block_end(&self.inst);
+                            // it ends up either with "else" or "block_end", regardless to which one on else we want to go into either of them
+                            self.goto(InstructionIdx(block_end.0 + 1))
+                        }
                     }
                 }
+                Instruction::Else => { todo!() }
+                Instruction::BlockEnd => { todo!() }
                 Instruction::Return => { todo!() }
                 Instruction::Call(_) => { todo!() }
                 Instruction::LocalGet(id) => {
@@ -193,7 +192,6 @@ impl InstructionNode {
                 }
                 Instruction::Add(_) => { todo!() }
                 Instruction::Sub(_) => { todo!() }
-                Instruction::__Temporary => { panic!("can't have temporary nodes in parsed content") }
             }
         };
 
