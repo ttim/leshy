@@ -140,11 +140,11 @@ impl Instructions {
             match read_u8(src)? {
                 // end block
                 0x0B => {
+                    instructions.push(Instruction::BlockEnd);
                     match current_blocks.pop() {
                         None => { break; }
                         Some(block) => {
-                            blocks.insert(block, InstructionIdx(instructions.len() as u32));
-                            instructions.push(Instruction::BlockEnd);
+                            blocks.insert(block, InstructionIdx(instructions.len() as u32 - 1));
                         }
                     }
                 }

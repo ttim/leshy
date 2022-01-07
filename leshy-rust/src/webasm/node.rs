@@ -141,69 +141,71 @@ impl InstructionNode {
         })
     }
 
-    fn after_last_instruction(&self) -> bool {
-        self.inst.0 as usize == self.ctx.instructions().instructions.len()
+    fn last_instruction(&self) -> bool {
+        self.inst.0 as usize == self.ctx.instructions().instructions.len() - 1
     }
 
     fn get_kind(&self) -> NodeKind<WebAsmNode> {
         println!("getting: {:?}", &self);
 
-        let kind = if self.after_last_instruction() {
-            NodeKind::Final
-        } else {
-            match self.instruction() {
-                // block type not really needed apart from validation purposes
-                Instruction::If { bt: _ } => {
-                    NodeKind::Branch {
-                        condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
-                        if_true: self.next(0),
-                        if_false: {
-                            let block_end = self.ctx.block_end(&self.inst);
-                            // it ends up either with "else" or "block_end", regardless to which one on else we want to go into either of them
-                            self.goto(InstructionIdx(block_end.0 + 1))
-                        }
-                    }
+        let kind = match self.instruction() {
+            // block type not really needed apart from validation purposes
+            Instruction::If { bt: _ } => {
+                NodeKind::Branch {
+                    condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
+                    if_true: self.next(0),
+                    if_false: {
+                        let block_end = self.ctx.block_end(&self.inst);
+                        // it ends up either with "else" or "block_end", regardless to which one on else we want to go into either of them
+                        self.goto(InstructionIdx(block_end.0 + 1))
+                    },
                 }
-                Instruction::Else => { todo!() }
-                Instruction::BlockEnd => { todo!() }
-                Instruction::Return => { todo!() }
-                Instruction::Call(_) => { todo!() }
-                Instruction::LocalGet(id) => {
-                    self.push(self.local_size(id) as u32, self.local_ref(id))
-                }
-                Instruction::I32Const(value) => {
-                    self.push_const(value.to_le_bytes().to_vec())
-                }
-                Instruction::Eq(num_type) => {
-                    let size = InstructionNode::num_type_size(num_type) as u32;
-
-                    let next_node = |byte_to_write: u32| -> WebAsmNode {
-                        let delta = - ((size * 2 - 4) as i32); // - 2 operands + 1 bool
-                        let dst = Ref::Stack(self.stack_size - size * 2);
-                        WebAsmNode::Intermediate(Box::new(NodeKind::Command {
-                            command: Command::WriteConst { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
-                            next: WebAsmNode::Intermediate(
-                                Box::new(NodeKind::Command {
-                                    command: Command::Resize { delta },
-                                    next: self.next(delta),
-                                })
-                            ),
-                        }))
-                    };
-
-                    NodeKind::Branch {
-                        condition: Condition::Eq {
-                            size,
-                            op1: Ref::Stack(self.stack_size - size * 2),
-                            op2: Ref::Stack(self.stack_size - size),
-                        },
-                        if_true: next_node(0),
-                        if_false: next_node(1),
-                    }
-                }
-                Instruction::Add(_) => { todo!() }
-                Instruction::Sub(_) => { todo!() }
             }
+            Instruction::Else => { todo!() }
+            Instruction::BlockEnd => {
+                if self.last_instruction() {
+                    NodeKind::Final
+                } else {
+                    NodeKind::Command { command: Command::Noop, next: self.next(0) }
+                }
+            }
+            Instruction::Return => { todo!() }
+            Instruction::Call(_) => { todo!() }
+            Instruction::LocalGet(id) => {
+                self.push(self.local_size(id) as u32, self.local_ref(id))
+            }
+            Instruction::I32Const(value) => {
+                self.push_const(value.to_le_bytes().to_vec())
+            }
+            Instruction::Eq(num_type) => {
+                let size = InstructionNode::num_type_size(num_type) as u32;
+
+                let next_node = |byte_to_write: u32| -> WebAsmNode {
+                    let delta = -((size * 2 - 4) as i32); // - 2 operands + 1 bool
+                    let dst = Ref::Stack(self.stack_size - size * 2);
+                    WebAsmNode::Intermediate(Box::new(NodeKind::Command {
+                        command: Command::WriteConst { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
+                        next: WebAsmNode::Intermediate(
+                            Box::new(NodeKind::Command {
+                                command: Command::Resize { delta },
+                                next: self.next(delta),
+                            })
+                        ),
+                    }))
+                };
+
+                NodeKind::Branch {
+                    condition: Condition::Eq {
+                        size,
+                        op1: Ref::Stack(self.stack_size - size * 2),
+                        op2: Ref::Stack(self.stack_size - size),
+                    },
+                    if_true: next_node(0),
+                    if_false: next_node(1),
+                }
+            }
+            Instruction::Add(_) => { todo!() }
+            Instruction::Sub(_) => { todo!() }
         };
 
         println!("computed: {:?}", kind);
