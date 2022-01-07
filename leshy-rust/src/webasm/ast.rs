@@ -56,7 +56,7 @@ pub struct TypeIdx(pub u32);
 #[derive(Debug)]
 pub struct LocalIdx(pub u32);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FuncIdx(pub u32);
 
 #[derive(Debug)]

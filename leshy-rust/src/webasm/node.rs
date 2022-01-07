@@ -4,8 +4,9 @@ use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
-use crate::api::{Node, NodeKind, traverse_node};
-use crate::webasm::ast::{Code, ExportTag, FuncIdx, Instruction, InstructionIdx, Module};
+use crate::api::{Command, Node, NodeKind, Ref, traverse_node};
+use crate::webasm::ast::{Code, ExportTag, FuncIdx, FuncType, Instruction, InstructionIdx, LocalIdx, Module, NumType, ValType};
+use crate::webasm::lazy::{Lazy, Readable};
 use crate::webasm::parser::hydrate::hydrate_module;
 
 struct Source {
@@ -48,17 +49,74 @@ impl WebAsmNode {
     }
 
     fn instruction(&self) -> &Instruction {
-        match &self.source.module.code_section {
-            None => { panic!() }
-            Some(section) => {
-                let mut src_ref = self.source.file.borrow_mut();
-                let code = section.get(src_ref.deref_mut());
-                let entry: &Code = code.0.get(self.func.0 as usize).unwrap();
-                let instructions = entry.expr.get(src_ref.deref_mut());
-                let inst = instructions.0.get(self.inst.0 as usize).unwrap();
-                inst
-            }
+        let instructions = self.get(&self.code().expr);
+        instructions.0.get(self.inst.0 as usize).unwrap()
+    }
+
+    fn code(&self) -> &Code {
+        self.get_option(&self.source.module.code_section).0.get(self.func.0 as usize).unwrap()
+    }
+
+    fn func_type(&self) -> &FuncType {
+        let type_id = self.get_option(&self.source.module.func_section).0.get(self.func.0 as usize).unwrap();
+        self.get_option(&self.source.module.type_section).0.get(type_id.0 as usize).unwrap()
+    }
+
+    fn get<'a, T: Readable>(&'a self, lazy: &'a Lazy<T>) -> &'a T {
+        lazy.get(self.source.file.borrow_mut().deref_mut())
+    }
+
+    fn get_option<'a, T: Readable>(&'a self, lazy_opt: &'a Option<Lazy<T>>) -> &'a T {
+        match &lazy_opt {
+            None => { todo!() }
+            Some(lazy) => { self.get(lazy) }
         }
+    }
+
+    fn local_ref(&self, id: &LocalIdx) -> Ref {
+        if (id.0 as usize) < self.func_type().params.len() {
+            let prev_locals = &self.func_type().params.as_slice()[0..id.0 as usize];
+            let offset = prev_locals.iter().map(|local| Self::val_type_size(local) as u32).sum();
+            Ref::Stack { offset }
+        } else {
+            todo!()
+        }
+    }
+
+    fn local_size(&self, id: &LocalIdx) -> u8 {
+        if (id.0 as usize) < self.func_type().params.len() {
+            Self::val_type_size(self.func_type().params.get(id.0 as usize).unwrap())
+        } else {
+            todo!()
+        }
+    }
+
+    fn val_type_size(val_type: &ValType) -> u8 {
+        match val_type {
+            ValType::Num(num_type) => { Self::num_type_size(num_type) }
+            ValType::Ref(_) => { todo!() }
+        }
+    }
+
+    fn num_type_size(num_type: &NumType) -> u8 {
+        match num_type {
+            NumType::I32 => { 4 }
+            NumType::I64 => { 8 }
+            NumType::F32 => { 4 }
+            NumType::F64 => { 8 }
+        }
+    }
+
+    fn next(&self) -> WebAsmNode {
+        WebAsmNode {
+            source: self.source.clone(),
+            func: self.func.clone(),
+            inst: InstructionIdx(self.inst.0 + 1),
+        }
+    }
+
+    fn after_last_instruction(&self) -> bool {
+        self.inst.0 as usize == self.get(&self.code().expr).0.len()
     }
 }
 
@@ -82,18 +140,31 @@ impl PartialEq<Self> for WebAsmNode {
 
 impl Node for WebAsmNode {
     fn get(&self) -> NodeKind<Self> {
-        println!("getting content for {:?}", &self);
-        match self.instruction() {
-            Instruction::If { .. } => { todo!() }
-            Instruction::Return => { todo!() }
-            Instruction::Call(_) => { todo!() }
-            Instruction::LocalGet(_) => { todo!() }
-            Instruction::I32Const(_) => { todo!() }
-            Instruction::Eq(_) => { todo!() }
-            Instruction::Add(_) => { todo!() }
-            Instruction::Sub(_) => { todo!() }
-            Instruction::__Temporary => { todo!() }
-        }
+        println!("getting: {:?}", &self);
+
+        let kind = if self.after_last_instruction() {
+            NodeKind::Final
+        } else {
+            match self.instruction() {
+                Instruction::If { .. } => { todo!() }
+                Instruction::Return => { todo!() }
+                Instruction::Call(_) => { todo!() }
+                Instruction::LocalGet(id) => {
+                    NodeKind::Command {
+                        command: Command::Push { src: self.local_ref(id), size: self.local_size(id) as u32 },
+                        next: self.next(),
+                    }
+                }
+                Instruction::I32Const(_) => { todo!() }
+                Instruction::Eq(_) => { todo!() }
+                Instruction::Add(_) => { todo!() }
+                Instruction::Sub(_) => { todo!() }
+                Instruction::__Temporary => { todo!() }
+            }
+        };
+
+        println!("computed: {:?}", kind);
+        kind
     }
 }
 

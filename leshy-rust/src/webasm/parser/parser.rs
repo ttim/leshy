@@ -217,7 +217,7 @@ impl FuncIdx {
 
 #[test]
 fn test() {
-    let mut file = File::open("../../../data/fib.wasm").unwrap();
+    let mut file = File::open("data/fib.wasm").unwrap();
     let module = Module::read(&mut file).unwrap();
     hydrate_module(&module, &mut file);
     println!("{:#?}", module);

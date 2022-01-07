@@ -1,10 +1,12 @@
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait Node: Hash + Eq + Sized {
+pub trait Node: Hash + Eq + Sized + Debug {
     fn get(&self) -> NodeKind<Self>;
 }
 
+#[derive(Debug)]
 pub enum NodeKind<N: Node> {
     Command { command: Command, next: N },
     Branch { condition: Condition, if_true: N, if_false: N },
@@ -18,13 +20,21 @@ pub enum NodeKind<N: Node> {
     // Swap { src: N, dst: fn(N, N) -> N, next: N }, // replaces src node with dst node (as function of context node and previously set dst node) in execution
 }
 
-pub enum Command {
+#[derive(Debug)]
+pub enum Ref {
+    Stack { offset: u32 },
 }
 
+#[derive(Debug)]
+pub enum Command {
+    Push { src: Ref, size: u32 },
+}
+
+#[derive(Debug)]
 pub enum Condition {
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 struct ExampleNodeImpl {
     id: u64,
 }
