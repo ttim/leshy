@@ -105,7 +105,7 @@ pub enum Instruction {
     __Temporary,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InstructionIdx(pub u32);
 
 #[derive(Debug)]

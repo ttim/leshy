@@ -20,15 +20,26 @@ pub enum NodeKind<N: Node> {
     // Swap { src: N, dst: fn(N, N) -> N, next: N }, // replaces src node with dst node (as function of context node and previously set dst node) in execution
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Ref {
     Stack { offset: u32 },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Command {
-    Push { src: Ref, size: u32 },
+    Push { size: u32, src: Ref },
     PushConst { bytes: Vec<u8> },
+    Eq { size: u32, op1: Ref, op2: Ref, dst: Ref },
+    Shrink { size: u32 },
+}
+
+pub fn stack_size_change(command: &Command) -> i32 {
+    match command {
+        Command::Push { size, .. } => { *size as i32 }
+        Command::PushConst { bytes } => { bytes.len() as i32 }
+        Command::Eq { .. } => { 0 }
+        Command::Shrink { size } => { -(*size as i32) }
+    }
 }
 
 #[derive(Debug)]

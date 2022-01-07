@@ -4,7 +4,7 @@ use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
-use crate::api::{Command, Node, NodeKind, Ref, traverse_node};
+use crate::api::{Command, Node, NodeKind, Ref, stack_size_change, traverse_node};
 use crate::webasm::ast::{Code, ExportTag, FuncIdx, FuncType, Instruction, InstructionIdx, LocalIdx, Module, NumType, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
 use crate::webasm::parser::hydrate::hydrate_module;
@@ -24,19 +24,26 @@ impl Debug for Source {
     }
 }
 
-#[derive(Debug)]
-struct WebAsmNode {
+#[derive(Debug, Hash, PartialEq, Eq)]
+enum WebAsmNode {
+    Instruction(InstructionNode),
+    Intermediate(Command, InstructionNode),
+}
+
+#[derive(Debug, Clone)]
+struct InstructionNode {
     source: Rc<Source>,
     func: FuncIdx,
     inst: InstructionIdx,
+    stack_size: u32,
 }
 
-impl WebAsmNode {
-    fn func(source: Rc<Source>, func: FuncIdx) -> WebAsmNode {
-        WebAsmNode { source, func, inst: InstructionIdx(0) }
+impl InstructionNode {
+    fn func(source: Rc<Source>, func: FuncIdx) -> InstructionNode {
+        InstructionNode { source, func, inst: InstructionIdx(0), stack_size: 0 }
     }
 
-    fn exported_func(source: Rc<Source>, name: &str) -> WebAsmNode {
+    fn exported_func(source: Rc<Source>, name: &str) -> InstructionNode {
         match &source.module.export_section {
             None => { panic!() }
             Some(section) => {
@@ -107,43 +114,25 @@ impl WebAsmNode {
         }
     }
 
-    fn next(&self) -> WebAsmNode {
-        WebAsmNode {
+    fn next(&self, stack_size_change: i32) -> InstructionNode {
+        InstructionNode {
             source: self.source.clone(),
             func: self.func.clone(),
             inst: InstructionIdx(self.inst.0 + 1),
+            stack_size: ((self.stack_size as i32) + stack_size_change) as u32
         }
     }
 
     fn command(&self, command: Command) -> NodeKind<WebAsmNode> {
-        NodeKind::Command { command, next: self.next() }
+        let change = stack_size_change(&command);
+        NodeKind::Command { command, next: WebAsmNode::Instruction(self.next(change)) }
     }
 
     fn after_last_instruction(&self) -> bool {
         self.inst.0 as usize == self.get(&self.code().expr).0.len()
     }
-}
 
-impl Hash for WebAsmNode {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u128(self.source.uuid);
-        state.write_u32(self.func.0);
-        state.write_u32(self.inst.0);
-    }
-}
-
-impl Eq for WebAsmNode {}
-
-impl PartialEq<Self> for WebAsmNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.source.uuid == other.source.uuid &&
-            self.func.0 == other.func.0 &&
-            self.inst.0 == other.inst.0
-    }
-}
-
-impl Node for WebAsmNode {
-    fn get(&self) -> NodeKind<Self> {
+    fn get_kind(&self) -> NodeKind<WebAsmNode> {
         println!("getting: {:?}", &self);
 
         let kind = if self.after_last_instruction() {
@@ -159,15 +148,53 @@ impl Node for WebAsmNode {
                 Instruction::I32Const(value) => {
                     self.command(Command::PushConst { bytes: value.to_le_bytes().to_vec() })
                 }
-                Instruction::Eq(_) => { todo!() }
+                Instruction::Eq(num_type) => {
+                    // we need intermediate command
+                    todo!()
+                }
                 Instruction::Add(_) => { todo!() }
                 Instruction::Sub(_) => { todo!() }
-                Instruction::__Temporary => { todo!() }
+                Instruction::__Temporary => { panic!("can't have temporary nodes in parsed content") }
             }
         };
 
         println!("computed: {:?}", kind);
         kind
+    }
+}
+
+impl WebAsmNode {
+    pub fn exported_func(source: Rc<Source>, name: &str) -> WebAsmNode {
+        WebAsmNode::Instruction(InstructionNode::exported_func(source, name))
+    }
+}
+
+impl Hash for InstructionNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u128(self.source.uuid);
+        state.write_u32(self.func.0);
+        state.write_u32(self.inst.0);
+    }
+}
+
+impl Eq for InstructionNode {}
+
+impl PartialEq<Self> for InstructionNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.source.uuid == other.source.uuid &&
+            self.func.0 == other.func.0 &&
+            self.inst.0 == other.inst.0
+    }
+}
+
+impl Node for WebAsmNode {
+    fn get(&self) -> NodeKind<Self> {
+        match self {
+            WebAsmNode::Instruction(node) => { node.get_kind() }
+            WebAsmNode::Intermediate(command, node) => {
+                NodeKind::Command { command: command.clone(), next: WebAsmNode::Instruction(node.clone()) }
+            }
+        }
     }
 }
 
