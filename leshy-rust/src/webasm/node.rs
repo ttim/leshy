@@ -26,6 +26,7 @@ impl Debug for Source {
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 enum WebAsmNode {
+    CallFunc(CallFuncNode),
     Instruction(InstructionNode),
     Intermediate(Box<NodeKind<WebAsmNode>>),
 }
@@ -34,6 +35,11 @@ enum WebAsmNode {
 struct FuncContext {
     source: Rc<Source>,
     id: FuncIdx,
+}
+
+#[derive(Debug, Clone)]
+struct CallFuncNode {
+    ctx: Rc<FuncContext>,
 }
 
 #[derive(Debug, Clone)]
@@ -80,13 +86,25 @@ impl FuncContext {
         let type_id = self.source.func_section().0.get(self.id.0 as usize).unwrap();
         self.source.type_section().0.get(type_id.0 as usize).unwrap()
     }
+
+    fn size_of(items: &Vec<ValType>) -> u32 {
+        items.iter().map(|i| InstructionNode::val_type_size(i) as u32).sum()
+    }
+}
+
+impl CallFuncNode {
+    fn get_kind(&self) -> NodeKind<WebAsmNode> {
+        let stack_size = FuncContext::size_of(&self.ctx.func_type().params);
+        NodeKind::Command {
+            command: Command::CheckSize { stack_size },
+            next: WebAsmNode::Instruction(
+                InstructionNode { ctx: self.ctx.clone(), inst: InstructionIdx(0), stack_size }
+            ),
+        }
+    }
 }
 
 impl InstructionNode {
-    fn create(ctx: Rc<FuncContext>) -> InstructionNode {
-        InstructionNode { ctx, inst: InstructionIdx(0), stack_size: 0 }
-    }
-
     fn instruction(&self) -> &Instruction {
         self.ctx.instructions().instructions.get(self.inst.0 as usize).unwrap()
     }
@@ -172,7 +190,9 @@ impl InstructionNode {
                     NodeKind::Command { command: Command::Noop, next: self.next(0) }
                 }
             }
-            Instruction::Return => { todo!() }
+            Instruction::Return => {
+                self.ret()
+            }
             Instruction::Call(_) => { todo!() }
             Instruction::LocalGet(id) => {
                 self.push(self.local_size(id) as u32, self.local_ref(id))
@@ -236,11 +256,28 @@ impl InstructionNode {
             })),
         }
     }
+
+    fn ret(&self) -> NodeKind<WebAsmNode> {
+        let ret_size = self.ctx.func_type().results.iter().map(|tpe| InstructionNode::val_type_size(tpe) as u32).sum();
+        NodeKind::Command {
+            // copy result
+            command: Command::Write {
+                dst: Ref::Stack(0),
+                size: ret_size,
+                src: Ref::Stack(self.stack_size - ret_size),
+            },
+            next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
+                // clean stack
+                command: Command::Resize { delta: -((self.stack_size - ret_size) as i32) },
+                next: WebAsmNode::Intermediate(Box::new(NodeKind::Final)),
+            })),
+        }
+    }
 }
 
 impl WebAsmNode {
     pub fn exported_func(source: Rc<Source>, name: &str) -> WebAsmNode {
-        WebAsmNode::Instruction(InstructionNode::create(Rc::new(FuncContext::exported(source, name))))
+        WebAsmNode::CallFunc(CallFuncNode { ctx: Rc::new(FuncContext::exported(source, name)) })
     }
 }
 
@@ -252,7 +289,16 @@ impl Hash for InstructionNode {
     }
 }
 
+impl Hash for CallFuncNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // todo: def repeating with ctx
+        state.write_u128(self.ctx.source.uuid);
+        state.write_u32(self.ctx.id.0);
+    }
+}
+
 impl Eq for InstructionNode {}
+impl Eq for CallFuncNode {}
 
 impl PartialEq<Self> for InstructionNode {
     fn eq(&self, other: &Self) -> bool {
@@ -262,9 +308,17 @@ impl PartialEq<Self> for InstructionNode {
     }
 }
 
+impl PartialEq<Self> for CallFuncNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.ctx.source.uuid == other.ctx.source.uuid &&
+            self.ctx.id.0 == other.ctx.id.0
+    }
+}
+
 impl Node for WebAsmNode {
     fn get(&self) -> NodeKind<Self> {
         match self {
+            WebAsmNode::CallFunc(ctx) => { ctx.get_kind() }
             WebAsmNode::Instruction(node) => { node.get_kind() }
             WebAsmNode::Intermediate(kind) => { (*kind.as_ref()).clone() }
         }

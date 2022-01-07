@@ -28,9 +28,12 @@ pub enum Ref {
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Command {
     Noop,
+
+    Resize { delta: i32 },
+    CheckSize { stack_size: u32 },
+
     WriteConst { dst: Ref, bytes: Vec<u8> },
     Write { dst: Ref, size: u32, src: Ref },
-    Resize { delta: i32 },
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
