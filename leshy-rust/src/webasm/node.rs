@@ -24,10 +24,10 @@ impl Debug for Source {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 enum WebAsmNode {
     Instruction(InstructionNode),
-    Intermediate(Command, InstructionNode),
+    Intermediate(Box<NodeKind<WebAsmNode>>),
 }
 
 #[derive(Debug, Clone)]
@@ -114,18 +114,18 @@ impl InstructionNode {
         }
     }
 
-    fn next(&self, stack_size_change: i32) -> InstructionNode {
-        InstructionNode {
+    fn next(&self, stack_size_change: i32) -> WebAsmNode {
+        WebAsmNode::Instruction(InstructionNode {
             source: self.source.clone(),
             func: self.func.clone(),
             inst: InstructionIdx(self.inst.0 + 1),
             stack_size: ((self.stack_size as i32) + stack_size_change) as u32
-        }
+        })
     }
 
     fn command(&self, command: Command) -> NodeKind<WebAsmNode> {
         let change = stack_size_change(&command);
-        NodeKind::Command { command, next: WebAsmNode::Instruction(self.next(change)) }
+        NodeKind::Command { command, next: self.next(change) }
     }
 
     fn after_last_instruction(&self) -> bool {
@@ -158,9 +158,11 @@ impl InstructionNode {
                         dst: Ref::Stack { offset: self.stack_size - size * 2 },
                     };
                     let cmd2 = Command::Shrink { size: shrink_size }; // - 2 operands + 1 bool
+                    let inner_cmd = NodeKind::Command { command: cmd2, next: self.next(-(shrink_size as i32)) };
+
                     NodeKind::Command {
                         command: cmd1,
-                        next: WebAsmNode::Intermediate(cmd2, self.next(-(shrink_size as i32))),
+                        next: WebAsmNode::Intermediate(Box::new(inner_cmd)),
                     }
                 }
                 Instruction::Add(_) => { todo!() }
@@ -202,9 +204,7 @@ impl Node for WebAsmNode {
     fn get(&self) -> NodeKind<Self> {
         match self {
             WebAsmNode::Instruction(node) => { node.get_kind() }
-            WebAsmNode::Intermediate(command, node) => {
-                NodeKind::Command { command: command.clone(), next: WebAsmNode::Instruction(node.clone()) }
-            }
+            WebAsmNode::Intermediate(kind) => { (*kind.as_ref()).clone() }
         }
     }
 }

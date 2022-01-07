@@ -6,7 +6,7 @@ pub trait Node: Hash + Eq + Sized + Debug {
     fn get(&self) -> NodeKind<Self>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum NodeKind<N: Node> {
     Command { command: Command, next: N },
     Branch { condition: Condition, if_true: N, if_false: N },
@@ -43,7 +43,7 @@ pub fn stack_size_change(command: &Command) -> i32 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum Condition {
 }
 
