@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::api::{Command, Condition, Node, NodeKind, Ref, traverse_node};
-use crate::webasm::ast::{Code, CodeSection, ExportTag, FuncIdx, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, ValType};
+use crate::webasm::ast::{Code, CodeSection, ExportSection, ExportTag, FuncIdx, FuncSection, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, TypeSection, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
 use crate::webasm::parser::hydrate::hydrate_module;
 
@@ -31,44 +31,26 @@ enum WebAsmNode {
 }
 
 #[derive(Debug, Clone)]
-struct InstructionNode {
+struct FuncContext {
     source: Rc<Source>,
-    func: FuncIdx,
+    id: FuncIdx,
+}
+
+#[derive(Debug, Clone)]
+struct InstructionNode {
+    ctx: Rc<FuncContext>,
     inst: InstructionIdx,
     stack_size: u32,
 }
 
-impl InstructionNode {
-    fn func(source: Rc<Source>, func: FuncIdx) -> InstructionNode {
-        InstructionNode { source, func, inst: InstructionIdx(0), stack_size: 0 }
-    }
-
-    fn exported_func(source: Rc<Source>, name: &str) -> InstructionNode {
-        match &source.module.export_section {
-            None => { panic!() }
-            Some(section) => {
-                let export = section.get(&mut source.file.borrow_mut().deref_mut());
-                let entry = export.0.iter().find(|export| export.name == name);
-                assert_eq!(ExportTag::Func, entry.unwrap().tag);
-                Self::func(source.clone(), FuncIdx(entry.unwrap().idx))
-            }
-        }
-    }
-
-    fn code_section(&self) -> &CodeSection { self.get_option(&self.source.module.code_section) }
-    fn code(&self) -> &Code { self.code_section().0.get(self.func.0 as usize).unwrap() }
-    fn instructions(&self) -> &Instructions { self.get(&self.code().expr) }
-    fn instruction(&self, idx: &InstructionIdx) -> &Instruction { self.instructions().instructions.get(idx.0 as usize).unwrap() }
-    fn current_instruction(&self) -> &Instruction { self.instruction(&self.inst) }
-    fn block_end(&self, idx: &InstructionIdx) -> &InstructionIdx { self.instructions().blocks.get(idx).unwrap() }
-
-    fn func_type(&self) -> &FuncType {
-        let type_id = self.get_option(&self.source.module.func_section).0.get(self.func.0 as usize).unwrap();
-        self.get_option(&self.source.module.type_section).0.get(type_id.0 as usize).unwrap()
-    }
+impl Source {
+    fn export_section(&self) -> &ExportSection { self.get_option(&self.module.export_section) }
+    fn code_section(&self) -> &CodeSection { self.get_option(&self.module.code_section) }
+    fn func_section(&self) -> &FuncSection { self.get_option(&self.module.func_section) }
+    fn type_section(&self) -> &TypeSection { self.get_option(&self.module.type_section) }
 
     fn get<'a, T: Readable>(&'a self, lazy: &'a Lazy<T>) -> &'a T {
-        lazy.get(self.source.file.borrow_mut().deref_mut())
+        lazy.get(self.file.borrow_mut().deref_mut())
     }
 
     fn get_option<'a, T: Readable>(&'a self, lazy_opt: &'a Option<Lazy<T>>) -> &'a T {
@@ -77,10 +59,41 @@ impl InstructionNode {
             Some(lazy) => { self.get(lazy) }
         }
     }
+}
+
+impl FuncContext {
+    fn by_id(source: Rc<Source>, id: FuncIdx) -> FuncContext {
+        FuncContext { source, id }
+    }
+
+    fn exported(source: Rc<Source>, name: &str) -> FuncContext {
+        let export = source.export_section().0.iter().find(|export| export.name == name);
+        assert_eq!(ExportTag::Func, export.unwrap().tag);
+        Self::by_id(source.clone(), FuncIdx(export.unwrap().idx))
+    }
+
+    fn code(&self) -> &Code { self.source.code_section().0.get(self.id.0 as usize).unwrap() }
+    fn instructions(&self) -> &Instructions { self.source.get(&self.code().expr) }
+    fn block_end(&self, idx: &InstructionIdx) -> &InstructionIdx { self.instructions().blocks.get(idx).unwrap() }
+
+    fn func_type(&self) -> &FuncType {
+        let type_id = self.source.func_section().0.get(self.id.0 as usize).unwrap();
+        self.source.type_section().0.get(type_id.0 as usize).unwrap()
+    }
+}
+
+impl InstructionNode {
+    fn create(ctx: Rc<FuncContext>) -> InstructionNode {
+        InstructionNode { ctx, inst: InstructionIdx(0), stack_size: 0 }
+    }
+
+    fn instruction(&self) -> &Instruction {
+        self.ctx.instructions().instructions.get(self.inst.0 as usize).unwrap()
+    }
 
     fn local_ref(&self, id: &LocalIdx) -> Ref {
-        if (id.0 as usize) < self.func_type().params.len() {
-            let prev_locals = &self.func_type().params.as_slice()[0..id.0 as usize];
+        if (id.0 as usize) < self.ctx.func_type().params.len() {
+            let prev_locals = &self.ctx.func_type().params.as_slice()[0..id.0 as usize];
             let offset = prev_locals.iter().map(|local| Self::val_type_size(local) as u32).sum();
             Ref::Stack(offset)
         } else {
@@ -89,8 +102,8 @@ impl InstructionNode {
     }
 
     fn local_size(&self, id: &LocalIdx) -> u8 {
-        if (id.0 as usize) < self.func_type().params.len() {
-            Self::val_type_size(self.func_type().params.get(id.0 as usize).unwrap())
+        if (id.0 as usize) < self.ctx.func_type().params.len() {
+            Self::val_type_size(self.ctx.func_type().params.get(id.0 as usize).unwrap())
         } else {
             todo!()
         }
@@ -114,8 +127,7 @@ impl InstructionNode {
 
     fn next(&self, stack_size_delta: i32) -> WebAsmNode {
         WebAsmNode::Instruction(InstructionNode {
-            source: self.source.clone(),
-            func: self.func.clone(),
+            ctx: self.ctx.clone(),
             inst: InstructionIdx(self.inst.0 + 1),
             stack_size: ((self.stack_size as i32) + stack_size_delta) as u32
         })
@@ -123,15 +135,14 @@ impl InstructionNode {
 
     fn goto(&self, op: InstructionIdx) -> WebAsmNode {
         WebAsmNode::Instruction(InstructionNode {
-            source: self.source.clone(),
-            func: self.func.clone(),
+            ctx: self.ctx.clone(),
             inst: op,
             stack_size: self.stack_size
         })
     }
 
     fn after_last_instruction(&self) -> bool {
-        self.inst.0 as usize == self.get(&self.code().expr).instructions.len()
+        self.inst.0 as usize == self.ctx.instructions().instructions.len()
     }
 
     fn get_kind(&self) -> NodeKind<WebAsmNode> {
@@ -140,14 +151,14 @@ impl InstructionNode {
         let kind = if self.after_last_instruction() {
             NodeKind::Final
         } else {
-            match self.current_instruction() {
+            match self.instruction() {
                 // block type not really needed apart from validation purposes
                 Instruction::If { bt: _ } => {
                     NodeKind::Branch {
                         condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
                         if_true: self.next(0),
                         if_false: {
-                            let block_end = self.block_end(&self.inst);
+                            let block_end = self.ctx.block_end(&self.inst);
                             // it ends up either with "else" or "block_end", regardless to which one on else we want to go into either of them
                             self.goto(InstructionIdx(block_end.0 + 1))
                         }
@@ -224,14 +235,14 @@ impl InstructionNode {
 
 impl WebAsmNode {
     pub fn exported_func(source: Rc<Source>, name: &str) -> WebAsmNode {
-        WebAsmNode::Instruction(InstructionNode::exported_func(source, name))
+        WebAsmNode::Instruction(InstructionNode::create(Rc::new(FuncContext::exported(source, name))))
     }
 }
 
 impl Hash for InstructionNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u128(self.source.uuid);
-        state.write_u32(self.func.0);
+        state.write_u128(self.ctx.source.uuid);
+        state.write_u32(self.ctx.id.0);
         state.write_u32(self.inst.0);
     }
 }
@@ -240,8 +251,8 @@ impl Eq for InstructionNode {}
 
 impl PartialEq<Self> for InstructionNode {
     fn eq(&self, other: &Self) -> bool {
-        self.source.uuid == other.source.uuid &&
-            self.func.0 == other.func.0 &&
+        self.ctx.source.uuid == other.ctx.source.uuid &&
+            self.ctx.id.0 == other.ctx.id.0 &&
             self.inst.0 == other.inst.0
     }
 }
