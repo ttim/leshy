@@ -22,23 +22,21 @@ pub enum NodeKind<N: Node> {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Ref {
-    Stack { offset: u32 },
+    Stack(u32),
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Command {
-    Push { size: u32, src: Ref },
-    PushConst { bytes: Vec<u8> },
     WriteConst { dst: Ref, bytes: Vec<u8> },
+    Write { dst: Ref, size: u32, src: Ref },
     Resize { delta: i32 },
 }
 
 pub fn stack_size_change(command: &Command) -> i32 {
     match command {
-        Command::Push { size, .. } => { *size as i32 }
-        Command::PushConst { bytes } => { bytes.len() as i32 }
         Command::Resize { delta } => { *delta }
         Command::WriteConst { .. } => { 0 }
+        Command::Write { .. } => { 0 }
     }
 }
 

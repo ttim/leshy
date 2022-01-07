@@ -84,7 +84,7 @@ impl InstructionNode {
         if (id.0 as usize) < self.func_type().params.len() {
             let prev_locals = &self.func_type().params.as_slice()[0..id.0 as usize];
             let offset = prev_locals.iter().map(|local| Self::val_type_size(local) as u32).sum();
-            Ref::Stack { offset }
+            Ref::Stack(offset)
         } else {
             todo!()
         }
@@ -153,7 +153,7 @@ impl InstructionNode {
 
                     let next_node = |byte_to_write: u32| -> WebAsmNode {
                         let delta = - ((size * 2 - 4) as i32); // - 2 operands + 1 bool
-                        let dst = Ref::Stack { offset: self.stack_size - size * 2 };
+                        let dst = Ref::Stack(self.stack_size - size * 2);
                         WebAsmNode::Intermediate(Box::new(NodeKind::Command {
                             command: Command::WriteConst { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
                             next: WebAsmNode::Intermediate(
@@ -168,8 +168,8 @@ impl InstructionNode {
                     NodeKind::Branch {
                         condition: Condition::Eq {
                             size,
-                            op1: Ref::Stack { offset: self.stack_size - size * 2 },
-                            op2: Ref::Stack { offset: self.stack_size - size },
+                            op1: Ref::Stack(self.stack_size - size * 2),
+                            op2: Ref::Stack(self.stack_size - size),
                         },
                         if_true: next_node(0),
                         if_false: next_node(1),
@@ -188,15 +188,22 @@ impl InstructionNode {
     fn push_const(&self, bytes: Vec<u8>) -> NodeKind<WebAsmNode> {
         let delta = bytes.len() as i32;
         NodeKind::Command {
-            command: Command::PushConst { bytes },
-            next: self.next(delta),
+            command: Command::Resize { delta },
+            next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
+                command: Command::WriteConst { dst: Ref::Stack(self.stack_size), bytes },
+                next: self.next(delta),
+            })),
         }
     }
 
     fn push(&self, size: u32, src: Ref) -> NodeKind<WebAsmNode> {
+        let delta = size as i32;
         NodeKind::Command {
-            command: Command::Push { size, src },
-            next: self.next(size as i32),
+            command: Command::Resize { delta },
+            next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
+                command: Command::Write { size, dst: Ref::Stack(self.stack_size), src },
+                next: self.next(delta),
+            })),
         }
     }
 }
