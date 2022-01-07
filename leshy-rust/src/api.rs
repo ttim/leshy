@@ -28,6 +28,7 @@ pub enum Ref {
 #[derive(Debug)]
 pub enum Command {
     Push { src: Ref, size: u32 },
+    PushConst { bytes: Vec<u8> },
 }
 
 #[derive(Debug)]

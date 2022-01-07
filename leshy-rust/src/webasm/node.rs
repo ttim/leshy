@@ -115,6 +115,10 @@ impl WebAsmNode {
         }
     }
 
+    fn command(&self, command: Command) -> NodeKind<WebAsmNode> {
+        NodeKind::Command { command, next: self.next() }
+    }
+
     fn after_last_instruction(&self) -> bool {
         self.inst.0 as usize == self.get(&self.code().expr).0.len()
     }
@@ -150,12 +154,11 @@ impl Node for WebAsmNode {
                 Instruction::Return => { todo!() }
                 Instruction::Call(_) => { todo!() }
                 Instruction::LocalGet(id) => {
-                    NodeKind::Command {
-                        command: Command::Push { src: self.local_ref(id), size: self.local_size(id) as u32 },
-                        next: self.next(),
-                    }
+                    self.command(Command::Push { src: self.local_ref(id), size: self.local_size(id) as u32 })
                 }
-                Instruction::I32Const(_) => { todo!() }
+                Instruction::I32Const(value) => {
+                    self.command(Command::PushConst { bytes: value.to_le_bytes().to_vec() })
+                }
                 Instruction::Eq(_) => { todo!() }
                 Instruction::Add(_) => { todo!() }
                 Instruction::Sub(_) => { todo!() }
