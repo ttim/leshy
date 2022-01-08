@@ -148,20 +148,21 @@ impl InstructionNode {
         }
     }
 
-    fn next(&self, stack_size: u32) -> WebAsmNode {
-        WebAsmNode::Instruction(InstructionNode {
-            ctx: self.ctx.clone(),
-            inst: InstructionIdx(self.inst.0 + 1),
-            stack_size
-        })
-    }
+    fn next(&self, stack_size: u32) -> WebAsmNode { self.goto(InstructionIdx(self.inst.0 + 1), stack_size) }
 
-    fn goto(&self, op: InstructionIdx, stack_size_delta: i32) -> WebAsmNode {
-        WebAsmNode::Instruction(InstructionNode {
-            ctx: self.ctx.clone(),
-            inst: op,
-            stack_size:  ((self.stack_size as i32) + stack_size_delta) as u32
-        })
+    fn goto(&self, inst: InstructionIdx, stack_size: u32) -> WebAsmNode {
+        let node = WebAsmNode::Instruction(InstructionNode { ctx: self.ctx.clone(), inst, stack_size });
+
+        if self.stack_size <= stack_size {
+            node
+        } else {
+            WebAsmNode::Intermediate(Box::new(
+                NodeKind::Command {
+                    command: Command::PoisonFrom { dst: Ref::Stack(stack_size) },
+                    next: node
+                }
+            ))
+        }
     }
 
     fn last_instruction(&self) -> bool {
@@ -177,14 +178,13 @@ impl InstructionNode {
             }
             // block type not really needed apart from validation purposes
             Instruction::If { bt: _ } => {
-                // todo: poison last 4 bytes
                 NodeKind::Branch {
                     condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
                     if_true: self.next(self.stack_size - 4),
                     if_false: {
                         let block_end = self.ctx.block_end(&self.inst);
                         // it ends up either with "else" or "block_end", regardless to which one on else we want to go into either of them
-                        self.goto(InstructionIdx(block_end.0 + 1), -4)
+                        self.goto(InstructionIdx(block_end.0 + 1), self.stack_size - 4)
                     },
                 }
             }
@@ -222,12 +222,7 @@ impl InstructionNode {
                     let dst = Ref::Stack(self.stack_size - size * 2);
                     WebAsmNode::Intermediate(Box::new(NodeKind::Command {
                         command: Command::Set { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
-                        next: WebAsmNode::Intermediate(
-                            Box::new(NodeKind::Command {
-                                command: Command::PoisonFrom { dst: Ref::Stack(self.stack_size - size * 2 + 4) },
-                                next: self.next(self.stack_size - size * 2 + 4),
-                            })
-                        ),
+                        next: self.next(self.stack_size - size * 2 + 4),
                     }))
                 };
 
