@@ -16,8 +16,6 @@
     if $I1
       i32.const 1
       return
-    else
-      nop
     end
     local.get $n
     i32.const 2

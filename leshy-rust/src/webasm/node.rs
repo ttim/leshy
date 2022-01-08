@@ -196,7 +196,6 @@ impl InstructionNode {
                     },
                 }
             }
-            // todo: it's weird we never end up here!!!
             Instruction::Else => { todo!() }
             Instruction::BlockEnd => {
                 if self.last_instruction() {
