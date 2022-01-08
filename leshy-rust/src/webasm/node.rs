@@ -55,6 +55,11 @@ impl Source {
     fn func_section(&self) -> &FuncSection { self.get_option(&self.module.func_section) }
     fn type_section(&self) -> &TypeSection { self.get_option(&self.module.type_section) }
 
+    fn func_type(&self, id: &FuncIdx) -> &FuncType {
+        let type_id = self.func_section().0.get(id.0 as usize).unwrap();
+        self.type_section().0.get(type_id.0 as usize).unwrap()
+    }
+
     fn get<'a, T: Readable>(&'a self, lazy: &'a Lazy<T>) -> &'a T {
         lazy.get(self.file.borrow_mut().deref_mut())
     }
@@ -65,6 +70,10 @@ impl Source {
             Some(lazy) => { self.get(lazy) }
         }
     }
+}
+
+fn size_of(items: &Vec<ValType>) -> u32 {
+    items.iter().map(|i| InstructionNode::val_type_size(i) as u32).sum()
 }
 
 impl FuncContext {
@@ -82,19 +91,12 @@ impl FuncContext {
     fn instructions(&self) -> &Instructions { self.source.get(&self.code().expr) }
     fn block_end(&self, idx: &InstructionIdx) -> &InstructionIdx { self.instructions().blocks.get(idx).unwrap() }
 
-    fn func_type(&self) -> &FuncType {
-        let type_id = self.source.func_section().0.get(self.id.0 as usize).unwrap();
-        self.source.type_section().0.get(type_id.0 as usize).unwrap()
-    }
-
-    fn size_of(items: &Vec<ValType>) -> u32 {
-        items.iter().map(|i| InstructionNode::val_type_size(i) as u32).sum()
-    }
+    fn func_type(&self) -> &FuncType { self.source.func_type(&self.id) }
 }
 
 impl CallFuncNode {
     fn get_kind(&self) -> NodeKind<WebAsmNode> {
-        let stack_size = FuncContext::size_of(&self.ctx.func_type().params);
+        let stack_size = size_of(&self.ctx.func_type().params);
         NodeKind::Command {
             command: Command::CheckSize { stack_size },
             next: WebAsmNode::Instruction(
@@ -193,7 +195,15 @@ impl InstructionNode {
             Instruction::Return => {
                 self.ret()
             }
-            Instruction::Call(_) => { todo!() }
+            Instruction::Call(id) => {
+                let params_size = size_of(&self.ctx.source.func_type(id).params);
+                let result_size = size_of(&self.ctx.source.func_type(id).results);
+                NodeKind::Call {
+                    offset: self.stack_size - params_size,
+                    call: WebAsmNode::CallFunc(CallFuncNode { ctx: Rc::new(FuncContext { source: self.ctx.source.clone(), id: id.clone() }) }),
+                    next: self.next((result_size as i32) - (params_size as i32))
+                }
+            }
             Instruction::LocalGet(id) => {
                 self.push(self.local_size(id) as u32, self.local_ref(id))
             }

@@ -29,6 +29,8 @@ pub enum Ref {
 pub enum Command {
     Noop,
 
+    // Maybe remove this thing at all?
+    // How many guarantees it actually gives us? do we really need it?
     Resize { delta: i32 },
     CheckSize { stack_size: u32 },
 
