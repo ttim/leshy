@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait Node: Hash + Eq + Sized + Debug {
+pub trait Node: Hash + Eq + Sized + Debug + Clone {
     fn get(&self) -> NodeKind<Self>;
 }
 

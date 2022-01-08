@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
-use crate::core::utils::traverse_node;
+use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::{Code, CodeSection, ExportSection, ExportTag, FuncIdx, FuncSection, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, TypeSection, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
 use crate::webasm::parser::hydrate::hydrate_module;
@@ -167,7 +167,7 @@ impl InstructionNode {
     }
 
     fn get_kind(&self) -> NodeKind<WebAsmNode> {
-        println!("getting: {:?}", &self);
+        // println!("getting: {:?}", &self);
 
         let kind = match self.instruction() {
             Instruction::Nop => {
@@ -263,7 +263,7 @@ impl InstructionNode {
             }
         };
 
-        println!("computed: {:?}", kind);
+        // println!("computed: {:?}", kind);
         kind
     }
 
@@ -359,4 +359,15 @@ fn test_node_creation() {
     let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
     let fib = WebAsmNode::exported_func(source.clone(), "fib");
     traverse_node(fib);
+}
+
+#[test]
+fn test_node_pretty_print() {
+    let name = String::from("data/fib.wasm");
+    let mut file = File::open(&name).unwrap();
+    let module = Module::read(&mut file).unwrap();
+    hydrate_module(&module, &mut file);
+    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
+    let fib = WebAsmNode::exported_func(source.clone(), "fib");
+    pretty_print(fib);
 }
