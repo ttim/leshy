@@ -1,4 +1,5 @@
-use crate::core::api::{Command, Condition, Node, NodeKind};
+use std::num::Wrapping;
+use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
 
 pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
     let mut current = node;
@@ -9,7 +10,7 @@ pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
                 current = next;
             }
             NodeKind::Branch { condition, if_true, if_false } => {
-                if eval_condition(condition, stack) {
+                if eval_condition(&condition, stack) {
                     current = if_true;
                 } else {
                     current = if_false;
@@ -17,7 +18,7 @@ pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
             }
             NodeKind::Call { offset, call, next } => {
                 eval(call, &mut stack[(offset as usize)..]);
-                eval(next, stack);
+                current = next;
             }
             NodeKind::Final => { break; }
         }
@@ -25,31 +26,60 @@ pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
 }
 
 fn eval_command(command: Command, stack: &mut [u8]) {
-    match command {
+    match &command {
         Command::Noop => {}
         Command::PoisonFrom { .. } => {}
-        Command::Set { .. } => {
-            todo!()
+        Command::Set { dst, bytes } => {
+            match dst {
+                Ref::Stack(offset) => {
+                    stack[*offset as usize..*offset as usize + bytes.len()].copy_from_slice(bytes.as_slice());
+                }
+            }
         }
-        Command::Copy { .. } => {
-            todo!()
+        Command::Copy { size: 4, dst, op } => {
+            put_u32(dst, stack, get_u32(op, stack));
         }
-        Command::Add { .. } => {
-            todo!()
+        Command::Add { size: 4, dst, op1, op2 } => {
+            put_u32(dst, stack, get_u32(op1, stack) + get_u32(op2, stack))
         }
-        Command::Sub { .. } => {
-            todo!()
+        Command::Sub { size: 4, dst, op1, op2 } => {
+            put_u32(dst, stack, get_u32(op1, stack) - get_u32(op2, stack))
+        }
+        _ => {
+            todo!("unsupported command: {:?}", command)
+        }
+    }
+    // println!("{:?} <- eval {:?}", stack, command);
+}
+
+fn eval_condition(condition: &Condition, stack: &mut [u8]) -> bool {
+    let result = match condition {
+        Condition::Eq { size: 4, op1, op2 } => {
+            get_u32(op1, stack) == get_u32(op2, stack)
+        }
+        Condition::Ne0 { size: 4, src } => {
+            get_u32(src, stack).0 != 0
+        }
+        _ => {
+            todo!("unsupported condition: {:?}", condition)
+        }
+    };
+    // println!("eval {} <- {:?}", result, condition);
+    result
+}
+
+pub fn get_u32(src: &Ref, stack: &[u8]) -> Wrapping<u32> {
+    match src {
+        Ref::Stack(offset) => {
+            Wrapping(u32::from_le_bytes(stack[*offset as usize..(*offset + 4) as usize].try_into().unwrap()))
         }
     }
 }
 
-fn eval_condition(condition: Condition, stack: &mut [u8]) -> bool {
-    match condition {
-        Condition::Eq { .. } => {
-            todo!()
-        }
-        Condition::Ne0 { .. } => {
-            todo!()
+pub fn put_u32(dst: &Ref, stack: &mut [u8], value: Wrapping<u32>) {
+    match dst {
+        Ref::Stack(offset) => {
+            stack[*offset as usize..(*offset + 4) as usize].copy_from_slice(value.0.to_le_bytes().as_slice());
         }
     }
 }

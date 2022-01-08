@@ -2,10 +2,11 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
+use std::num::Wrapping;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
-use crate::core::interpreter::eval;
+use crate::core::interpreter::{eval, get_u32, put_u32};
 use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::{Code, CodeSection, ExportSection, ExportTag, FuncIdx, FuncSection, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, TypeSection, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
@@ -155,11 +156,11 @@ impl InstructionNode {
         })
     }
 
-    fn goto(&self, op: InstructionIdx) -> WebAsmNode {
+    fn goto(&self, op: InstructionIdx, stack_size_delta: i32) -> WebAsmNode {
         WebAsmNode::Instruction(InstructionNode {
             ctx: self.ctx.clone(),
             inst: op,
-            stack_size: self.stack_size
+            stack_size:  ((self.stack_size as i32) + stack_size_delta) as u32
         })
     }
 
@@ -176,16 +177,18 @@ impl InstructionNode {
             }
             // block type not really needed apart from validation purposes
             Instruction::If { bt: _ } => {
+                // todo: poison last 4 bytes
                 NodeKind::Branch {
                     condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
-                    if_true: self.next(0),
+                    if_true: self.next(-4),
                     if_false: {
                         let block_end = self.ctx.block_end(&self.inst);
                         // it ends up either with "else" or "block_end", regardless to which one on else we want to go into either of them
-                        self.goto(InstructionIdx(block_end.0 + 1))
+                        self.goto(InstructionIdx(block_end.0 + 1), -4)
                     },
                 }
             }
+            // todo: it's weird we never end up here!!!
             Instruction::Else => { todo!() }
             Instruction::BlockEnd => {
                 if self.last_instruction() {
@@ -234,8 +237,8 @@ impl InstructionNode {
                         op1: Ref::Stack(self.stack_size - size * 2),
                         op2: Ref::Stack(self.stack_size - size),
                     },
-                    if_true: next_node(0),
-                    if_false: next_node(1),
+                    if_true: next_node(1),
+                    if_false: next_node(0),
                 }
             }
             Instruction::Add(num_type) => {
@@ -243,11 +246,11 @@ impl InstructionNode {
                 NodeKind::Command {
                     command: Command::Add {
                         size,
-                        dst: Ref::Stack(self.stack_size),
+                        dst: Ref::Stack(self.stack_size - 2 * size),
                         op1: Ref::Stack(self.stack_size - 2 * size),
                         op2: Ref::Stack(self.stack_size - size),
                     },
-                    next: self.next(size as i32),
+                    next: self.next(-(size as i32)),
                 }
             }
             Instruction::Sub(num_type) => {
@@ -255,11 +258,11 @@ impl InstructionNode {
                 NodeKind::Command {
                     command: Command::Sub {
                         size,
-                        dst: Ref::Stack(self.stack_size),
+                        dst: Ref::Stack(self.stack_size - 2 * size),
                         op1: Ref::Stack(self.stack_size - 2 * size),
                         op2: Ref::Stack(self.stack_size - size),
                     },
-                    next: self.next(size as i32),
+                    next: self.next(-(size as i32)),
                 }
             }
         };
@@ -373,6 +376,7 @@ fn test_node_pretty_print() {
     pretty_print(fib);
 }
 
+// run in release mode with `cargo test webasm::node::test_node_eval --release`
 #[test]
 fn test_node_eval() {
     let name = String::from("data/fib.wasm");
@@ -381,11 +385,11 @@ fn test_node_eval() {
     hydrate_module(&module, &mut file);
     let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
     let fib = WebAsmNode::exported_func(source.clone(), "fib");
-    let mut stack = [0u8; 100];
+    let mut stack = [0u8; 1000];
 
-    let n = 5_u32;
-    stack.as_mut_slice()[0..4].copy_from_slice(n.to_le_bytes().as_slice());
+    let n = 25_u32;
+    put_u32(&Ref::Stack(0), &mut stack, Wrapping(n));
     eval(fib, &mut stack);
-    let res = u32::from_le_bytes(stack[0..4].try_into().unwrap());
+    let res = get_u32(&Ref::Stack(0), &stack).0;
     println!("fib({}) = {}", n ,res);
 }
