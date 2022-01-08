@@ -33,7 +33,10 @@ pub enum Command {
     CheckSize { stack_size: u32 },
 
     Set { dst: Ref, bytes: Vec<u8> },
-    Copy { dst: Ref, size: u32, src: Ref },
+    Copy { dst: Ref, size: u32, op: Ref },
+
+    Add { size: u32, dst: Ref, op1: Ref, op2: Ref },
+    Sub { size: u32, dst: Ref, op1: Ref, op2: Ref },
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]

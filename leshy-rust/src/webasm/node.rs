@@ -227,8 +227,36 @@ impl InstructionNode {
                     if_false: next_node(1),
                 }
             }
-            Instruction::Add(_) => { todo!() }
-            Instruction::Sub(_) => { todo!() }
+            Instruction::Add(num_type) => {
+                let size = InstructionNode::num_type_size(num_type) as u32;
+                NodeKind::Command {
+                    command: Command::Resize { delta: size as i32 },
+                    next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
+                        command: Command::Add {
+                            size,
+                            dst: Ref::Stack(self.stack_size),
+                            op1: Ref::Stack(self.stack_size - 2 * size),
+                            op2: Ref::Stack(self.stack_size - size),
+                        },
+                        next: self.next(size as i32),
+                    })),
+                }
+            }
+            Instruction::Sub(num_type) => {
+                let size = InstructionNode::num_type_size(num_type) as u32;
+                NodeKind::Command {
+                    command: Command::Resize { delta: size as i32 },
+                    next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
+                        command: Command::Sub {
+                            size,
+                            dst: Ref::Stack(self.stack_size),
+                            op1: Ref::Stack(self.stack_size - 2 * size),
+                            op2: Ref::Stack(self.stack_size - size),
+                        },
+                        next: self.next(size as i32),
+                    })),
+                }
+            }
         };
 
         println!("computed: {:?}", kind);
@@ -251,7 +279,7 @@ impl InstructionNode {
         NodeKind::Command {
             command: Command::Resize { delta },
             next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
-                command: Command::Copy { size, dst: Ref::Stack(self.stack_size), src },
+                command: Command::Copy { size, dst: Ref::Stack(self.stack_size), op: src },
                 next: self.next(delta),
             })),
         }
@@ -264,7 +292,7 @@ impl InstructionNode {
             command: Command::Copy {
                 dst: Ref::Stack(0),
                 size: ret_size,
-                src: Ref::Stack(self.stack_size - ret_size),
+                op: Ref::Stack(self.stack_size - ret_size),
             },
             next: WebAsmNode::Intermediate(Box::new(NodeKind::Command {
                 // clean stack
