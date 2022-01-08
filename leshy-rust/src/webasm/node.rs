@@ -6,6 +6,7 @@ use std::num::Wrapping;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
+use crate::core::cached_node::Cache;
 use crate::core::interpreter::{eval, get_u32, put_u32};
 use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::{Code, CodeSection, ExportSection, ExportTag, FuncIdx, FuncSection, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, TypeSection, ValType};
@@ -362,6 +363,19 @@ fn test_node_pretty_print() {
     pretty_print(fib);
 }
 
+#[test]
+fn test_cached_node_pretty_print() {
+    let name = String::from("data/fib.wasm");
+    let mut file = File::open(&name).unwrap();
+    let module = Module::read(&mut file).unwrap();
+    hydrate_module(&module, &mut file);
+    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
+    let fib = WebAsmNode::exported_func(source.clone(), "fib");
+    let cache = Cache::new();
+    let cached_fib = cache.cache(fib);
+    pretty_print(cached_fib);
+}
+
 // run in release mode with `cargo test webasm::node::test_node_eval --release`
 #[test]
 fn test_node_eval() {
@@ -376,6 +390,25 @@ fn test_node_eval() {
     let n = 25_u32;
     put_u32(&Ref::Stack(0), &mut stack, Wrapping(n));
     eval(fib, &mut stack);
+    let res = get_u32(&Ref::Stack(0), &stack).0;
+    println!("fib({}) = {}", n ,res);
+}
+
+#[test]
+fn test_cached_node_eval() {
+    let name = String::from("data/fib.wasm");
+    let mut file = File::open(&name).unwrap();
+    let module = Module::read(&mut file).unwrap();
+    hydrate_module(&module, &mut file);
+    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
+    let fib = WebAsmNode::exported_func(source.clone(), "fib");
+    let cache = Cache::new();
+    let cached_fib = cache.cache(fib);
+    let mut stack = [0u8; 1000];
+
+    let n = 25_u32;
+    put_u32(&Ref::Stack(0), &mut stack, Wrapping(n));
+    eval(cached_fib, &mut stack);
     let res = get_u32(&Ref::Stack(0), &stack).0;
     println!("fib({}) = {}", n ,res);
 }
