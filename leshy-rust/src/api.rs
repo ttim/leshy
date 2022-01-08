@@ -29,10 +29,14 @@ pub enum Ref {
 pub enum Command {
     Noop,
 
-    // Maybe remove this thing at all?
-    // How many guarantees it actually gives us? do we really need it?
-    Resize { delta: i32 },
-    CheckSize { stack_size: u32 },
+    // There've been explicit stack size change operations before here, but not anymore.
+    // We already have all information needed in nodes - from their `size` and `Ref` arguments.
+    // The only missing information is indication that rest of stack isn't needed anymore - we substitute it with poison.
+
+    // Instead of having stack changing operations we use poison
+    // Maybe we want "unspecified" instead of poison, or both.
+    PoisonFrom { dst: Ref },
+    // Poison { size: u32, dst: Ref },
 
     Set { dst: Ref, bytes: Vec<u8> },
     Copy { dst: Ref, size: u32, op: Ref },
