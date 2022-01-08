@@ -205,9 +205,7 @@ impl InstructionNode {
                     self.command(self.stack_size, Command::Noop)
                 }
             }
-            Instruction::Return => {
-                self.ret()
-            }
+            Instruction::Return => { self.ret() }
             Instruction::Call(id) => {
                 let params_size = size_of(&self.ctx.source.func_type(id).params);
                 let result_size = size_of(&self.ctx.source.func_type(id).results);
@@ -243,27 +241,25 @@ impl InstructionNode {
                 }
             }
             Instruction::Add(num_type) => {
-                let size = InstructionNode::num_type_size(num_type) as u32;
-                self.command(self.stack_size - size, Command::Add {
-                    size,
-                    dst: Ref::Stack(self.stack_size - 2 * size),
-                    op1: Ref::Stack(self.stack_size - 2 * size),
-                    op2: Ref::Stack(self.stack_size - size),
-                })
+                self.binary_op(num_type, |size, dst, op1, op2|
+                    Command::Add { size, dst, op1, op2 })
             }
             Instruction::Sub(num_type) => {
-                let size = InstructionNode::num_type_size(num_type) as u32;
-                self.command(self.stack_size - size, Command::Sub {
-                    size,
-                    dst: Ref::Stack(self.stack_size - 2 * size),
-                    op1: Ref::Stack(self.stack_size - 2 * size),
-                    op2: Ref::Stack(self.stack_size - size),
-                })
+                self.binary_op(num_type, |size, dst, op1, op2|
+                    Command::Sub { size, dst, op1, op2 })
             }
         };
 
         // println!("computed: {:?}", kind);
         kind
+    }
+
+    fn binary_op<F: FnOnce(u32, Ref, Ref, Ref) -> Command>(&self, num_type: &NumType, cmd: F) -> NodeKind<WebAsmNode> {
+        let size = InstructionNode::num_type_size(num_type) as u32;
+        let dst = Ref::Stack(self.stack_size - 2 * size);
+        let op1 = Ref::Stack(self.stack_size - 2 * size);
+        let op2 = Ref::Stack(self.stack_size - size);
+        self.command(self.stack_size - size, cmd(size, dst, op1, op2))
     }
 
     fn push_const(&self, bytes: Vec<u8>) -> NodeKind<WebAsmNode> {
