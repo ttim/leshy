@@ -5,6 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
+use crate::core::interpreter::eval;
 use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::{Code, CodeSection, ExportSection, ExportTag, FuncIdx, FuncSection, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, TypeSection, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
@@ -370,4 +371,21 @@ fn test_node_pretty_print() {
     let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
     let fib = WebAsmNode::exported_func(source.clone(), "fib");
     pretty_print(fib);
+}
+
+#[test]
+fn test_node_eval() {
+    let name = String::from("data/fib.wasm");
+    let mut file = File::open(&name).unwrap();
+    let module = Module::read(&mut file).unwrap();
+    hydrate_module(&module, &mut file);
+    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
+    let fib = WebAsmNode::exported_func(source.clone(), "fib");
+    let mut stack = [0u8; 100];
+
+    let n = 5_u32;
+    stack.as_mut_slice()[0..4].copy_from_slice(n.to_le_bytes().as_slice());
+    eval(fib, &mut stack);
+    let res = u32::from_le_bytes(stack[0..4].try_into().unwrap());
+    println!("fib({}) = {}", n ,res);
 }
