@@ -84,7 +84,7 @@ impl<'a, N: Node> Debug for Cache<'a, N> {
 
 impl<'a, N: Node> PartialEq<Self> for Cache<'a, N> {
     fn eq(&self, other: &Self) -> bool {
-        self as (*const Cache<'a, N>) == other as (*const Cache<'a, N>)
+        self as *const Cache<'a, N> == other as *const Cache<'a, N>
     }
 }
 
@@ -92,7 +92,7 @@ impl<'a, N: Node> Eq for Cache<'a, N> {}
 
 impl<'a, N: Node> Hash for Cache<'a, N> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(self as (*const Cache<'a, N>) as usize);
+        state.write_usize(self as *const Cache<'a, N> as usize);
     }
 }
 

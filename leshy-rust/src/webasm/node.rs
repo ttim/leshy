@@ -2,22 +2,17 @@ use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::num::Wrapping;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
-use crate::core::cached_node::Cache;
-use crate::core::interpreter::{eval, get_u32, put_u32};
-use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::{Code, CodeSection, ExportSection, ExportTag, FuncIdx, FuncSection, FuncType, Instruction, InstructionIdx, Instructions, LocalIdx, Module, NumType, TypeSection, ValType};
 use crate::webasm::lazy::{Lazy, Readable};
-use crate::webasm::parser::hydrate::hydrate_module;
 
-struct Source {
-    uuid: u128,
-    name: String,
-    file: RefCell<File>,
-    module: Module,
+pub struct Source {
+    pub uuid: u128,
+    pub name: String,
+    pub file: RefCell<File>,
+    pub module: Module,
 }
 
 impl Debug for Source {
@@ -29,7 +24,7 @@ impl Debug for Source {
 }
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
-enum WebAsmNode {
+pub enum WebAsmNode {
     CallFunc(CallFuncNode),
     Instruction(InstructionNode),
     Intermediate(Box<NodeKind<WebAsmNode>>),
@@ -42,12 +37,12 @@ struct FuncContext {
 }
 
 #[derive(Debug, Clone)]
-struct CallFuncNode {
+pub struct CallFuncNode {
     ctx: Rc<FuncContext>,
 }
 
 #[derive(Debug, Clone)]
-struct InstructionNode {
+pub struct InstructionNode {
     ctx: Rc<FuncContext>,
     inst: InstructionIdx,
     stack_size: u32,
@@ -339,76 +334,4 @@ impl Node for WebAsmNode {
             WebAsmNode::Intermediate(kind) => { (*kind.as_ref()).clone() }
         }
     }
-}
-
-#[test]
-fn test_node_creation() {
-    let name = String::from("data/fib.wasm");
-    let mut file = File::open(&name).unwrap();
-    let module = Module::read(&mut file).unwrap();
-    hydrate_module(&module, &mut file);
-    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
-    let fib = WebAsmNode::exported_func(source.clone(), "fib");
-    traverse_node(fib);
-}
-
-#[test]
-fn test_node_pretty_print() {
-    let name = String::from("data/fib.wasm");
-    let mut file = File::open(&name).unwrap();
-    let module = Module::read(&mut file).unwrap();
-    hydrate_module(&module, &mut file);
-    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
-    let fib = WebAsmNode::exported_func(source.clone(), "fib");
-    pretty_print(fib);
-}
-
-#[test]
-fn test_cached_node_pretty_print() {
-    let name = String::from("data/fib.wasm");
-    let mut file = File::open(&name).unwrap();
-    let module = Module::read(&mut file).unwrap();
-    hydrate_module(&module, &mut file);
-    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
-    let fib = WebAsmNode::exported_func(source.clone(), "fib");
-    let cache = Cache::new();
-    let cached_fib = cache.cache(fib);
-    pretty_print(cached_fib);
-}
-
-// run in release mode with `cargo test webasm::node::test_node_eval --release`
-#[test]
-fn test_node_eval() {
-    let name = String::from("data/fib.wasm");
-    let mut file = File::open(&name).unwrap();
-    let module = Module::read(&mut file).unwrap();
-    hydrate_module(&module, &mut file);
-    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
-    let fib = WebAsmNode::exported_func(source.clone(), "fib");
-    let mut stack = [0u8; 1000];
-
-    let n = 25_u32;
-    put_u32(&Ref::Stack(0), &mut stack, Wrapping(n));
-    eval(fib, &mut stack);
-    let res = get_u32(&Ref::Stack(0), &stack).0;
-    println!("fib({}) = {}", n ,res);
-}
-
-#[test]
-fn test_cached_node_eval() {
-    let name = String::from("data/fib.wasm");
-    let mut file = File::open(&name).unwrap();
-    let module = Module::read(&mut file).unwrap();
-    hydrate_module(&module, &mut file);
-    let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
-    let fib = WebAsmNode::exported_func(source.clone(), "fib");
-    let cache = Cache::new();
-    let cached_fib = cache.cache(fib);
-    let mut stack = [0u8; 1000];
-
-    let n = 25_u32;
-    put_u32(&Ref::Stack(0), &mut stack, Wrapping(n));
-    eval(cached_fib, &mut stack);
-    let res = get_u32(&Ref::Stack(0), &stack).0;
-    println!("fib({}) = {}", n ,res);
 }
