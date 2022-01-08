@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -49,43 +48,6 @@ pub enum Command {
 pub enum Condition {
     Eq { size: u32, op1: Ref, op2: Ref },
     Ne0 { size: u32, src: Ref }, // not equal to zero, similar to c ifs
-}
-
-#[derive(Debug, Hash, PartialEq, Eq)]
-struct ExampleNodeImpl {
-    id: u64,
-}
-
-impl Node for ExampleNodeImpl {
-    fn get(&self) -> NodeKind<Self> {
-        NodeKind::Final
-    }
-}
-
-pub fn traverse_node<N: Node>(node: N) -> HashSet<N> {
-    fn rec<N: Node>(node: N, visited: &mut HashSet<N>) {
-        if visited.contains(&node) { return; }
-        let kind = node.get();
-        visited.insert(node);
-        match kind {
-            NodeKind::Command { next, .. } => {
-                rec(next, visited);
-            }
-            NodeKind::Branch { if_true, if_false, .. } => {
-                rec(if_true, visited);
-                rec(if_false, visited);
-            }
-            NodeKind::Call { call, next, .. } => {
-                rec(call, visited);
-                rec(next, visited);
-            }
-            NodeKind::Final => {}
-        }
-    }
-
-    let mut visited: HashSet<N> = HashSet::new();
-    rec(node, &mut visited);
-    visited
 }
 
 // There is more dynamic available using Box<dyn> approach.

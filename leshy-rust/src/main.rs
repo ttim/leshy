@@ -1,5 +1,5 @@
 mod example;
-mod api;
+mod core;
 mod webasm;
 
 fn main() {
