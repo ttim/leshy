@@ -192,7 +192,7 @@ impl InstructionNode {
             Instruction::Else => { todo!() }
             Instruction::BlockEnd => {
                 if self.last_instruction() {
-                    NodeKind::Final
+                    self.ret()
                 } else {
                     NodeKind::Command { command: Command::Noop, next: self.next(self.stack_size) }
                 }
