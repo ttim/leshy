@@ -148,7 +148,17 @@ impl InstructionNode {
         }
     }
 
-    fn next(&self, stack_size: u32) -> WebAsmNode { self.goto(InstructionIdx(self.inst.0 + 1), stack_size) }
+    fn next(&self, stack_size: u32) -> WebAsmNode {
+        self.goto(InstructionIdx(self.inst.0 + 1), stack_size)
+    }
+
+    fn command(&self, stack_size: u32, command: Command) -> NodeKind<WebAsmNode> {
+        NodeKind::Command { command, next: self.next(stack_size) }
+    }
+
+    fn command_node(&self, stack_size: u32, command: Command) -> WebAsmNode {
+        WebAsmNode::Intermediate(Box::new(NodeKind::Command { command, next: self.next(stack_size) }))
+    }
 
     fn goto(&self, inst: InstructionIdx, stack_size: u32) -> WebAsmNode {
         let node = WebAsmNode::Instruction(InstructionNode { ctx: self.ctx.clone(), inst, stack_size });
@@ -173,9 +183,7 @@ impl InstructionNode {
         // println!("getting: {:?}", &self);
 
         let kind = match self.instruction() {
-            Instruction::Nop => {
-                NodeKind::Command { command: Command::Noop, next: self.next(self.stack_size) }
-            }
+            Instruction::Nop => { self.command(self.stack_size, Command::Noop) }
             // block type not really needed apart from validation purposes
             Instruction::If { bt: _ } => {
                 NodeKind::Branch {
@@ -194,7 +202,7 @@ impl InstructionNode {
                 if self.last_instruction() {
                     self.ret()
                 } else {
-                    NodeKind::Command { command: Command::Noop, next: self.next(self.stack_size) }
+                    self.command(self.stack_size, Command::Noop)
                 }
             }
             Instruction::Return => {
@@ -220,10 +228,8 @@ impl InstructionNode {
 
                 let next_node = |byte_to_write: u32| -> WebAsmNode {
                     let dst = Ref::Stack(self.stack_size - size * 2);
-                    WebAsmNode::Intermediate(Box::new(NodeKind::Command {
-                        command: Command::Set { dst, bytes: byte_to_write.to_le_bytes().to_vec() },
-                        next: self.next(self.stack_size - size * 2 + 4),
-                    }))
+                    self.command_node(self.stack_size - size * 2 + 4,
+                                      Command::Set { dst, bytes: byte_to_write.to_le_bytes().to_vec() })
                 };
 
                 NodeKind::Branch {
@@ -238,27 +244,21 @@ impl InstructionNode {
             }
             Instruction::Add(num_type) => {
                 let size = InstructionNode::num_type_size(num_type) as u32;
-                NodeKind::Command {
-                    command: Command::Add {
-                        size,
-                        dst: Ref::Stack(self.stack_size - 2 * size),
-                        op1: Ref::Stack(self.stack_size - 2 * size),
-                        op2: Ref::Stack(self.stack_size - size),
-                    },
-                    next: self.next(self.stack_size - size),
-                }
+                self.command(self.stack_size - size, Command::Add {
+                    size,
+                    dst: Ref::Stack(self.stack_size - 2 * size),
+                    op1: Ref::Stack(self.stack_size - 2 * size),
+                    op2: Ref::Stack(self.stack_size - size),
+                })
             }
             Instruction::Sub(num_type) => {
                 let size = InstructionNode::num_type_size(num_type) as u32;
-                NodeKind::Command {
-                    command: Command::Sub {
-                        size,
-                        dst: Ref::Stack(self.stack_size - 2 * size),
-                        op1: Ref::Stack(self.stack_size - 2 * size),
-                        op2: Ref::Stack(self.stack_size - size),
-                    },
-                    next: self.next(self.stack_size - size),
-                }
+                self.command(self.stack_size - size, Command::Sub {
+                    size,
+                    dst: Ref::Stack(self.stack_size - 2 * size),
+                    op1: Ref::Stack(self.stack_size - 2 * size),
+                    op2: Ref::Stack(self.stack_size - size),
+                })
             }
         };
 
@@ -268,17 +268,13 @@ impl InstructionNode {
 
     fn push_const(&self, bytes: Vec<u8>) -> NodeKind<WebAsmNode> {
         let bytes_len = bytes.len() as u32;
-        NodeKind::Command {
-            command: Command::Set { dst: Ref::Stack(self.stack_size), bytes },
-            next: self.next(self.stack_size + bytes_len),
-        }
+        self.command(self.stack_size + bytes_len,
+                     Command::Set { dst: Ref::Stack(self.stack_size), bytes })
     }
 
     fn push(&self, size: u32, src: Ref) -> NodeKind<WebAsmNode> {
-        NodeKind::Command {
-            command: Command::Copy { size, dst: Ref::Stack(self.stack_size), op: src },
-            next: self.next(self.stack_size + size),
-        }
+        self.command(self.stack_size + size,
+                     Command::Copy { size, dst: Ref::Stack(self.stack_size), op: src })
     }
 
     fn ret(&self) -> NodeKind<WebAsmNode> {
