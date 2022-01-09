@@ -25,7 +25,7 @@ pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
     }
 }
 
-fn eval_command(command: &Command, stack: &mut [u8]) {
+pub fn eval_command(command: &Command, stack: &mut [u8]) {
     match &command {
         Command::Noop => {}
         Command::PoisonFrom { .. } => {}
@@ -52,7 +52,7 @@ fn eval_command(command: &Command, stack: &mut [u8]) {
     // println!("{:?} <- eval {:?}", stack, command);
 }
 
-fn eval_condition(condition: &Condition, stack: &mut [u8]) -> bool {
+pub fn eval_condition(condition: &Condition, stack: &mut [u8]) -> bool {
     let result = match condition {
         Condition::Eq { size: 4, op1, op2 } => {
             get_u32(op1, stack) == get_u32(op2, stack)

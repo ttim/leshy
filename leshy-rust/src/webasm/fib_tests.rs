@@ -4,6 +4,7 @@ use std::num::Wrapping;
 use std::rc::Rc;
 use crate::core::api::{Node, Ref};
 use crate::core::cached_node::Cache;
+use crate::core::caching_interpreter::Interpreter;
 use crate::core::interpreter::{eval, get_u32, put_u32};
 use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::Module;
@@ -28,21 +29,30 @@ fn test_node_pretty_print() { pretty_print(fib_node()); }
 #[test]
 fn test_cached_node_pretty_print() { pretty_print(Cache::new().cache(fib_node())); }
 
-fn run_fib<N: Node>(node: N, n: u32) {
+fn run_fib<F: FnOnce(&mut [u8])>(eval: F, n: u32) {
     let mut stack = [0u8; 1000];
     put_u32(&Ref::Stack(0), &mut stack, Wrapping(n));
-    eval(node, &mut stack);
+    eval(&mut stack);
     let res = get_u32(&Ref::Stack(0), &stack).0;
     println!("fib({}) = {}", n ,res);
+}
+
+fn run_fib_node<N: Node>(node: N, n: u32) {
+    run_fib(|stack| eval(node, stack), n)
 }
 
 // run in release mode with `cargo test webasm::fib_tests::test_node_eval --release`
 #[test]
 fn test_node_eval() {
-    run_fib(fib_node(), 25);
+    run_fib_node(fib_node(), 25);
 }
 
 #[test]
 fn test_cached_node_eval() {
-    run_fib(Cache::new().cache(fib_node()), 25);
+    run_fib_node(Cache::new().cache(fib_node()), 25);
+}
+
+#[test]
+fn test_cached_eval() {
+    run_fib(|stack| Interpreter::new().eval(fib_node(), stack), 25)
 }
