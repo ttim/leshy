@@ -6,7 +6,7 @@ pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
     loop {
         match current.get() {
             NodeKind::Command { command, next } => {
-                eval_command(command, stack);
+                eval_command(&command, stack);
                 current = next;
             }
             NodeKind::Branch { condition, if_true, if_false } => {
@@ -25,7 +25,7 @@ pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
     }
 }
 
-fn eval_command(command: Command, stack: &mut [u8]) {
+fn eval_command(command: &Command, stack: &mut [u8]) {
     match &command {
         Command::Noop => {}
         Command::PoisonFrom { .. } => {}

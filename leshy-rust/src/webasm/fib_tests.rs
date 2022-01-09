@@ -39,10 +39,10 @@ fn run_fib<N: Node>(node: N, n: u32) {
 // run in release mode with `cargo test webasm::fib_tests::test_node_eval --release`
 #[test]
 fn test_node_eval() {
-    run_fib(fib_node(), 26);
+    run_fib(fib_node(), 25);
 }
 
 #[test]
 fn test_cached_node_eval() {
-    run_fib(Cache::new().cache(fib_node()), 26);
+    run_fib(Cache::new().cache(fib_node()), 25);
 }

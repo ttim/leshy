@@ -31,7 +31,7 @@ pub struct FuncType {
     pub results: Vec<ValType>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NumType {
     I32,
     I64,
@@ -39,13 +39,13 @@ pub enum NumType {
     F64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RefType {
     Func,
     // Extern,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ValType {
     Num(NumType),
     Ref(RefType),
@@ -54,10 +54,10 @@ pub enum ValType {
 #[derive(Debug)]
 pub struct TypeIdx(pub u32);
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct LocalIdx(pub u32);
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct FuncIdx(pub u32);
 
 #[derive(Debug)]
@@ -113,7 +113,7 @@ pub enum Instruction {
     Sub(NumType),
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Copy)]
 pub struct InstructionIdx(pub u32);
 
 #[derive(Debug, PartialEq, Eq)]
@@ -121,4 +121,11 @@ pub enum BlockType {
     Empty,
     // ValType(ValType),
     // TypeIdx(TypeIdx),
+}
+
+#[test]
+fn test_data_sizes() {
+    assert_eq!(1, std::mem::size_of::<NumType>());
+    assert_eq!(1, std::mem::size_of::<ValType>());
+    assert_eq!(4, std::mem::size_of::<InstructionIdx>());
 }

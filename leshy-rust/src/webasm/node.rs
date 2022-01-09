@@ -54,7 +54,7 @@ impl Source {
     fn func_section(&self) -> &FuncSection { self.get_option(&self.module.func_section) }
     fn type_section(&self) -> &TypeSection { self.get_option(&self.module.type_section) }
 
-    fn func_type(&self, id: &FuncIdx) -> &FuncType {
+    fn func_type(&self, id: FuncIdx) -> &FuncType {
         let type_id = self.func_section().0.get(id.0 as usize).unwrap();
         self.type_section().0.get(type_id.0 as usize).unwrap()
     }
@@ -72,7 +72,7 @@ impl Source {
 }
 
 fn size_of(items: &Vec<ValType>) -> u32 {
-    items.iter().map(|i| InstructionNode::val_type_size(i) as u32).sum()
+    items.iter().map(|i| InstructionNode::val_type_size(*i) as u32).sum()
 }
 
 impl FuncContext {
@@ -88,9 +88,9 @@ impl FuncContext {
 
     fn code(&self) -> &Code { self.source.code_section().0.get(self.id.0 as usize).unwrap() }
     fn instructions(&self) -> &Instructions { self.source.get(&self.code().expr) }
-    fn block_end(&self, idx: &InstructionIdx) -> &InstructionIdx { self.instructions().blocks.get(idx).unwrap() }
+    fn block_end(&self, idx: InstructionIdx) -> InstructionIdx { *self.instructions().blocks.get(&idx).unwrap() }
 
-    fn func_type(&self) -> &FuncType { self.source.func_type(&self.id) }
+    fn func_type(&self) -> &FuncType { self.source.func_type(self.id) }
 }
 
 impl CallFuncNode {
@@ -110,32 +110,32 @@ impl InstructionNode {
         self.ctx.instructions().instructions.get(self.inst.0 as usize).unwrap()
     }
 
-    fn local_ref(&self, id: &LocalIdx) -> Ref {
+    fn local_ref(&self, id: LocalIdx) -> Ref {
         if (id.0 as usize) < self.ctx.func_type().params.len() {
             let prev_locals = &self.ctx.func_type().params.as_slice()[0..id.0 as usize];
-            let offset = prev_locals.iter().map(|local| Self::val_type_size(local) as u32).sum();
+            let offset = prev_locals.iter().map(|local| Self::val_type_size(*local) as u32).sum();
             Ref::Stack(offset)
         } else {
             todo!()
         }
     }
 
-    fn local_size(&self, id: &LocalIdx) -> u8 {
+    fn local_size(&self, id: LocalIdx) -> u8 {
         if (id.0 as usize) < self.ctx.func_type().params.len() {
-            Self::val_type_size(self.ctx.func_type().params.get(id.0 as usize).unwrap())
+            Self::val_type_size(*self.ctx.func_type().params.get(id.0 as usize).unwrap())
         } else {
             todo!()
         }
     }
 
-    fn val_type_size(val_type: &ValType) -> u8 {
+    fn val_type_size(val_type: ValType) -> u8 {
         match val_type {
             ValType::Num(num_type) => { Self::num_type_size(num_type) }
             ValType::Ref(_) => { todo!() }
         }
     }
 
-    fn num_type_size(num_type: &NumType) -> u8 {
+    fn num_type_size(num_type: NumType) -> u8 {
         match num_type {
             NumType::I32 => { 4 }
             NumType::I64 => { 8 }
@@ -186,7 +186,7 @@ impl InstructionNode {
                     condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
                     if_true: self.next(self.stack_size - 4),
                     if_false: {
-                        let block_end = self.ctx.block_end(&self.inst);
+                        let block_end = self.ctx.block_end(self.inst);
                         // it ends up either with "else" or "block_end", regardless to which one on else we want to go into either of them
                         self.goto(InstructionIdx(block_end.0 + 1), self.stack_size - 4)
                     },
@@ -202,8 +202,8 @@ impl InstructionNode {
             }
             Instruction::Return => { self.ret() }
             Instruction::Call(id) => {
-                let params_size = size_of(&self.ctx.source.func_type(id).params);
-                let result_size = size_of(&self.ctx.source.func_type(id).results);
+                let params_size = size_of(&self.ctx.source.func_type(*id).params);
+                let result_size = size_of(&self.ctx.source.func_type(*id).results);
                 NodeKind::Call {
                     offset: self.stack_size - params_size,
                     call: WebAsmNode::CallFunc(CallFuncNode { ctx: Rc::new(FuncContext { source: self.ctx.source.clone(), id: id.clone() }) }),
@@ -211,13 +211,13 @@ impl InstructionNode {
                 }
             }
             Instruction::LocalGet(id) => {
-                self.push(self.local_size(id) as u32, self.local_ref(id))
+                self.push(self.local_size(*id) as u32, self.local_ref(*id))
             }
             Instruction::I32Const(value) => {
                 self.push_const(value.to_le_bytes().to_vec())
             }
             Instruction::Eq(num_type) => {
-                let size = InstructionNode::num_type_size(num_type) as u32;
+                let size = InstructionNode::num_type_size(*num_type) as u32;
 
                 let next_node = |byte_to_write: u32| -> WebAsmNode {
                     let dst = Ref::Stack(self.stack_size - size * 2);
@@ -236,11 +236,11 @@ impl InstructionNode {
                 }
             }
             Instruction::Add(num_type) => {
-                self.binary_op(num_type, |size, dst, op1, op2|
+                self.binary_op(*num_type, |size, dst, op1, op2|
                     Command::Add { size, dst, op1, op2 })
             }
             Instruction::Sub(num_type) => {
-                self.binary_op(num_type, |size, dst, op1, op2|
+                self.binary_op(*num_type, |size, dst, op1, op2|
                     Command::Sub { size, dst, op1, op2 })
             }
         };
@@ -249,7 +249,7 @@ impl InstructionNode {
         kind
     }
 
-    fn binary_op<F: FnOnce(u32, Ref, Ref, Ref) -> Command>(&self, num_type: &NumType, cmd: F) -> NodeKind<WebAsmNode> {
+    fn binary_op<F: FnOnce(u32, Ref, Ref, Ref) -> Command>(&self, num_type: NumType, cmd: F) -> NodeKind<WebAsmNode> {
         let size = InstructionNode::num_type_size(num_type) as u32;
         let dst = Ref::Stack(self.stack_size - 2 * size);
         let op1 = Ref::Stack(self.stack_size - 2 * size);
@@ -269,7 +269,7 @@ impl InstructionNode {
     }
 
     fn ret(&self) -> NodeKind<WebAsmNode> {
-        let ret_size = self.ctx.func_type().results.iter().map(|tpe| InstructionNode::val_type_size(tpe) as u32).sum();
+        let ret_size = size_of(&self.ctx.func_type().results);
         NodeKind::Command {
             // copy result
             command: Command::Copy {
