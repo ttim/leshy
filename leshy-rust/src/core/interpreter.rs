@@ -37,13 +37,13 @@ pub fn eval_command(command: &Command, stack: &mut [u8]) {
             }
         }
         Command::Copy { size: 4, dst, op } => {
-            put_u32(dst, stack, get_u32(op, stack));
+            put_u32(*dst, stack, get_u32(*op, stack));
         }
         Command::Add { size: 4, dst, op1, op2 } => {
-            put_u32(dst, stack, get_u32(op1, stack) + get_u32(op2, stack))
+            put_u32(*dst, stack, get_u32(*op1, stack) + get_u32(*op2, stack))
         }
         Command::Sub { size: 4, dst, op1, op2 } => {
-            put_u32(dst, stack, get_u32(op1, stack) - get_u32(op2, stack))
+            put_u32(*dst, stack, get_u32(*op1, stack) - get_u32(*op2, stack))
         }
         _ => {
             todo!("unsupported command: {:?}", command)
@@ -55,10 +55,10 @@ pub fn eval_command(command: &Command, stack: &mut [u8]) {
 pub fn eval_condition(condition: &Condition, stack: &mut [u8]) -> bool {
     let result = match condition {
         Condition::Eq { size: 4, op1, op2 } => {
-            get_u32(op1, stack) == get_u32(op2, stack)
+            get_u32(*op1, stack) == get_u32(*op2, stack)
         }
         Condition::Ne0 { size: 4, src } => {
-            get_u32(src, stack).0 != 0
+            get_u32(*src, stack).0 != 0
         }
         _ => {
             todo!("unsupported condition: {:?}", condition)
@@ -68,18 +68,18 @@ pub fn eval_condition(condition: &Condition, stack: &mut [u8]) -> bool {
     result
 }
 
-pub fn get_u32(src: &Ref, stack: &[u8]) -> Wrapping<u32> {
+pub fn get_u32(src: Ref, stack: &[u8]) -> Wrapping<u32> {
     match src {
         Ref::Stack(offset) => {
-            Wrapping(u32::from_le_bytes(stack[*offset as usize..(*offset + 4) as usize].try_into().unwrap()))
+            Wrapping(u32::from_le_bytes(stack[offset as usize..(offset + 4) as usize].try_into().unwrap()))
         }
     }
 }
 
-pub fn put_u32(dst: &Ref, stack: &mut [u8], value: Wrapping<u32>) {
+pub fn put_u32(dst: Ref, stack: &mut [u8], value: Wrapping<u32>) {
     match dst {
         Ref::Stack(offset) => {
-            stack[*offset as usize..(*offset + 4) as usize].copy_from_slice(value.0.to_le_bytes().as_slice());
+            stack[offset as usize..(offset + 4) as usize].copy_from_slice(value.0.to_le_bytes().as_slice());
         }
     }
 }

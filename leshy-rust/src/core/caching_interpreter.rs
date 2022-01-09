@@ -39,7 +39,7 @@ impl<N: Node> Interpreter<N> {
         let mut current = node;
         loop {
             match self.get_kind(current) {
-                ComputedKind::NotComputed => { panic!("can't happen") }
+                // generic commands
                 ComputedKind::Command { command, next } => {
                     eval_command(command, stack);
                     current = *next;
@@ -59,6 +59,7 @@ impl<N: Node> Interpreter<N> {
                     current = next_deref;
                 }
                 ComputedKind::Final => { break; }
+                ComputedKind::NotComputed => { panic!("can't happen") }
             }
         }
     }

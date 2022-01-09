@@ -31,9 +31,9 @@ fn test_cached_node_pretty_print() { pretty_print(Cache::new().cache(fib_node())
 
 fn run_fib<F: FnOnce(&mut [u8])>(eval: F, n: u32) {
     let mut stack = [0u8; 1000];
-    put_u32(&Ref::Stack(0), &mut stack, Wrapping(n));
+    put_u32(Ref::Stack(0), &mut stack, Wrapping(n));
     eval(&mut stack);
-    let res = get_u32(&Ref::Stack(0), &stack).0;
+    let res = get_u32(Ref::Stack(0), &stack).0;
     println!("fib({}) = {}", n ,res);
 }
 
@@ -54,5 +54,5 @@ fn test_cached_node_eval() {
 
 #[test]
 fn test_cached_eval() {
-    run_fib(|stack| Interpreter::new().eval(fib_node(), stack), 25)
+    run_fib(|stack| Interpreter::new().eval(fib_node(), stack), 35)
 }

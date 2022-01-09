@@ -19,7 +19,7 @@ pub enum NodeKind<N: Node> {
     // Swap { src: N, dst: fn(N, N) -> N, next: N }, // replaces src node with dst node (as function of context node and previously set dst node) in execution
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Ref {
     Stack(u32),
 }
@@ -114,3 +114,8 @@ pub enum Condition {
 //         self
 //     }
 // }
+
+#[test]
+fn test_sizes() {
+    assert_eq!(4, std::mem::size_of::<Ref>())
+}
