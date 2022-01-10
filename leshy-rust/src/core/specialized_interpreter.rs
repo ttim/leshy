@@ -1,20 +1,14 @@
 use std::collections::HashMap;
 use std::num::Wrapping;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
+use crate::core::caching_interpreter::NodeId;
 use crate::core::interpreter::{eval_command, eval_condition, get_u32, put_u32};
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-struct NodeId(u32);
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 struct SmallStackRef(u8);
 
 #[derive(Debug, Eq, PartialEq)]
 struct SmallNodeId(i16);
-
-impl NodeId {
-    fn next(self) -> NodeId { NodeId(self.0 + 1) }
-}
 
 impl SmallNodeId {
     fn get(&self, ctx: NodeId) -> NodeId {
@@ -67,16 +61,16 @@ enum FullComputedKind {
     Call { offset: u32, call: NodeId, next: NodeId },
 }
 
-pub struct Interpreter<N: Node> {
+pub struct SpecializedInterpreter<N: Node> {
     nodes: Vec<N>,
     idx: HashMap<N, NodeId>,
     computed: Vec<ComputedKind>,
     computed_full: Vec<FullComputedKind>,
 }
 
-impl<N: Node> Interpreter<N> {
-    pub fn new() -> Interpreter<N> {
-        Interpreter {
+impl<N: Node> SpecializedInterpreter<N> {
+    pub fn new() -> SpecializedInterpreter<N> {
+        SpecializedInterpreter {
             nodes: vec![],
             idx: HashMap::new(),
             computed: vec![],
