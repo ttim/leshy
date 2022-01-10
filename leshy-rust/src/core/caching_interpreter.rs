@@ -9,16 +9,21 @@ struct NodeId(u32);
 enum ComputedKind {
     NotComputed,
 
+    Full(u32),
+    Final,
+}
+
+enum FullComputedKind {
     Command { command: Command, next: NodeId },
     Branch { condition: Condition, if_true: NodeId, if_false: NodeId },
     Call { offset: u32, call: NodeId, next: NodeId },
-    Final,
 }
 
 pub struct Interpreter<N: Node> {
     nodes: Vec<N>,
     idx: HashMap<N, NodeId>,
     computed: Vec<ComputedKind>,
+    computed_full: Vec<FullComputedKind>,
 }
 
 impl<N: Node> Interpreter<N> {
@@ -26,7 +31,8 @@ impl<N: Node> Interpreter<N> {
         Interpreter {
             nodes: vec![],
             idx: HashMap::new(),
-            computed: vec![]
+            computed: vec![],
+            computed_full: vec![],
         }
     }
 
@@ -39,26 +45,30 @@ impl<N: Node> Interpreter<N> {
         let mut current = node;
         loop {
             match self.get_kind(current) {
-                // generic commands
-                ComputedKind::Command { command, next } => {
-                    eval_command(command, stack);
-                    current = *next;
-                }
-                ComputedKind::Branch { condition, if_true, if_false } => {
-                    if eval_condition(condition, stack) {
-                        current = *if_true;
-                    } else {
-                        current = *if_false;
+                ComputedKind::Final => { break; }
+                ComputedKind::Full(id) => {
+                    let id = *id as usize;
+                    match self.computed_full.get(id).unwrap() {
+                        FullComputedKind::Command { command, next } => {
+                            eval_command(command, stack);
+                            current = *next;
+                        }
+                        FullComputedKind::Branch { condition, if_true, if_false } => {
+                            if eval_condition(condition, stack) {
+                                current = *if_true;
+                            } else {
+                                current = *if_false;
+                            }
+                        }
+                        FullComputedKind::Call { offset, call, next } => {
+                            let offset_deref = *offset as usize;
+                            let call_deref = *call;
+                            let next_deref = *next;
+                            self.eval_id(call_deref, &mut stack[offset_deref..]);
+                            current = next_deref;
+                        }
                     }
                 }
-                ComputedKind::Call { offset, call, next } => {
-                    let offset_deref = *offset as usize;
-                    let call_deref = *call;
-                    let next_deref = *next;
-                    self.eval_id(call_deref, &mut stack[offset_deref..]);
-                    current = next_deref;
-                }
-                ComputedKind::Final => { break; }
                 ComputedKind::NotComputed => { panic!("can't happen") }
             }
         }
@@ -67,16 +77,26 @@ impl<N: Node> Interpreter<N> {
     fn get_kind(&mut self, node: NodeId) -> &ComputedKind {
         if *self.computed.get(node.0 as usize).unwrap() == ComputedKind::NotComputed {
             let computed_kind = match Self::get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
+                // compressed
+                NodeKind::Final => { ComputedKind::Final }
+                // full
                 NodeKind::Command { command, next } => {
-                    ComputedKind::Command { command, next: self.get_id(next) }
+                    let next = self.get_id(next);
+                    self.computed_full.push(FullComputedKind::Command { command, next });
+                    ComputedKind::Full((self.computed_full.len() - 1) as u32)
                 }
                 NodeKind::Branch { condition, if_true, if_false } => {
-                    ComputedKind::Branch { condition, if_true: self.get_id(if_true), if_false: self.get_id(if_false) }
+                    let if_true = self.get_id(if_true);
+                    let if_false = self.get_id(if_false);
+                    self.computed_full.push(FullComputedKind::Branch { condition, if_true, if_false });
+                    ComputedKind::Full((self.computed_full.len() - 1) as u32)
                 }
                 NodeKind::Call { offset, call, next } => {
-                    ComputedKind::Call { offset, call: self.get_id(call), next: self.get_id(next) }
+                    let call = self.get_id(call);
+                    let next = self.get_id(next);
+                    self.computed_full.push(FullComputedKind::Call { offset, call, next });
+                    ComputedKind::Full((self.computed_full.len() - 1) as u32)
                 }
-                NodeKind::Final => { ComputedKind::Final }
             };
             *self.computed.get_mut(node.0 as usize).unwrap() = computed_kind;
         }
@@ -112,5 +132,6 @@ impl<N: Node> Interpreter<N> {
 
 #[test]
 fn test_sizes() {
-    assert_eq!(40, std::mem::size_of::<ComputedKind>());
+    assert_eq!(8, std::mem::size_of::<ComputedKind>());
+    assert_eq!(40, std::mem::size_of::<FullComputedKind>());
 }
