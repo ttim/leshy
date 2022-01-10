@@ -4,7 +4,7 @@ use std::num::Wrapping;
 use std::rc::Rc;
 use crate::core::api::{Node, Ref};
 use crate::core::cached_node::Cache;
-use crate::core::caching_interpreter::Interpreter;
+use crate::core::specialized_interpreter::Interpreter;
 use crate::core::interpreter::{eval, get_u32, put_u32};
 use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::Module;
@@ -53,7 +53,7 @@ fn test_cached_node_eval() {
 }
 
 #[test]
-fn test_cached_eval() {
+fn test_specialized_interpreter_eval() {
     let mut interpreter = Interpreter::new();
     run_fib(|stack| interpreter.eval(fib_node(), stack), 35);
     // interpreter.print_stats()
