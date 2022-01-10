@@ -1,13 +1,44 @@
 use std::collections::HashMap;
-use crate::core::api::{Command, Condition, Node, NodeKind};
-use crate::core::interpreter::{eval_command, eval_condition};
+use std::num::Wrapping;
+use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
+use crate::core::interpreter::{eval_command, eval_condition, get_u32, put_u32};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 struct NodeId(u32);
 
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+struct SmallStackRef(u8);
+
+#[derive(Debug, Eq, PartialEq)]
+struct SmallNodeId(i16);
+
+impl SmallNodeId {
+    fn get(&self, ctx: NodeId) -> NodeId {
+        NodeId((ctx.0 as i32 + (self.0 as i32)) as u32)
+    }
+}
+
+fn small_id(ctx: NodeId, id: NodeId) -> Option<SmallNodeId> {
+    (id.0 as i64 - ctx.0 as i64).try_into().ok().map(|id| SmallNodeId(id))
+}
+
+fn small_ref(r: Ref) -> Option<SmallStackRef> {
+    match r {
+        Ref::Stack(offset) => { offset.try_into().ok().map(|id| SmallStackRef(id)) }
+    }
+}
+
+impl Into<Ref> for SmallStackRef {
+    fn into(self) -> Ref { Ref::Stack(self.0 as u32) }
+}
+
+
 #[derive(Debug, Eq, PartialEq)]
 enum ComputedKind {
     NotComputed,
+
+    Set4 { dst: SmallStackRef, value: Wrapping<u32>, next: SmallNodeId },
+    Copy4 { dst: SmallStackRef, op: SmallStackRef, next: SmallNodeId },
 
     Full(u32),
     Final,
@@ -70,6 +101,14 @@ impl<N: Node> Interpreter<N> {
                     }
                 }
                 ComputedKind::NotComputed => { panic!("can't happen") }
+                ComputedKind::Set4 { dst, value, next } => {
+                    put_u32((*dst).into(), stack, *value);
+                    current = next.get(current);
+                }
+                ComputedKind::Copy4 { dst, op , next } => {
+                    put_u32((*dst).into(), stack, get_u32((*op).into(), stack));
+                    current = next.get(current);
+                }
             }
         }
     }
@@ -77,13 +116,18 @@ impl<N: Node> Interpreter<N> {
     fn get_kind(&mut self, node: NodeId) -> &ComputedKind {
         if *self.computed.get(node.0 as usize).unwrap() == ComputedKind::NotComputed {
             let computed_kind = match Self::get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
-                // compressed
                 NodeKind::Final => { ComputedKind::Final }
-                // full
                 NodeKind::Command { command, next } => {
                     let next = self.get_id(next);
-                    self.computed_full.push(FullComputedKind::Command { command, next });
-                    ComputedKind::Full((self.computed_full.len() - 1) as u32)
+
+                    let compressed = if let Some(next) = small_id(node, next) {
+                        Self::get_compressed_command(&command, next)
+                    } else { ComputedKind::NotComputed };
+
+                    if compressed == ComputedKind::NotComputed {
+                        self.computed_full.push(FullComputedKind::Command { command, next });
+                        ComputedKind::Full((self.computed_full.len() - 1) as u32)
+                    } else { compressed }
                 }
                 NodeKind::Branch { condition, if_true, if_false } => {
                     let if_true = self.get_id(if_true);
@@ -101,6 +145,29 @@ impl<N: Node> Interpreter<N> {
             *self.computed.get_mut(node.0 as usize).unwrap() = computed_kind;
         }
         self.computed.get(node.0 as usize).unwrap()
+    }
+
+    fn get_compressed_command(command: &Command, next: SmallNodeId) -> ComputedKind {
+        match command {
+            Command::Set { dst, bytes }
+            if small_ref(*dst).is_some() && bytes.len() == 4 => {
+                ComputedKind::Set4 {
+                    dst: small_ref(*dst).unwrap(),
+                    value: get_u32(Ref::Stack(0), bytes.as_slice()),
+                    next,
+                }
+            }
+            Command::Copy { size: 4, dst, op }
+            if small_ref(*dst).is_some() && small_ref(*op).is_some() => {
+                ComputedKind::Copy4 {
+                    dst: small_ref(*dst).unwrap(),
+                    op: small_ref(*op).unwrap(),
+                    next
+                }
+            }
+
+            _ => { ComputedKind::NotComputed }
+        }
     }
 
     fn get_final_kind(node: &N) -> NodeKind<N> {
