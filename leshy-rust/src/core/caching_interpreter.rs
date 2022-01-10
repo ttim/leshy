@@ -54,6 +54,8 @@ enum ComputedKind {
     Eq4 { op1: SmallStackRef, op2: SmallStackRef, if_true: SmallNodeId, if_false: SmallNodeId },
     Ne04 { op: SmallStackRef, if_true: SmallNodeId, if_false: SmallNodeId },
 
+    Call { offset: SmallStackRef, call: SmallNodeId, next: SmallNodeId },
+
     Full(u32),
     Final,
 }
@@ -167,6 +169,13 @@ impl<N: Node> Interpreter<N> {
                         if_false.get(current)
                     }
                 }
+                ComputedKind::Call { offset, call, next } => {
+                    let offset_deref = offset.0 as usize;
+                    let call_deref = call.get(current);
+                    let next_deref = next.get(current);
+                    self.eval_id(call_deref, &mut stack[offset_deref..]);
+                    current = next_deref;
+                }
             }
         }
     }
@@ -203,8 +212,17 @@ impl<N: Node> Interpreter<N> {
                 NodeKind::Call { offset, call, next } => {
                     let call = self.get_id(call);
                     let next = self.get_id(next);
-                    self.computed_full.push(FullComputedKind::Call { offset, call, next });
-                    ComputedKind::Full((self.computed_full.len() - 1) as u32)
+
+                    if small_id(node, call).is_some() && small_id(node, next).is_some() && offset <= u8::MAX as u32 {
+                        ComputedKind::Call {
+                            offset: SmallStackRef(offset as u8),
+                            call: small_id(node, call).unwrap(),
+                            next: small_id(node, next).unwrap()
+                        }
+                    } else {
+                        self.computed_full.push(FullComputedKind::Call { offset, call, next });
+                        ComputedKind::Full((self.computed_full.len() - 1) as u32)
+                    }
                 }
             };
             *self.computed.get_mut(node.0 as usize).unwrap() = computed_kind;
