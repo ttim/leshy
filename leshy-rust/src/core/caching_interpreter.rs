@@ -12,6 +12,10 @@ struct SmallStackRef(u8);
 #[derive(Debug, Eq, PartialEq)]
 struct SmallNodeId(i16);
 
+impl NodeId {
+    fn next(self) -> NodeId { NodeId(self.0 + 1) }
+}
+
 impl SmallNodeId {
     fn get(&self, ctx: NodeId) -> NodeId {
         NodeId((ctx.0 as i32 + (self.0 as i32)) as u32)
@@ -39,6 +43,8 @@ enum ComputedKind {
 
     Set4 { dst: SmallStackRef, value: Wrapping<u32>, next: SmallNodeId },
     Copy4 { dst: SmallStackRef, op: SmallStackRef, next: SmallNodeId },
+    Set4N { dst: SmallStackRef, value: Wrapping<u32> },
+    Copy4N { dst: SmallStackRef, op: SmallStackRef },
 
     Full(u32),
     Final,
@@ -105,9 +111,17 @@ impl<N: Node> Interpreter<N> {
                     put_u32((*dst).into(), stack, *value);
                     current = next.get(current);
                 }
+                ComputedKind::Set4N { dst, value } => {
+                    put_u32((*dst).into(), stack, *value);
+                    current = current.next();
+                }
                 ComputedKind::Copy4 { dst, op , next } => {
                     put_u32((*dst).into(), stack, get_u32((*op).into(), stack));
                     current = next.get(current);
+                }
+                ComputedKind::Copy4N { dst, op  } => {
+                    put_u32((*dst).into(), stack, get_u32((*op).into(), stack));
+                    current = current.next();
                 }
             }
         }
@@ -151,18 +165,32 @@ impl<N: Node> Interpreter<N> {
         match command {
             Command::Set { dst, bytes }
             if small_ref(*dst).is_some() && bytes.len() == 4 => {
-                ComputedKind::Set4 {
-                    dst: small_ref(*dst).unwrap(),
-                    value: get_u32(Ref::Stack(0), bytes.as_slice()),
-                    next,
+                if next == SmallNodeId(1) {
+                    ComputedKind::Set4N {
+                        dst: small_ref(*dst).unwrap(),
+                        value: get_u32(Ref::Stack(0), bytes.as_slice()),
+                    }
+                } else {
+                    ComputedKind::Set4 {
+                        dst: small_ref(*dst).unwrap(),
+                        value: get_u32(Ref::Stack(0), bytes.as_slice()),
+                        next,
+                    }
                 }
             }
             Command::Copy { size: 4, dst, op }
             if small_ref(*dst).is_some() && small_ref(*op).is_some() => {
-                ComputedKind::Copy4 {
-                    dst: small_ref(*dst).unwrap(),
-                    op: small_ref(*op).unwrap(),
-                    next
+                if next == SmallNodeId(1) {
+                    ComputedKind::Copy4N {
+                        dst: small_ref(*dst).unwrap(),
+                        op: small_ref(*op).unwrap()
+                    }
+                } else {
+                    ComputedKind::Copy4 {
+                        dst: small_ref(*dst).unwrap(),
+                        op: small_ref(*op).unwrap(),
+                        next
+                    }
                 }
             }
 
