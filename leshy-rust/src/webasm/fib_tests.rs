@@ -49,7 +49,7 @@ fn test_node_eval() {
 
 #[test]
 fn test_cached_node_eval() {
-    run_fib_node(Cache::new().cache(fib_node()), 25);
+    run_fib_node(Cache::new().cache(fib_node()), 35);
 }
 
 #[test]
