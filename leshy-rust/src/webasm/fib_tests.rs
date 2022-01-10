@@ -54,5 +54,7 @@ fn test_cached_node_eval() {
 
 #[test]
 fn test_cached_eval() {
-    run_fib(|stack| Interpreter::new().eval(fib_node(), stack), 35)
+    let mut interpreter = Interpreter::new();
+    run_fib(|stack| interpreter.eval(fib_node(), stack), 35);
+    // interpreter.print_stats()
 }

@@ -58,6 +58,7 @@ enum ComputedKind {
     Final,
 }
 
+#[derive(Debug)]
 enum FullComputedKind {
     Command { command: Command, next: NodeId },
     Branch { condition: Condition, if_true: NodeId, if_false: NodeId },
@@ -84,6 +85,11 @@ impl<N: Node> Interpreter<N> {
     pub fn eval(&mut self, node: N, stack: &mut [u8]) {
         let id = self.get_id(node);
         self.eval_id(id, stack)
+    }
+
+    pub fn print_stats(&self) {
+        println!("full kinds:");
+        self.computed_full.iter().for_each(|kind| println!("{:?}", kind));
     }
 
     fn eval_id(&mut self, node: NodeId, stack: &mut[u8]) {
