@@ -51,6 +51,9 @@ enum ComputedKind {
     Sub4 { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef, next: SmallNodeId},
     Sub4N { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef},
 
+    Eq4 { op1: SmallStackRef, op2: SmallStackRef, if_true: SmallNodeId, if_false: SmallNodeId },
+    Ne04 { op: SmallStackRef, if_true: SmallNodeId, if_false: SmallNodeId },
+
     Full(u32),
     Final,
 }
@@ -144,6 +147,20 @@ impl<N: Node> Interpreter<N> {
                     put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) - get_u32((*op2).into(), stack));
                     current = current.next();
                 }
+                ComputedKind::Eq4 { op1, op2, if_true, if_false } => {
+                    current = if get_u32((*op1).into(), stack) == get_u32((*op2).into(), stack) {
+                        if_true.get(current)
+                    } else {
+                        if_false.get(current)
+                    }
+                }
+                ComputedKind::Ne04 { op, if_true, if_false } => {
+                    current = if get_u32((*op).into(), stack) != Wrapping(0) {
+                        if_true.get(current)
+                    } else {
+                        if_false.get(current)
+                    }
+                }
             }
         }
     }
@@ -167,8 +184,15 @@ impl<N: Node> Interpreter<N> {
                 NodeKind::Branch { condition, if_true, if_false } => {
                     let if_true = self.get_id(if_true);
                     let if_false = self.get_id(if_false);
-                    self.computed_full.push(FullComputedKind::Branch { condition, if_true, if_false });
-                    ComputedKind::Full((self.computed_full.len() - 1) as u32)
+
+                    let compressed = if small_id(node, if_true).is_some() && small_id(node, if_false).is_some() {
+                        Self::get_compressed_condition(&condition, small_id(node, if_true).unwrap(), small_id(node, if_false).unwrap())
+                    } else { ComputedKind::NotComputed };
+
+                    if compressed == ComputedKind::NotComputed {
+                        self.computed_full.push(FullComputedKind::Branch { condition, if_true, if_false });
+                        ComputedKind::Full((self.computed_full.len() - 1) as u32)
+                    } else { compressed }
                 }
                 NodeKind::Call { offset, call, next } => {
                     let call = self.get_id(call);
@@ -247,6 +271,18 @@ impl<N: Node> Interpreter<N> {
                         next
                     }
                 }
+            }
+            _ => { ComputedKind::NotComputed }
+        }
+    }
+
+    fn get_compressed_condition(condition: &Condition, if_true: SmallNodeId, if_false: SmallNodeId) -> ComputedKind {
+        match condition {
+            Condition::Eq { size: 4, op1, op2 } if small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
+                ComputedKind::Eq4 { op1: small_ref(*op1).unwrap(), op2: small_ref(*op2).unwrap(), if_true, if_false }
+            }
+            Condition::Ne0 { size: 4, op } if small_ref(*op).is_some() => {
+                ComputedKind::Ne04 { op: small_ref(*op).unwrap(), if_true, if_false }
             }
             _ => { ComputedKind::NotComputed }
         }

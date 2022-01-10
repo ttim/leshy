@@ -47,7 +47,7 @@ pub enum Command {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum Condition {
     Eq { size: u32, op1: Ref, op2: Ref },
-    Ne0 { size: u32, src: Ref }, // not equal to zero, similar to c ifs
+    Ne0 { size: u32, op: Ref }, // not equal to zero, similar to c ifs
 }
 
 // There is more dynamic available using Box<dyn> approach.

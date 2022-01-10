@@ -57,7 +57,7 @@ pub fn eval_condition(condition: &Condition, stack: &mut [u8]) -> bool {
         Condition::Eq { size: 4, op1, op2 } => {
             get_u32(*op1, stack) == get_u32(*op2, stack)
         }
-        Condition::Ne0 { size: 4, src } => {
+        Condition::Ne0 { size: 4, op: src } => {
             get_u32(*src, stack).0 != 0
         }
         _ => {

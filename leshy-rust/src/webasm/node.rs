@@ -183,7 +183,7 @@ impl InstructionNode {
             // block type not really needed apart from validation purposes
             Instruction::If { bt: _ } => {
                 NodeKind::Branch {
-                    condition: Condition::Ne0 { size: 4, src: Ref::Stack(self.stack_size - 4) },
+                    condition: Condition::Ne0 { size: 4, op: Ref::Stack(self.stack_size - 4) },
                     if_true: self.next(self.stack_size - 4),
                     if_false: {
                         let block_end = self.ctx.block_end(self.inst);
