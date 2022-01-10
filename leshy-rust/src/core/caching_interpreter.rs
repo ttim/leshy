@@ -46,6 +46,11 @@ enum ComputedKind {
     Set4N { dst: SmallStackRef, value: Wrapping<u32> },
     Copy4N { dst: SmallStackRef, op: SmallStackRef },
 
+    Add4 { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef, next: SmallNodeId},
+    Add4N { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef},
+    Sub4 { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef, next: SmallNodeId},
+    Sub4N { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef},
+
     Full(u32),
     Final,
 }
@@ -123,6 +128,22 @@ impl<N: Node> Interpreter<N> {
                     put_u32((*dst).into(), stack, get_u32((*op).into(), stack));
                     current = current.next();
                 }
+                ComputedKind::Add4 { dst, op1, op2, next } => {
+                    put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) + get_u32((*op2).into(), stack));
+                    current = next.get(current);
+                }
+                ComputedKind::Add4N { dst, op1, op2 } => {
+                    put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) + get_u32((*op2).into(), stack));
+                    current = current.next();
+                }
+                ComputedKind::Sub4 { dst, op1, op2, next } => {
+                    put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) - get_u32((*op2).into(), stack));
+                    current = next.get(current);
+                }
+                ComputedKind::Sub4N { dst, op1, op2 } => {
+                    put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) - get_u32((*op2).into(), stack));
+                    current = current.next();
+                }
             }
         }
     }
@@ -193,7 +214,40 @@ impl<N: Node> Interpreter<N> {
                     }
                 }
             }
-
+            Command::Add { size: 4, dst, op1, op2 }
+            if small_ref(*dst).is_some() && small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
+                if next == SmallNodeId(1) {
+                    ComputedKind::Add4N {
+                        dst: small_ref(*dst).unwrap(),
+                        op1: small_ref(*op1).unwrap(),
+                        op2: small_ref(*op2).unwrap()
+                    }
+                } else {
+                    ComputedKind::Add4 {
+                        dst: small_ref(*dst).unwrap(),
+                        op1: small_ref(*op1).unwrap(),
+                        op2: small_ref(*op2).unwrap(),
+                        next
+                    }
+                }
+            }
+            Command::Sub { size: 4, dst, op1, op2 }
+            if small_ref(*dst).is_some() && small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
+                if next == SmallNodeId(1) {
+                    ComputedKind::Sub4N {
+                        dst: small_ref(*dst).unwrap(),
+                        op1: small_ref(*op1).unwrap(),
+                        op2: small_ref(*op2).unwrap()
+                    }
+                } else {
+                    ComputedKind::Sub4 {
+                        dst: small_ref(*dst).unwrap(),
+                        op1: small_ref(*op1).unwrap(),
+                        op2: small_ref(*op2).unwrap(),
+                        next
+                    }
+                }
+            }
             _ => { ComputedKind::NotComputed }
         }
     }
