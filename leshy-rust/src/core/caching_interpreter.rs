@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::core::api::{Command, Condition, Node, NodeKind};
-use crate::core::interpreter::{eval_command, eval_condition};
+use crate::core::interpreter::{eval_command, eval_condition, get_final_kind};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct NodeId(pub u32);
@@ -70,7 +70,7 @@ impl<N: Node> Interpreter<N> {
 
     fn get_kind(&mut self, node: NodeId) -> &ComputedKind {
         if *self.computed.get(node.0 as usize).unwrap() == ComputedKind::NotComputed {
-            let computed_kind = match Self::get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
+            let computed_kind = match get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
                 NodeKind::Command { command, next } => {
                     ComputedKind::Command { command, next: self.get_id(next) }
                 }
@@ -85,20 +85,6 @@ impl<N: Node> Interpreter<N> {
             *self.computed.get_mut(node.0 as usize).unwrap() = computed_kind;
         }
         self.computed.get(node.0 as usize).unwrap()
-    }
-
-    fn get_final_kind(node: &N) -> NodeKind<N> {
-        let kind = node.get();
-        match kind {
-            // noop ops
-            NodeKind::Command { command: Command::Noop, next } => { Self::get_final_kind(&next) }
-            NodeKind::Command { command: Command::PoisonFrom { .. }, next } => { Self::get_final_kind(&next) }
-
-            NodeKind::Command { .. } => { kind }
-            NodeKind::Branch { .. } => { kind }
-            NodeKind::Call { .. } => { kind }
-            NodeKind::Final => { kind }
-        }
     }
 
     fn get_id(&mut self, node: N) -> NodeId {

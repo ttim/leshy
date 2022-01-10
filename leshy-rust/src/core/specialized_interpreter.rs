@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::num::Wrapping;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
 use crate::core::caching_interpreter::NodeId;
-use crate::core::interpreter::{eval_command, eval_condition, get_u32, put_u32};
+use crate::core::interpreter::{eval_command, eval_condition, get_final_kind, get_u32, put_u32};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 struct SmallStackRef(u8);
@@ -176,7 +176,7 @@ impl<N: Node> SpecializedInterpreter<N> {
 
     fn get_kind(&mut self, node: NodeId) -> &ComputedKind {
         if *self.computed.get(node.0 as usize).unwrap() == ComputedKind::NotComputed {
-            let computed_kind = match Self::get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
+            let computed_kind = match get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
                 NodeKind::Final => { ComputedKind::Final }
                 NodeKind::Command { command, next } => {
                     let next = self.get_id(next);
@@ -303,20 +303,6 @@ impl<N: Node> SpecializedInterpreter<N> {
                 ComputedKind::Ne04 { op: small_ref(*op).unwrap(), if_true, if_false }
             }
             _ => { ComputedKind::NotComputed }
-        }
-    }
-
-    fn get_final_kind(node: &N) -> NodeKind<N> {
-        let kind = node.get();
-        match kind {
-            // noop ops
-            NodeKind::Command { command: Command::Noop, next } => { Self::get_final_kind(&next) }
-            NodeKind::Command { command: Command::PoisonFrom { .. }, next } => { Self::get_final_kind(&next) }
-
-            NodeKind::Command { .. } => { kind }
-            NodeKind::Branch { .. } => { kind }
-            NodeKind::Call { .. } => { kind }
-            NodeKind::Final => { kind }
         }
     }
 

@@ -25,6 +25,20 @@ pub fn eval<N: Node>(node: N, stack: &mut [u8]) {
     }
 }
 
+pub fn get_final_kind<N: Node>(node: &N) -> NodeKind<N> {
+    let kind = node.get();
+    match kind {
+        // noop ops
+        NodeKind::Command { command: Command::Noop, next } => { get_final_kind(&next) }
+        NodeKind::Command { command: Command::PoisonFrom { .. }, next } => { get_final_kind(&next) }
+
+        NodeKind::Command { .. } => { kind }
+        NodeKind::Branch { .. } => { kind }
+        NodeKind::Call { .. } => { kind }
+        NodeKind::Final => { kind }
+    }
+}
+
 pub fn eval_command(command: &Command, stack: &mut [u8]) {
     match &command {
         Command::Noop => {}
