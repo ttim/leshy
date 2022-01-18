@@ -54,3 +54,5 @@ pub extern "C" fn print(buffer: *const u8, length: u64) {
 // not sure it's safe to replace returns with jumps tho because of not enough guarantees on execution
 // if it's impossible then we need to rewrite code from time to time with replaced refs
 // it feels tho this way sometimes you want to come back to runtime to check node_id -> memory address correspondance, how?
+
+// we don't need to return node_id, instead we can just do bl, save prev location to x1 and return to interpreter where we have mapping between position and node id

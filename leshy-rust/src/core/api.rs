@@ -6,7 +6,7 @@ pub trait Node: Hash + Eq + Sized + Debug + Clone {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum NodeKind<N: Node> {
+pub enum NodeKind<N> {
     Command { command: Command, next: N },
     Branch { condition: Condition, if_true: N, if_false: N },
     Call { offset: u32, call: N, next: N },
