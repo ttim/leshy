@@ -1,10 +1,10 @@
 use crate::core::api::NodeKind;
 use crate::core::driver::driver::{Engine, NodeId, RunState};
 
-struct CodeGenerator {
+struct CodeGeneratorEngine {
 }
 
-impl CodeGenerator {
+impl CodeGeneratorEngine {
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         todo!()
     }
@@ -14,7 +14,7 @@ impl CodeGenerator {
     }
 }
 
-impl Engine for CodeGenerator {
+impl Engine for CodeGeneratorEngine {
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) { self.register(id, kind) }
 
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }

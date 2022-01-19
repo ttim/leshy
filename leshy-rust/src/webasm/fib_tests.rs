@@ -3,11 +3,11 @@ use std::fs::File;
 use std::num::Wrapping;
 use std::rc::Rc;
 use crate::core::api::{Node, Ref};
-use crate::core::cached_node::Cache;
+use crate::core::aux::cached_node::Cache;
+use crate::core::aux::specialized_interpreter::SpecializedInterpreter;
 use crate::core::driver::driver::Driver;
-use crate::core::driver::interpreter::Interpreter;
-use crate::core::specialized_interpreter::SpecializedInterpreter;
-use crate::core::simple_interpreter::{eval, get_u32, put_u32};
+use crate::core::driver::interpreter_engine::InterpreterEngine;
+use crate::core::interpreter::{eval, get_u32, put_u32};
 use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::Module;
 use crate::webasm::node::{Source, WebAsmNode};
@@ -63,5 +63,5 @@ fn test_specialized_interpreter_eval() {
 
 #[test]
 fn test_caching_interpreter_eval() {
-    run_fib(|stack| Driver::new(Interpreter::new()).eval(fib_node(), stack), 35);
+    run_fib(|stack| Driver::new(InterpreterEngine::new()).eval(fib_node(), stack), 35);
 }

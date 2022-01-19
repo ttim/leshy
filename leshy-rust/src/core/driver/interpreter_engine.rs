@@ -1,13 +1,13 @@
 use crate::core::api::NodeKind;
 use crate::core::driver::driver::{Frame, RunState, NodeId, Engine};
-use crate::core::simple_interpreter::{eval_command, eval_condition};
+use crate::core::interpreter::{eval_command, eval_condition};
 
-pub struct Interpreter {
+pub struct InterpreterEngine {
     computed: Vec<Option<NodeKind<NodeId>>>,
 }
 
-impl Interpreter {
-    pub fn new() -> Interpreter { Interpreter { computed: Vec::new() } }
+impl InterpreterEngine {
+    pub fn new() -> InterpreterEngine { InterpreterEngine { computed: Vec::new() } }
 
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         while self.computed.len() <= id.0 as usize {
@@ -61,7 +61,12 @@ impl Interpreter {
     }
 }
 
-impl Engine for Interpreter {
+impl Engine for InterpreterEngine {
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) { self.register(id, kind) }
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }
+}
+
+#[test]
+fn test_sizes() {
+    assert_eq!(40, std::mem::size_of::<Option<NodeKind<NodeId>>>());
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::core::api::{Node, NodeKind};
-use crate::core::simple_interpreter::get_final_kind;
+use crate::core::interpreter::get_final_kind;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct NodeId(pub u32);

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::num::Wrapping;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
 use crate::core::driver::driver::NodeId;
-use crate::core::simple_interpreter::{eval_command, eval_condition, get_final_kind, get_u32, put_u32};
+use crate::core::interpreter::{eval_command, eval_condition, get_final_kind, get_u32, put_u32};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 struct SmallStackRef(u8);
