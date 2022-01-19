@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use crate::core::api::NodeKind;
-use crate::core::driver::driver::{Frame, RunState, NodeId};
+use crate::core::driver::driver::{Frame, RunState, NodeId, Engine};
 use crate::core::simple_interpreter::{eval_command, eval_condition};
 
 pub struct Interpreter {
@@ -10,15 +9,14 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Interpreter { Interpreter { computed: Vec::new() } }
 
-    pub fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
+    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         while self.computed.len() <= id.0 as usize {
             self.computed.push(None);
         }
         *self.computed.get_mut(id.0 as usize).unwrap() = Some(kind);
     }
 
-    // returns true - suspended on unknown node, false - otherwise
-    pub fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
+    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
         while !state.frames.is_empty() {
             let current = state.frames.pop().unwrap();
 
@@ -61,4 +59,9 @@ impl Interpreter {
             Some(inner) => { inner.as_ref() }
         }
     }
+}
+
+impl Engine for Interpreter {
+    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) { self.register(id, kind) }
+    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }
 }

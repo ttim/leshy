@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use crate::core::api::{Node, NodeKind};
-use crate::core::driver::interpreter::Interpreter;
 use crate::core::simple_interpreter::get_final_kind;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
@@ -8,6 +7,13 @@ pub struct NodeId(pub u32);
 
 impl NodeId {
     pub fn next(self) -> NodeId { NodeId(self.0 + 1) }
+}
+
+pub trait Engine {
+    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>);
+
+    // returns true - suspended on unknown node, false - otherwise
+    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool;
 }
 
 pub struct Frame {
@@ -19,19 +25,19 @@ pub struct RunState {
     pub frames: Vec<Frame>,
 }
 
-pub struct Driver<N: Node> {
+pub struct Driver<N: Node, E: Engine> {
     nodes: Vec<N>,
     idx: HashMap<N, NodeId>,
 
-    interpreter: Interpreter,
+    engine: E,
 }
 
-impl<N: Node> Driver<N> {
-    pub fn new() -> Driver<N> {
+impl<N: Node, E: Engine> Driver<N, E> {
+    pub fn new(engine: E) -> Driver<N, E> {
         Driver {
             nodes: vec![],
             idx: HashMap::new(),
-            interpreter: Interpreter::new()
+            engine
         }
     }
 
@@ -44,10 +50,10 @@ impl<N: Node> Driver<N> {
 
     fn eval_inner(&mut self, ctx: &mut RunState, stack: &mut[u8]) {
         while !ctx.frames.is_empty() {
-            if self.interpreter.run(ctx, stack) {
+            if self.engine.run(ctx, stack) {
                 let id_to_register = ctx.frames.last().unwrap().id;
                 let kind = self.get_kind(id_to_register);
-                self.interpreter.register(id_to_register, kind);
+                self.engine.register(id_to_register, kind);
             }
         }
     }
