@@ -18,11 +18,16 @@ pub trait Engine {
 
 pub struct Frame {
     pub id: NodeId,
+    // offset represents with what offset *this and subsequent* nodes should be executed
     pub offset: usize,
 }
 
 pub struct RunState {
     pub frames: Vec<Frame>,
+}
+
+impl RunState {
+    pub fn offset(&self) -> usize { self.frames.iter().map(|f| f.offset).sum() }
 }
 
 pub struct Driver<N: Node, E: Engine> {

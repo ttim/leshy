@@ -78,12 +78,13 @@ impl SpecializedInterpreterEngine {
 
     // returns true - suspended on unknown node, false - otherwise
     pub fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
+        let offset = state.offset();
         let frame = state.frames.pop().unwrap();
-        match self.run_internal(frame.id, &mut stack[frame.offset..]) {
+        match self.run_internal(frame.id, &mut stack[offset..]) {
             None => { false }
             Some(mut suspended_in) => {
                 suspended_in.reverse();
-                suspended_in.iter_mut().for_each(|suspended_frame| suspended_frame.offset += frame.offset);
+                suspended_in.first_mut().unwrap().offset += frame.offset;
                 state.frames.append(&mut suspended_in);
                 true
             }
@@ -186,8 +187,7 @@ impl SpecializedInterpreterEngine {
     }
 
     fn subcall_suspended_trace(mut trace: Vec<Frame>, next: NodeId, offset: usize) -> Vec<Frame> {
-        // suspended in sub call
-        trace.iter_mut().for_each(|e| e.offset += offset);
+        trace.last_mut().unwrap().offset += offset;
         trace.push(Frame { id: next, offset: 0 });
         trace
     }

@@ -17,6 +17,7 @@ impl InterpreterEngine {
     }
 
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
+        let mut offset: usize = state.offset();
         while !state.frames.is_empty() {
             let current = state.frames.pop().unwrap();
 
@@ -28,22 +29,24 @@ impl InterpreterEngine {
                 Some(kind) => {
                     match kind {
                         NodeKind::Command { command, next } => {
-                            eval_command(command, &mut stack[current.offset..]);
+                            eval_command(command, &mut stack[offset..]);
                             state.frames.push(Frame { id: *next, offset: current.offset } );
                         }
                         NodeKind::Branch { condition, if_true, if_false } => {
-                            if eval_condition(condition, &mut stack[current.offset..]) {
+                            if eval_condition(condition, &mut stack[offset..]) {
                                 state.frames.push(Frame { id: *if_true, offset: current.offset });
                             } else {
                                 state.frames.push(Frame { id: *if_false, offset: current.offset });
                             }
                         }
-                        NodeKind::Call { offset, call, next } => {
+                        NodeKind::Call { offset: call_offset, call, next } => {
                             state.frames.push(Frame { id: *next, offset: current.offset });
-                            state.frames.push(Frame { id: *call, offset: current.offset + (*offset as usize) })
+                            state.frames.push(Frame { id: *call, offset: *call_offset as usize });
+                            offset += *call_offset as usize;
                         }
                         NodeKind::Final => {
-                            continue
+                            offset -= current.offset;
+                            continue;
                         }
                     }
                 }
