@@ -18,38 +18,43 @@ impl Interpreter {
     //         false - current top is known but break, or finish of execution
     pub fn run(&self, ctx: &mut CallCtx, stack: &mut [u8]) -> bool {
         while !ctx.callstack.is_empty() {
-            let mut current = ctx.callstack.pop().unwrap();
+            let frame = ctx.callstack.pop().unwrap();
+            let current_stack = &mut stack[frame.offset..];
+            let mut current= frame.id;
 
-            match self.nodes.get(&current.id) {
-                None => {
-                    ctx.callstack.push(current);
-                    return true;
-                }
-                Some(kind) => {
-                    match kind {
-                        NodeKind::Command { command, next } => {
-                            eval_command(command, &mut stack[current.offset..]);
-                            ctx.callstack.push(Frame { id: *next, offset: current.offset } );
-                        }
-                        NodeKind::Branch { condition, if_true, if_false } => {
-                            if eval_condition(condition, &mut stack[current.offset..]) {
-                                ctx.callstack.push(Frame { id: *if_true, offset: current.offset });
-                            } else {
-                                ctx.callstack.push(Frame { id: *if_false, offset: current.offset });
+            loop {
+                match self.nodes.get(&current) {
+                    None => {
+                        ctx.callstack.push(Frame { id: current, offset: frame.offset });
+                        return true;
+                    }
+                    Some(kind) => {
+                        match kind {
+                            NodeKind::Command { command, next } => {
+                                eval_command(command, current_stack);
+                                current = *next;
                             }
-                        }
-                        NodeKind::Call { offset, call, next } => {
-                            ctx.callstack.push(Frame { id: *next, offset: current.offset });
-                            ctx.callstack.push(Frame { id: *call, offset: current.offset + (*offset as usize) })
-                        }
-                        NodeKind::Final => {
-                            continue
+                            NodeKind::Branch { condition, if_true, if_false } => {
+                                if eval_condition(condition, current_stack) {
+                                    current = *if_true;
+                                } else {
+                                    current = *if_false;
+                                }
+                            }
+                            NodeKind::Call { offset, call, next } => {
+                                ctx.callstack.push(Frame { id: *next, offset: frame.offset });
+                                ctx.callstack.push(Frame { id: *call, offset: frame.offset + (*offset as usize) });
+                                break;
+                            }
+                            NodeKind::Final => {
+                                break;
+                            }
                         }
                     }
                 }
             }
         }
 
-        !ctx.callstack.is_empty()
+        false
     }
 }
