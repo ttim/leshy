@@ -1,48 +1,34 @@
 use std::collections::HashMap;
 use crate::core::api::NodeKind;
-use crate::core::driver::driver::{Frame, CallCtx, NodeId};
+use crate::core::driver::driver::{Frame, RunState, NodeId};
 use crate::core::simple_interpreter::{eval_command, eval_condition};
 
 pub struct Interpreter {
-    nodes: Vec<Option<NodeKind<NodeId>>>,
+    computed: Vec<Option<NodeKind<NodeId>>>,
 }
 
 impl Interpreter {
-    pub fn new() -> Interpreter { Interpreter { nodes: Vec::new() } }
+    pub fn new() -> Interpreter { Interpreter { computed: Vec::new() } }
 
     pub fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
-        while self.nodes.len() <= id.0 as usize {
-            self.nodes.push(None);
+        while self.computed.len() <= id.0 as usize {
+            self.computed.push(None);
         }
-        *self.nodes.get_mut(id.0 as usize).unwrap() = Some(kind);
+        *self.computed.get_mut(id.0 as usize).unwrap() = Some(kind);
     }
 
-    fn get(&self, id: NodeId) -> Option<&NodeKind<NodeId>> {
-        match self.nodes.get(id.0 as usize) {
-            None => { None }
-            Some(inner) => { inner.as_ref() }
-        }
-    }
-
-    // returns true - current top is unknown
-    //         false - current top is known but break, or finish of execution
-    pub fn run(&self, ctx: &mut CallCtx, stack: &mut [u8]) -> bool {
-        while !ctx.callstack.is_empty() {
-            let frame = ctx.callstack.pop().unwrap();
-            match self.run_internal(frame.id, &mut stack[frame.offset..]) {
-                None => {
-                    // do nothing
-                }
-                Some(mut suspended_in) => {
-                    suspended_in.reverse();
-                    suspended_in.iter_mut().for_each(|suspended_frame| suspended_frame.offset += frame.offset);
-                    ctx.callstack.append(&mut suspended_in);
-                    return true;
-                }
+    // returns true - suspended on unknown node, false - otherwise
+    pub fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
+        let frame = state.frames.pop().unwrap();
+        match self.run_internal(frame.id, &mut stack[frame.offset..]) {
+            None => { false }
+            Some(mut suspended_in) => {
+                suspended_in.reverse();
+                suspended_in.iter_mut().for_each(|suspended_frame| suspended_frame.offset += frame.offset);
+                state.frames.append(&mut suspended_in);
+                true
             }
         }
-
-        false
     }
 
     fn run_internal(&self, node: NodeId, stack: &mut [u8]) -> Option<Vec<Frame>> {
@@ -71,11 +57,11 @@ impl Interpreter {
                                 None => {
                                     current = *next;
                                 }
-                                Some(mut sub_call) => {
+                                Some(mut suspended_trace) => {
                                     // suspended in sub call
-                                    sub_call.iter_mut().for_each(|e| e.offset += offset);
-                                    sub_call.push(Frame { id: *next, offset: 0 });
-                                    return Some(sub_call);
+                                    suspended_trace.iter_mut().for_each(|e| e.offset += offset);
+                                    suspended_trace.push(Frame { id: *next, offset: 0 });
+                                    return Some(suspended_trace);
                                 }
                             }
                         }
@@ -85,6 +71,13 @@ impl Interpreter {
                     }
                 }
             }
+        }
+    }
+
+    fn get(&self, id: NodeId) -> Option<&NodeKind<NodeId>> {
+        match self.computed.get(id.0 as usize) {
+            None => { None }
+            Some(inner) => { inner.as_ref() }
         }
     }
 }

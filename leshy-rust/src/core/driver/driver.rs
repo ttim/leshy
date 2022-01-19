@@ -15,8 +15,8 @@ pub struct Frame {
     pub offset: usize,
 }
 
-pub struct CallCtx {
-    pub callstack: Vec<Frame>,
+pub struct RunState {
+    pub frames: Vec<Frame>,
 }
 
 pub struct Driver<N: Node> {
@@ -37,15 +37,15 @@ impl<N: Node> Driver<N> {
 
     pub fn eval(&mut self, node: N, stack: &mut [u8]) {
         let id = self.get_id(node);
-        let mut ctx = CallCtx { callstack: vec![Frame { id, offset: 0 }] };
+        let mut ctx = RunState { frames: vec![Frame { id, offset: 0 }] };
         self.eval_inner(&mut ctx, stack);
-        assert!(ctx.callstack.is_empty());
+        assert!(ctx.frames.is_empty());
     }
 
-    fn eval_inner(&mut self, ctx: &mut CallCtx, stack: &mut[u8]) {
-        while !ctx.callstack.is_empty() {
+    fn eval_inner(&mut self, ctx: &mut RunState, stack: &mut[u8]) {
+        while !ctx.frames.is_empty() {
             if self.interpreter.run(ctx, stack) {
-                let id_to_register = ctx.callstack.last().unwrap().id;
+                let id_to_register = ctx.frames.last().unwrap().id;
                 let kind = self.get_kind(id_to_register);
                 self.interpreter.register(id_to_register, kind);
             }
