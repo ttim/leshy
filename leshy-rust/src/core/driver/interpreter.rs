@@ -4,14 +4,24 @@ use crate::core::driver::driver::{Frame, CallCtx, NodeId};
 use crate::core::simple_interpreter::{eval_command, eval_condition};
 
 pub struct Interpreter {
-    nodes: HashMap<NodeId, NodeKind<NodeId>>,
+    nodes: Vec<Option<NodeKind<NodeId>>>,
 }
 
 impl Interpreter {
-    pub fn new() -> Interpreter { Interpreter { nodes: HashMap::new() } }
+    pub fn new() -> Interpreter { Interpreter { nodes: Vec::new() } }
 
     pub fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
-        self.nodes.insert(id, kind);
+        while self.nodes.len() <= id.0 as usize {
+            self.nodes.push(None);
+        }
+        *self.nodes.get_mut(id.0 as usize).unwrap() = Some(kind);
+    }
+
+    fn get(&self, id: NodeId) -> Option<&NodeKind<NodeId>> {
+        match self.nodes.get(id.0 as usize) {
+            None => { None }
+            Some(inner) => { inner.as_ref() }
+        }
     }
 
     // returns true - current top is unknown
@@ -38,7 +48,7 @@ impl Interpreter {
     fn run_internal(&self, node: NodeId, stack: &mut [u8]) -> Option<Vec<Frame>> {
         let mut current = node;
         loop {
-            match self.nodes.get(&current) {
+            match self.get(current) {
                 None => {
                     return Some(vec![Frame { id: current, offset: 0 }]);
                 }
