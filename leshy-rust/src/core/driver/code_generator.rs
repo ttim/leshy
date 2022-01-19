@@ -1,19 +1,21 @@
 use crate::core::api::NodeKind;
-use crate::core::driver::driver::NodeId;
+use crate::core::driver::driver::{Engine, NodeId, RunState};
 
 struct CodeGenerator {
 }
 
 impl CodeGenerator {
-    pub fn register(id: NodeId, kind: NodeKind<NodeId>) {
+    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         todo!()
     }
 
-    pub fn run(id: NodeId) -> Option<NodeId> {
+    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
         todo!()
     }
+}
 
-    fn flush() {
-        todo!()
-    }
+impl Engine for CodeGenerator {
+    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) { self.register(id, kind) }
+
+    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }
 }
