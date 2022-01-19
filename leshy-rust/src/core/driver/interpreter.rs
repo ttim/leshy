@@ -19,42 +19,62 @@ impl Interpreter {
     pub fn run(&self, ctx: &mut CallCtx, stack: &mut [u8]) -> bool {
         while !ctx.callstack.is_empty() {
             let frame = ctx.callstack.pop().unwrap();
-            let current_stack = &mut stack[frame.offset..];
-            let mut current= frame.id;
-
-            loop {
-                match self.nodes.get(&current) {
-                    None => {
-                        ctx.callstack.push(Frame { id: current, offset: frame.offset });
-                        return true;
-                    }
-                    Some(kind) => {
-                        match kind {
-                            NodeKind::Command { command, next } => {
-                                eval_command(command, current_stack);
-                                current = *next;
-                            }
-                            NodeKind::Branch { condition, if_true, if_false } => {
-                                if eval_condition(condition, current_stack) {
-                                    current = *if_true;
-                                } else {
-                                    current = *if_false;
-                                }
-                            }
-                            NodeKind::Call { offset, call, next } => {
-                                ctx.callstack.push(Frame { id: *next, offset: frame.offset });
-                                ctx.callstack.push(Frame { id: *call, offset: frame.offset + (*offset as usize) });
-                                break;
-                            }
-                            NodeKind::Final => {
-                                break;
-                            }
-                        }
-                    }
+            match self.run_internal(frame.id, &mut stack[frame.offset..]) {
+                None => {
+                    // do nothing
+                }
+                Some(mut suspended_in) => {
+                    suspended_in.reverse();
+                    suspended_in.iter_mut().for_each(|suspended_frame| suspended_frame.offset += frame.offset);
+                    ctx.callstack.append(&mut suspended_in);
+                    return true;
                 }
             }
         }
 
         false
+    }
+
+    fn run_internal(&self, node: NodeId, stack: &mut [u8]) -> Option<Vec<Frame>> {
+        let mut current = node;
+        loop {
+            match self.nodes.get(&current) {
+                None => {
+                    return Some(vec![Frame { id: current, offset: 0 }]);
+                }
+                Some(kind) => {
+                    match kind {
+                        NodeKind::Command { command, next } => {
+                            eval_command(command, stack);
+                            current = *next;
+                        }
+                        NodeKind::Branch { condition, if_true, if_false } => {
+                            if eval_condition(condition, stack) {
+                                current = *if_true;
+                            } else {
+                                current = *if_false;
+                            }
+                        }
+                        NodeKind::Call { offset, call, next } => {
+                            let offset = *offset as usize;
+                            match self.run_internal(*call, &mut stack[offset..]) {
+                                None => {
+                                    current = *next;
+                                }
+                                Some(mut sub_call) => {
+                                    // suspended in sub call
+                                    sub_call.iter_mut().for_each(|e| e.offset += offset);
+                                    sub_call.push(Frame { id: *next, offset: 0 });
+                                    return Some(sub_call);
+                                }
+                            }
+                        }
+                        NodeKind::Final => {
+                            return None;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
