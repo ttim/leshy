@@ -30,7 +30,7 @@ impl Into<Ref> for SmallStackRef {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum ComputedKind {
+enum CompactKind {
     NotComputed,
 
     Set4 { dst: SmallStackRef, value: Wrapping<u32>, next: SmallNodeId },
@@ -53,11 +53,11 @@ enum ComputedKind {
 }
 
 pub struct SpecializedInterpreterEngine {
-    computed: Vec<ComputedKind>,
+    computed: Vec<CompactKind>,
     full: Vec<NodeKind<NodeId>>,
 }
 
-static NOT_COMPUTED: ComputedKind = ComputedKind::NotComputed;
+static NOT_COMPUTED: CompactKind = CompactKind::NotComputed;
 
 impl SpecializedInterpreterEngine {
     pub fn new() -> SpecializedInterpreterEngine {
@@ -71,7 +71,7 @@ impl SpecializedInterpreterEngine {
 
     pub fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         while self.computed.len() <= id.0 as usize {
-            self.computed.push(ComputedKind::NotComputed);
+            self.computed.push(CompactKind::NotComputed);
         }
         *self.computed.get_mut(id.0 as usize).unwrap() = self.compact(id, kind);
     }
@@ -94,54 +94,54 @@ impl SpecializedInterpreterEngine {
         let mut current = node;
         loop {
             match self.computed.get(current.0 as usize).unwrap_or(&NOT_COMPUTED) {
-                ComputedKind::Final => { return None; }
-                ComputedKind::Set4 { dst, value, next } => {
+                CompactKind::Final => { return None; }
+                CompactKind::Set4 { dst, value, next } => {
                     put_u32((*dst).into(), stack, *value);
                     current = next.get(current);
                 }
-                ComputedKind::Set4N { dst, value } => {
+                CompactKind::Set4N { dst, value } => {
                     put_u32((*dst).into(), stack, *value);
                     current = current.next();
                 }
-                ComputedKind::Copy4 { dst, op , next } => {
+                CompactKind::Copy4 { dst, op , next } => {
                     put_u32((*dst).into(), stack, get_u32((*op).into(), stack));
                     current = next.get(current);
                 }
-                ComputedKind::Copy4N { dst, op  } => {
+                CompactKind::Copy4N { dst, op  } => {
                     put_u32((*dst).into(), stack, get_u32((*op).into(), stack));
                     current = current.next();
                 }
-                ComputedKind::Add4 { dst, op1, op2, next } => {
+                CompactKind::Add4 { dst, op1, op2, next } => {
                     put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) + get_u32((*op2).into(), stack));
                     current = next.get(current);
                 }
-                ComputedKind::Add4N { dst, op1, op2 } => {
+                CompactKind::Add4N { dst, op1, op2 } => {
                     put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) + get_u32((*op2).into(), stack));
                     current = current.next();
                 }
-                ComputedKind::Sub4 { dst, op1, op2, next } => {
+                CompactKind::Sub4 { dst, op1, op2, next } => {
                     put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) - get_u32((*op2).into(), stack));
                     current = next.get(current);
                 }
-                ComputedKind::Sub4N { dst, op1, op2 } => {
+                CompactKind::Sub4N { dst, op1, op2 } => {
                     put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) - get_u32((*op2).into(), stack));
                     current = current.next();
                 }
-                ComputedKind::Eq4 { op1, op2, if_true, if_false } => {
+                CompactKind::Eq4 { op1, op2, if_true, if_false } => {
                     current = if get_u32((*op1).into(), stack) == get_u32((*op2).into(), stack) {
                         if_true.get(current)
                     } else {
                         if_false.get(current)
                     }
                 }
-                ComputedKind::Ne04 { op, if_true, if_false } => {
+                CompactKind::Ne04 { op, if_true, if_false } => {
                     current = if get_u32((*op).into(), stack) != Wrapping(0) {
                         if_true.get(current)
                     } else {
                         if_false.get(current)
                     }
                 }
-                ComputedKind::Call { offset, call, next } => {
+                CompactKind::Call { offset, call, next } => {
                     let offset = offset.0 as usize;
                     match self.run_internal(call.get(current), &mut stack[offset..]) {
                         None => {
@@ -152,7 +152,7 @@ impl SpecializedInterpreterEngine {
                         }
                     }
                 }
-                ComputedKind::Full(id) => {
+                CompactKind::Full(id) => {
                     let id = *id as usize;
                     match self.full.get(id).unwrap() {
                         NodeKind::Command { command, next } => {
@@ -180,7 +180,7 @@ impl SpecializedInterpreterEngine {
                         _ => { panic!("full command can't be neither of command, branch or call") }
                     }
                 }
-                ComputedKind::NotComputed => { return Some(vec![Frame { id: current, offset: 0 }]); }
+                CompactKind::NotComputed => { return Some(vec![Frame { id: current, offset: 0 }]); }
             }
         }
     }
@@ -192,7 +192,7 @@ impl SpecializedInterpreterEngine {
         trace
     }
 
-    fn compact(&mut self, ctx: NodeId, kind: NodeKind<NodeId>) -> ComputedKind {
+    fn compact(&mut self, ctx: NodeId, kind: NodeKind<NodeId>) -> CompactKind {
         match &kind {
             NodeKind::Command { command, next } => {
                 if let Some(next) = small_id(ctx, *next) {
@@ -210,29 +210,29 @@ impl SpecializedInterpreterEngine {
                 if let Some(call) = small_id(ctx, *call) {
                     if let Some(next) = small_id(ctx, *next) {
                         if *offset <= u8::MAX as u32 {
-                            return ComputedKind::Call { offset: SmallStackRef(*offset as u8), call, next }
+                            return CompactKind::Call { offset: SmallStackRef(*offset as u8), call, next }
                         }
                     }
                 }
             }
             NodeKind::Final => {
-                return ComputedKind::Final
+                return CompactKind::Final
             }
         }
         self.full_kind(kind)
     }
 
-    fn compact_command(&mut self, command: &Command, next: SmallNodeId, ctx: NodeId) -> ComputedKind {
+    fn compact_command(&mut self, command: &Command, next: SmallNodeId, ctx: NodeId) -> CompactKind {
         match command {
             Command::Set { dst, bytes }
             if small_ref(*dst).is_some() && bytes.len() == 4 => {
                 if next == SmallNodeId(1) {
-                    ComputedKind::Set4N {
+                    CompactKind::Set4N {
                         dst: small_ref(*dst).unwrap(),
                         value: get_u32(Ref::Stack(0), bytes.as_slice()),
                     }
                 } else {
-                    ComputedKind::Set4 {
+                    CompactKind::Set4 {
                         dst: small_ref(*dst).unwrap(),
                         value: get_u32(Ref::Stack(0), bytes.as_slice()),
                         next,
@@ -242,12 +242,12 @@ impl SpecializedInterpreterEngine {
             Command::Copy { size: 4, dst, op }
             if small_ref(*dst).is_some() && small_ref(*op).is_some() => {
                 if next == SmallNodeId(1) {
-                    ComputedKind::Copy4N {
+                    CompactKind::Copy4N {
                         dst: small_ref(*dst).unwrap(),
                         op: small_ref(*op).unwrap(),
                     }
                 } else {
-                    ComputedKind::Copy4 {
+                    CompactKind::Copy4 {
                         dst: small_ref(*dst).unwrap(),
                         op: small_ref(*op).unwrap(),
                         next,
@@ -257,13 +257,13 @@ impl SpecializedInterpreterEngine {
             Command::Add { size: 4, dst, op1, op2 }
             if small_ref(*dst).is_some() && small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
                 if next == SmallNodeId(1) {
-                    ComputedKind::Add4N {
+                    CompactKind::Add4N {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
                         op2: small_ref(*op2).unwrap(),
                     }
                 } else {
-                    ComputedKind::Add4 {
+                    CompactKind::Add4 {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
                         op2: small_ref(*op2).unwrap(),
@@ -274,13 +274,13 @@ impl SpecializedInterpreterEngine {
             Command::Sub { size: 4, dst, op1, op2 }
             if small_ref(*dst).is_some() && small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
                 if next == SmallNodeId(1) {
-                    ComputedKind::Sub4N {
+                    CompactKind::Sub4N {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
                         op2: small_ref(*op2).unwrap(),
                     }
                 } else {
-                    ComputedKind::Sub4 {
+                    CompactKind::Sub4 {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
                         op2: small_ref(*op2).unwrap(),
@@ -288,17 +288,19 @@ impl SpecializedInterpreterEngine {
                     }
                 }
             }
-            _ => { self.full_kind(NodeKind::Command { command: command.clone(), next: next.get(ctx) }) }
+            _ => {
+                self.full_kind(NodeKind::Command { command: command.clone(), next: next.get(ctx) })
+            }
         }
     }
 
-    fn compact_condition(&mut self, condition: &Condition, if_true: SmallNodeId, if_false: SmallNodeId, ctx: NodeId) -> ComputedKind {
+    fn compact_condition(&mut self, condition: &Condition, if_true: SmallNodeId, if_false: SmallNodeId, ctx: NodeId) -> CompactKind {
         match condition {
             Condition::Eq { size: 4, op1, op2 } if small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
-                ComputedKind::Eq4 { op1: small_ref(*op1).unwrap(), op2: small_ref(*op2).unwrap(), if_true, if_false }
+                CompactKind::Eq4 { op1: small_ref(*op1).unwrap(), op2: small_ref(*op2).unwrap(), if_true, if_false }
             }
             Condition::Ne0 { size: 4, op } if small_ref(*op).is_some() => {
-                ComputedKind::Ne04 { op: small_ref(*op).unwrap(), if_true, if_false }
+                CompactKind::Ne04 { op: small_ref(*op).unwrap(), if_true, if_false }
             }
             _ => {
                 self.full_kind(NodeKind::Branch { condition: condition.clone(), if_true: if_true.get(ctx), if_false: if_false.get(ctx) })
@@ -306,9 +308,9 @@ impl SpecializedInterpreterEngine {
         }
     }
 
-    fn full_kind(&mut self, kind: NodeKind<NodeId>) -> ComputedKind {
+    fn full_kind(&mut self, kind: NodeKind<NodeId>) -> CompactKind {
         self.full.push(kind);
-        ComputedKind::Full((self.full.len() - 1) as u32)
+        CompactKind::Full((self.full.len() - 1) as u32)
     }
 }
 
@@ -319,6 +321,6 @@ impl Engine for SpecializedInterpreterEngine {
 
 #[test]
 fn test_sizes() {
-    assert_eq!(8, std::mem::size_of::<ComputedKind>());
+    assert_eq!(8, std::mem::size_of::<CompactKind>());
     assert_eq!(40, std::mem::size_of::<NodeKind<NodeId>>());
 }
