@@ -1,7 +1,7 @@
 fib(35)
 
 cargo test webasm::fib_tests::test_specialized_interpreter_eval --release
-finished in 1.05s
+finished in 0.85s
 
 cargo test webasm::fib_tests::test_caching_interpreter_eval --release
 finished in 2.44

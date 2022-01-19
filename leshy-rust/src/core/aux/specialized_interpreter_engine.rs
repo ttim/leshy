@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use std::num::Wrapping;
-use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
-use crate::core::driver::driver::NodeId;
-use crate::core::interpreter::{eval_command, eval_condition, get_final_kind, get_u32, put_u32};
+use crate::core::api::{Command, Condition, NodeKind, Ref};
+use crate::core::driver::driver::{Frame, RunState, NodeId, Engine};
+use crate::core::interpreter::{eval_command, eval_condition, get_u32, put_u32};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 struct SmallStackRef(u8);
@@ -30,7 +29,6 @@ impl Into<Ref> for SmallStackRef {
     fn into(self) -> Ref { Ref::Stack(self.0 as u32) }
 }
 
-
 #[derive(Debug, Eq, PartialEq)]
 enum ComputedKind {
     NotComputed,
@@ -54,69 +52,49 @@ enum ComputedKind {
     Final,
 }
 
-#[derive(Debug)]
-enum FullComputedKind {
-    Command { command: Command, next: NodeId },
-    Branch { condition: Condition, if_true: NodeId, if_false: NodeId },
-    Call { offset: u32, call: NodeId, next: NodeId },
-}
-
-pub struct SpecializedInterpreter<N: Node> {
-    nodes: Vec<N>,
-    idx: HashMap<N, NodeId>,
+pub struct SpecializedInterpreterEngine {
     computed: Vec<ComputedKind>,
-    computed_full: Vec<FullComputedKind>,
+    full: Vec<NodeKind<NodeId>>,
 }
 
-impl<N: Node> SpecializedInterpreter<N> {
-    pub fn new() -> SpecializedInterpreter<N> {
-        SpecializedInterpreter {
-            nodes: vec![],
-            idx: HashMap::new(),
-            computed: vec![],
-            computed_full: vec![],
-        }
-    }
+static NOT_COMPUTED: ComputedKind = ComputedKind::NotComputed;
 
-    pub fn eval(&mut self, node: N, stack: &mut [u8]) {
-        let id = self.get_id(node);
-        self.eval_id(id, stack)
+impl SpecializedInterpreterEngine {
+    pub fn new() -> SpecializedInterpreterEngine {
+        SpecializedInterpreterEngine { computed: Vec::new(), full: Vec::new() }
     }
 
     pub fn print_stats(&self) {
         println!("full kinds:");
-        self.computed_full.iter().for_each(|kind| println!("{:?}", kind));
+        self.full.iter().for_each(|kind| println!("{:?}", kind));
     }
 
-    fn eval_id(&mut self, node: NodeId, stack: &mut[u8]) {
+    pub fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
+        while self.computed.len() <= id.0 as usize {
+            self.computed.push(ComputedKind::NotComputed);
+        }
+        *self.computed.get_mut(id.0 as usize).unwrap() = self.compact(id, kind);
+    }
+
+    // returns true - suspended on unknown node, false - otherwise
+    pub fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
+        let frame = state.frames.pop().unwrap();
+        match self.run_internal(frame.id, &mut stack[frame.offset..]) {
+            None => { false }
+            Some(mut suspended_in) => {
+                suspended_in.reverse();
+                suspended_in.iter_mut().for_each(|suspended_frame| suspended_frame.offset += frame.offset);
+                state.frames.append(&mut suspended_in);
+                true
+            }
+        }
+    }
+
+    fn run_internal(&self, node: NodeId, stack: &mut [u8]) -> Option<Vec<Frame>> {
         let mut current = node;
         loop {
-            match self.get_kind(current) {
-                ComputedKind::Final => { break; }
-                ComputedKind::Full(id) => {
-                    let id = *id as usize;
-                    match self.computed_full.get(id).unwrap() {
-                        FullComputedKind::Command { command, next } => {
-                            eval_command(command, stack);
-                            current = *next;
-                        }
-                        FullComputedKind::Branch { condition, if_true, if_false } => {
-                            if eval_condition(condition, stack) {
-                                current = *if_true;
-                            } else {
-                                current = *if_false;
-                            }
-                        }
-                        FullComputedKind::Call { offset, call, next } => {
-                            let offset_deref = *offset as usize;
-                            let call_deref = *call;
-                            let next_deref = *next;
-                            self.eval_id(call_deref, &mut stack[offset_deref..]);
-                            current = next_deref;
-                        }
-                    }
-                }
-                ComputedKind::NotComputed => { panic!("can't happen") }
+            match self.computed.get(current.0 as usize).unwrap_or(&NOT_COMPUTED) {
+                ComputedKind::Final => { return None; }
                 ComputedKind::Set4 { dst, value, next } => {
                     put_u32((*dst).into(), stack, *value);
                     current = next.get(current);
@@ -164,67 +142,87 @@ impl<N: Node> SpecializedInterpreter<N> {
                     }
                 }
                 ComputedKind::Call { offset, call, next } => {
-                    let offset_deref = offset.0 as usize;
-                    let call_deref = call.get(current);
-                    let next_deref = next.get(current);
-                    self.eval_id(call_deref, &mut stack[offset_deref..]);
-                    current = next_deref;
+                    let offset = offset.0 as usize;
+                    match self.run_internal(call.get(current), &mut stack[offset..]) {
+                        None => {
+                            current = next.get(current);
+                        }
+                        Some(mut suspended_trace) => {
+                            return Some(Self::subcall_suspended_trace(suspended_trace, next.get(current), offset))
+                        }
+                    }
                 }
+                ComputedKind::Full(id) => {
+                    let id = *id as usize;
+                    match self.full.get(id).unwrap() {
+                        NodeKind::Command { command, next } => {
+                            eval_command(command, stack);
+                            current = *next;
+                        }
+                        NodeKind::Branch { condition, if_true, if_false } => {
+                            if eval_condition(condition, stack) {
+                                current = *if_true;
+                            } else {
+                                current = *if_false;
+                            }
+                        }
+                        NodeKind::Call { offset, call, next } => {
+                            let offset = *offset as usize;
+                            match self.run_internal(*call, &mut stack[offset..]) {
+                                None => {
+                                    current = *next;
+                                }
+                                Some(mut suspended_trace) => {
+                                    return Some(Self::subcall_suspended_trace(suspended_trace, *next, offset))
+                                }
+                            }
+                        }
+                        _ => { panic!("full command can't be neither of command, branch or call") }
+                    }
+                }
+                ComputedKind::NotComputed => { return Some(vec![Frame { id: current, offset: 0 }]); }
             }
         }
     }
 
-    fn get_kind(&mut self, node: NodeId) -> &ComputedKind {
-        if *self.computed.get(node.0 as usize).unwrap() == ComputedKind::NotComputed {
-            let computed_kind = match get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
-                NodeKind::Final => { ComputedKind::Final }
-                NodeKind::Command { command, next } => {
-                    let next = self.get_id(next);
-
-                    let compressed = if let Some(next) = small_id(node, next) {
-                        Self::get_compressed_command(&command, next)
-                    } else { ComputedKind::NotComputed };
-
-                    if compressed == ComputedKind::NotComputed {
-                        self.computed_full.push(FullComputedKind::Command { command, next });
-                        ComputedKind::Full((self.computed_full.len() - 1) as u32)
-                    } else { compressed }
-                }
-                NodeKind::Branch { condition, if_true, if_false } => {
-                    let if_true = self.get_id(if_true);
-                    let if_false = self.get_id(if_false);
-
-                    let compressed = if small_id(node, if_true).is_some() && small_id(node, if_false).is_some() {
-                        Self::get_compressed_condition(&condition, small_id(node, if_true).unwrap(), small_id(node, if_false).unwrap())
-                    } else { ComputedKind::NotComputed };
-
-                    if compressed == ComputedKind::NotComputed {
-                        self.computed_full.push(FullComputedKind::Branch { condition, if_true, if_false });
-                        ComputedKind::Full((self.computed_full.len() - 1) as u32)
-                    } else { compressed }
-                }
-                NodeKind::Call { offset, call, next } => {
-                    let call = self.get_id(call);
-                    let next = self.get_id(next);
-
-                    if small_id(node, call).is_some() && small_id(node, next).is_some() && offset <= u8::MAX as u32 {
-                        ComputedKind::Call {
-                            offset: SmallStackRef(offset as u8),
-                            call: small_id(node, call).unwrap(),
-                            next: small_id(node, next).unwrap()
-                        }
-                    } else {
-                        self.computed_full.push(FullComputedKind::Call { offset, call, next });
-                        ComputedKind::Full((self.computed_full.len() - 1) as u32)
-                    }
-                }
-            };
-            *self.computed.get_mut(node.0 as usize).unwrap() = computed_kind;
-        }
-        self.computed.get(node.0 as usize).unwrap()
+    fn subcall_suspended_trace(mut trace: Vec<Frame>, next: NodeId, offset: usize) -> Vec<Frame> {
+        // suspended in sub call
+        trace.iter_mut().for_each(|e| e.offset += offset);
+        trace.push(Frame { id: next, offset: 0 });
+        trace
     }
 
-    fn get_compressed_command(command: &Command, next: SmallNodeId) -> ComputedKind {
+    fn compact(&mut self, ctx: NodeId, kind: NodeKind<NodeId>) -> ComputedKind {
+        match &kind {
+            NodeKind::Command { command, next } => {
+                if let Some(next) = small_id(ctx, *next) {
+                    return self.compact_command(command, next, ctx)
+                }
+            }
+            NodeKind::Branch { condition, if_true, if_false } => {
+                if let Some(if_true) = small_id(ctx, *if_true) {
+                    if let Some(if_false) = small_id(ctx, *if_false) {
+                        return self.compact_condition(condition, if_true, if_false, ctx)
+                    }
+                }
+            }
+            NodeKind::Call { offset, call, next } => {
+                if let Some(call) = small_id(ctx, *call) {
+                    if let Some(next) = small_id(ctx, *next) {
+                        if *offset <= u8::MAX as u32 {
+                            return ComputedKind::Call { offset: SmallStackRef(*offset as u8), call, next }
+                        }
+                    }
+                }
+            }
+            NodeKind::Final => {
+                return ComputedKind::Final
+            }
+        }
+        self.full_kind(kind)
+    }
+
+    fn compact_command(&mut self, command: &Command, next: SmallNodeId, ctx: NodeId) -> ComputedKind {
         match command {
             Command::Set { dst, bytes }
             if small_ref(*dst).is_some() && bytes.len() == 4 => {
@@ -246,13 +244,13 @@ impl<N: Node> SpecializedInterpreter<N> {
                 if next == SmallNodeId(1) {
                     ComputedKind::Copy4N {
                         dst: small_ref(*dst).unwrap(),
-                        op: small_ref(*op).unwrap()
+                        op: small_ref(*op).unwrap(),
                     }
                 } else {
                     ComputedKind::Copy4 {
                         dst: small_ref(*dst).unwrap(),
                         op: small_ref(*op).unwrap(),
-                        next
+                        next,
                     }
                 }
             }
@@ -262,14 +260,14 @@ impl<N: Node> SpecializedInterpreter<N> {
                     ComputedKind::Add4N {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
-                        op2: small_ref(*op2).unwrap()
+                        op2: small_ref(*op2).unwrap(),
                     }
                 } else {
                     ComputedKind::Add4 {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
                         op2: small_ref(*op2).unwrap(),
-                        next
+                        next,
                     }
                 }
             }
@@ -279,22 +277,22 @@ impl<N: Node> SpecializedInterpreter<N> {
                     ComputedKind::Sub4N {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
-                        op2: small_ref(*op2).unwrap()
+                        op2: small_ref(*op2).unwrap(),
                     }
                 } else {
                     ComputedKind::Sub4 {
                         dst: small_ref(*dst).unwrap(),
                         op1: small_ref(*op1).unwrap(),
                         op2: small_ref(*op2).unwrap(),
-                        next
+                        next,
                     }
                 }
             }
-            _ => { ComputedKind::NotComputed }
+            _ => { self.full_kind(NodeKind::Command { command: command.clone(), next: next.get(ctx) }) }
         }
     }
 
-    fn get_compressed_condition(condition: &Condition, if_true: SmallNodeId, if_false: SmallNodeId) -> ComputedKind {
+    fn compact_condition(&mut self, condition: &Condition, if_true: SmallNodeId, if_false: SmallNodeId, ctx: NodeId) -> ComputedKind {
         match condition {
             Condition::Eq { size: 4, op1, op2 } if small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
                 ComputedKind::Eq4 { op1: small_ref(*op1).unwrap(), op2: small_ref(*op2).unwrap(), if_true, if_false }
@@ -302,25 +300,25 @@ impl<N: Node> SpecializedInterpreter<N> {
             Condition::Ne0 { size: 4, op } if small_ref(*op).is_some() => {
                 ComputedKind::Ne04 { op: small_ref(*op).unwrap(), if_true, if_false }
             }
-            _ => { ComputedKind::NotComputed }
+            _ => {
+                self.full_kind(NodeKind::Branch { condition: condition.clone(), if_true: if_true.get(ctx), if_false: if_false.get(ctx) })
+            }
         }
     }
 
-    fn get_id(&mut self, node: N) -> NodeId {
-        if self.idx.contains_key(&node) {
-            *self.idx.get(&node).unwrap()
-        } else {
-            self.nodes.push(node.clone());
-            let id = NodeId((self.nodes.len() - 1) as u32);
-            self.idx.insert(node, id);
-            self.computed.push(ComputedKind::NotComputed);
-            id
-        }
+    fn full_kind(&mut self, kind: NodeKind<NodeId>) -> ComputedKind {
+        self.full.push(kind);
+        ComputedKind::Full((self.full.len() - 1) as u32)
     }
+}
+
+impl Engine for SpecializedInterpreterEngine {
+    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) { self.register(id, kind) }
+    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }
 }
 
 #[test]
 fn test_sizes() {
     assert_eq!(8, std::mem::size_of::<ComputedKind>());
-    assert_eq!(40, std::mem::size_of::<FullComputedKind>());
+    assert_eq!(40, std::mem::size_of::<NodeKind<NodeId>>());
 }
