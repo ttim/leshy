@@ -147,7 +147,7 @@ impl SpecializedInterpreterEngine {
                         None => {
                             current = next.get(current);
                         }
-                        Some(mut suspended_trace) => {
+                        Some(suspended_trace) => {
                             return Some(Self::subcall_suspended_trace(suspended_trace, next.get(current), offset))
                         }
                     }
@@ -172,7 +172,7 @@ impl SpecializedInterpreterEngine {
                                 None => {
                                     current = *next;
                                 }
-                                Some(mut suspended_trace) => {
+                                Some(suspended_trace) => {
                                     return Some(Self::subcall_suspended_trace(suspended_trace, *next, offset))
                                 }
                             }
