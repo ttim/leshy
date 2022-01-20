@@ -226,13 +226,13 @@ impl InstructionNode {
                 };
 
                 NodeKind::Branch {
-                    condition: Condition::Eq {
+                    condition: Condition::Ne {
                         size,
                         op1: Ref::Stack(self.stack_size - size * 2),
                         op2: Ref::Stack(self.stack_size - size),
                     },
-                    if_true: next_node(1),
-                    if_false: next_node(0),
+                    if_true: next_node(0),
+                    if_false: next_node(1),
                 }
             }
             Instruction::Add(num_type) => {

@@ -101,7 +101,7 @@ fn test_sub() {
 
 #[test]
 fn test_eq() {
-    let condition = Condition::Eq { size: 4, op1: Ref::Stack(0), op2: Ref::Stack(4) };
+    let condition = Condition::Ne { size: 4, op1: Ref::Stack(0), op2: Ref::Stack(4) };
     test_condition(vec![1, 2, 3, 4, 1, 2, 3, 4], condition.clone());
     test_condition(vec![1, 2, 3, 4, 5, 6, 7, 8], condition.clone());
 }

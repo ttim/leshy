@@ -43,7 +43,7 @@ enum CompactKind {
     Sub4 { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef, next: SmallNodeId},
     Sub4N { dst: SmallStackRef, op1: SmallStackRef, op2: SmallStackRef},
 
-    Eq4 { op1: SmallStackRef, op2: SmallStackRef, if_true: SmallNodeId, if_false: SmallNodeId },
+    Ne4 { op1: SmallStackRef, op2: SmallStackRef, if_true: SmallNodeId, if_false: SmallNodeId },
     Ne04 { op: SmallStackRef, if_true: SmallNodeId, if_false: SmallNodeId },
 
     Call { offset: SmallStackRef, call: SmallNodeId, next: SmallNodeId },
@@ -128,8 +128,8 @@ impl SpecializedInterpreterEngine {
                     put_u32((*dst).into(), stack, get_u32((*op1).into(), stack) - get_u32((*op2).into(), stack));
                     current = current.next();
                 }
-                CompactKind::Eq4 { op1, op2, if_true, if_false } => {
-                    current = if get_u32((*op1).into(), stack) == get_u32((*op2).into(), stack) {
+                CompactKind::Ne4 { op1, op2, if_true, if_false } => {
+                    current = if get_u32((*op1).into(), stack) != get_u32((*op2).into(), stack) {
                         if_true.get(current)
                     } else {
                         if_false.get(current)
@@ -296,8 +296,8 @@ impl SpecializedInterpreterEngine {
 
     fn compact_condition(&mut self, condition: &Condition, if_true: SmallNodeId, if_false: SmallNodeId, ctx: NodeId) -> CompactKind {
         match condition {
-            Condition::Eq { size: 4, op1, op2 } if small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
-                CompactKind::Eq4 { op1: small_ref(*op1).unwrap(), op2: small_ref(*op2).unwrap(), if_true, if_false }
+            Condition::Ne { size: 4, op1, op2 } if small_ref(*op1).is_some() && small_ref(*op2).is_some() => {
+                CompactKind::Ne4 { op1: small_ref(*op1).unwrap(), op2: small_ref(*op2).unwrap(), if_true, if_false }
             }
             Condition::Ne0 { size: 4, op } if small_ref(*op).is_some() => {
                 CompactKind::Ne04 { op: small_ref(*op).unwrap(), if_true, if_false }
