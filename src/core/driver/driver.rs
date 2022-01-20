@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use crate::core::api::{Node, NodeKind};
 use crate::core::interpreter::get_final_kind;
 
+// never has id < 16, so this ids can be used for marking usages
+const MIN_NODE_ID: usize = 16;
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct NodeId(pub u32);
 
@@ -31,7 +33,7 @@ impl RunState {
 }
 
 pub struct Driver<N: Node, E: Engine> {
-    nodes: Vec<N>,
+    nodes: Vec<Option<N>>,
     idx: HashMap<N, NodeId>,
 
     engine: E,
@@ -39,11 +41,9 @@ pub struct Driver<N: Node, E: Engine> {
 
 impl<N: Node, E: Engine> Driver<N, E> {
     pub fn new(engine: E) -> Driver<N, E> {
-        Driver {
-            nodes: vec![],
-            idx: HashMap::new(),
-            engine
-        }
+        let mut nodes = vec![];
+        (0..MIN_NODE_ID).for_each(|_| nodes.push(None));
+        Driver { nodes, idx: HashMap::new(), engine }
     }
 
     pub fn eval(&mut self, node: N, stack: &mut [u8]) {
@@ -64,7 +64,7 @@ impl<N: Node, E: Engine> Driver<N, E> {
     }
 
     fn get_kind(&mut self, node: NodeId) -> NodeKind<NodeId> {
-        match get_final_kind(self.nodes.get(node.0 as usize).unwrap()) {
+        match get_final_kind(self.nodes.get(node.0 as usize).unwrap().as_ref().unwrap()) {
             NodeKind::Command { command, next } => {
                 NodeKind::Command { command, next: self.get_id(next) }
             }
@@ -82,7 +82,7 @@ impl<N: Node, E: Engine> Driver<N, E> {
         if self.idx.contains_key(&node) {
             *self.idx.get(&node).unwrap()
         } else {
-            self.nodes.push(node.clone());
+            self.nodes.push(Some(node.clone()));
             let id = NodeId((self.nodes.len() - 1) as u32);
             self.idx.insert(node, id);
             id
