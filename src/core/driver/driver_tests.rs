@@ -1,6 +1,7 @@
 use std::ops::Deref;
 use crate::core::api::{Command, Condition, Node, NodeKind, Ref};
 use crate::core::aux::specialized_interpreter_engine::SpecializedInterpreterEngine;
+use crate::core::driver::code_generator_engine::CodeGeneratorEngine;
 use crate::core::driver::driver::{Driver, Engine, NodeId, RunState};
 use crate::core::driver::interpreter_engine::InterpreterEngine;
 use crate::core::interpreter::eval;
@@ -26,7 +27,7 @@ fn engines() -> Vec<(&'static str, EngineBox)> {
     vec![
         ("interpreter", EngineBox(Box::new(InterpreterEngine::new()))),
         ("specialized", EngineBox(Box::new(SpecializedInterpreterEngine::new()))),
-        // ("code generator", EngineBox(Box::new(CodeGeneratorEngine::new()))),
+        ("code generator", EngineBox(Box::new(CodeGeneratorEngine::new(1024).unwrap()))),
     ]
 }
 
