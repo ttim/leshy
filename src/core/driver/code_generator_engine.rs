@@ -1,10 +1,14 @@
 use crate::core::api::NodeKind;
 use crate::core::driver::driver::{Engine, NodeId, RunState};
 
-struct CodeGeneratorEngine {
+pub struct CodeGeneratorEngine {
 }
 
 impl CodeGeneratorEngine {
+    pub fn new() -> CodeGeneratorEngine {
+        CodeGeneratorEngine {}
+    }
+
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         todo!()
     }
