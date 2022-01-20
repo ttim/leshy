@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io;
+use std::{io, mem};
 use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer};
 use dynasmrt::mmap::MutableBuffer;
@@ -9,7 +9,7 @@ use crate::core::driver::driver::{Engine, NodeId, RunState};
 // engine <-> generated code interop/call conventions:
 //   X0 pointer to data stack start
 //   X1 pointer to data stack end // never changes during execution
-//   X2 pointer to result struct // never changes during execution
+//   X2 pointer to result struct // never changes during execution, no need for now, will be needed for stack unwinding
 // X1 & X2 can/should be moved to thread local variables since they never change during execution trace
 //
 // execution might abort/finish due to following reasons:
@@ -23,6 +23,23 @@ use crate::core::driver::driver::{Engine, NodeId, RunState};
 // and only if there is no guarantee on particular point we can check stack size and increase size if needed!
 // this way we don't need to keep data stack end in a register and compare to it all the time
 
+#[derive(Debug)]
+#[repr(C)]
+pub struct Input {
+    pub data_stack_start: u64, // x0
+    pub data_stack_end: u64, // x1
+    pub stack_unwinding_dst: u64, // x2
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct Output {
+    pub code: u32, // w0
+    pub call_id: u32, // x0_high, only for function calls
+    pub node_id: u32, // w1
+    pub next_id: u32, // x1_high, only for function calls
+}
+
 enum Code {
     Executable(ExecutableBuffer),
     Writable(MutableBuffer),
@@ -30,6 +47,7 @@ enum Code {
 }
 
 pub struct CodeGeneratorEngine {
+    size: usize,
     code: Code,
     offset: usize,
     offsets: HashMap<NodeId, AssemblyOffset>,
@@ -38,6 +56,7 @@ pub struct CodeGeneratorEngine {
 impl CodeGeneratorEngine {
     pub fn new(size: usize) -> io::Result<CodeGeneratorEngine> {
         Ok(CodeGeneratorEngine {
+            size,
             code: Code::Executable(ExecutableBuffer::new(size)?),
             offset: 0,
             offsets: HashMap::new(),
@@ -45,11 +64,13 @@ impl CodeGeneratorEngine {
     }
 
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
-        let writable = match std::mem::replace(&mut self.code, Code::__Holder) {
+        let mut writable = match std::mem::replace(&mut self.code, Code::__Holder) {
             Code::Executable(buffer) => { buffer.make_mut().unwrap() }
             Code::Writable(buffer) => { buffer }
             Code::__Holder => { panic!() }
         };
+        // why do we need this?
+        writable.set_len(self.size);
         // todo: if last return is current id - erase it and write on top of it instead
         let mut ops = Assembler { buffer: writable, offset: self.offset };
         ops.generate(id, kind);
@@ -63,19 +84,41 @@ impl CodeGeneratorEngine {
     }
 
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
-        assert!(matches!(self.code, Code::Executable(..)));
+        if let Code::Executable(executable) = &self.code {
+            let frame = state.frames.pop().unwrap();
 
-        let frame = state.frames.pop().unwrap();
-
-        match self.offsets.get(&frame.id) {
-            None => {
-                state.frames.push(frame);
-                true
+            match self.offsets.get(&frame.id) {
+                None => {
+                    state.frames.push(frame);
+                    true
+                }
+                Some(code_offset) => {
+                    let data_offset = state.offset();
+                    let input = Input {
+                        data_stack_start: stack[data_offset..].as_mut_ptr() as usize as u64,
+                        data_stack_end: stack.as_ptr_range().end as usize as u64,
+                        stack_unwinding_dst: 0
+                    };
+                    let call: extern "C" fn(Input) -> Output = unsafe { mem::transmute(executable.ptr(*code_offset)) };
+                    let output = call(input);
+                    match output.code {
+                        0 => { // not registered
+                            todo!()
+                        }
+                        1 => { // final node
+                            return false;
+                        }
+                        2 => { // out of data stack
+                            todo!()
+                        }
+                        offset_plus_3 =>  { // function call
+                            todo!()
+                        }
+                    }
+                }
             }
-            Some(code_offset) => {
-                let data_offset = state.offset();
-                todo!()
-            }
+        } else {
+            panic!()
         }
     }
 }
@@ -110,6 +153,7 @@ impl Assembler {
     }
 
     fn generate_final(&mut self, id: NodeId) {
+        // todo: move doesn't work and copies only 16 bits I think. need proper code here.
         dynasm!(self
             ; .arch aarch64
             ; mov x0, 1
@@ -139,7 +183,10 @@ impl Extend<u8> for Assembler {
 
 impl<'a> Extend<&'a u8> for Assembler {
     fn extend<T: IntoIterator<Item=&'a u8>>(&mut self, iter: T) {
-        todo!()
+        for byte in iter {
+            *self.buffer.get_mut(self.offset).unwrap() = *byte;
+            self.offset += 1;
+        }
     }
 }
 
