@@ -176,25 +176,35 @@ impl Assembler {
             Command::Noop => { panic!("can't happen") }
             Command::PoisonFrom { .. } => { panic!("can't happen") }
             Command::Set { dst, bytes } => { self.generate_set(dst, bytes) }
-            Command::Copy { .. } => { todo!() }
+            Command::Copy { dst, size, op } => { self.generate_copy(size, dst, op) }
             Command::Add { .. } => { todo!() }
             Command::Sub { .. } => { todo!() }
         }
     }
 
+    fn generate_condition(&mut self, id: NodeId, condition: Condition, if_true: NodeId, if_false: NodeId) {
+        todo!()
+    }
+
+    fn generate_call(&mut self, id: NodeId, offset: u32, call: NodeId, next: NodeId) {
+        todo!()
+    }
+
     fn generate_set(&mut self, dst: Ref, bytes: Vec<u8>) {
         match bytes.len() {
             4 => {
-                match dst {
-                    Ref::Stack(offset) => {
-                        // todo: check for stack overflow
-                        self.generate_mov_u32(9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
-                        dynasm!(self
-                            ; .arch aarch64
-                            ; str w9, [x0, offset]
-                        );
-                    }
-                }
+                self.generate_mov_u32(9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
+                self.generate_store_u32(9, dst);
+            }
+            _ => { todo!() }
+        }
+    }
+
+    fn generate_copy(&mut self, len: u32, dst: Ref, op: Ref) {
+        match len {
+            4 => {
+                self.generate_load_u32(9, op);
+                self.generate_store_u32(9, dst);
             }
             _ => { todo!() }
         }
@@ -223,19 +233,35 @@ impl Assembler {
         );
     }
 
-    fn generate_condition(&mut self, id: NodeId, condition: Condition, if_true: NodeId, if_false: NodeId) {
-        todo!()
+    fn generate_store_u32(&mut self, register: u32, dst: Ref) {
+        match dst {
+            Ref::Stack(offset) => {
+                // todo: check for stack overflow
+                // todo: what if offset is big?
+                dynasm!(self
+                    ; .arch aarch64
+                    ; str w9, [x0, offset]
+                );
+            }
+        }
     }
 
-    fn generate_call(&mut self, id: NodeId, offset: u32, call: NodeId, next: NodeId) {
-        todo!()
+    fn generate_load_u32(&mut self, register: u32, op: Ref) {
+        match op {
+            Ref::Stack(offset) => {
+                // todo: check for stack overflow
+                // todo: what if offset is big?
+                dynasm!(self
+                    ; .arch aarch64
+                    ; ldr w9, [x0, offset]
+                );
+            }
+        }
     }
 }
 
 impl Extend<u8> for Assembler {
-    fn extend<T: IntoIterator<Item=u8>>(&mut self, iter: T) {
-        todo!()
-    }
+    fn extend<T: IntoIterator<Item=u8>>(&mut self, iter: T) { todo!() }
 }
 
 impl<'a> Extend<&'a u8> for Assembler {
@@ -248,15 +274,7 @@ impl<'a> Extend<&'a u8> for Assembler {
 }
 
 impl DynasmApi for Assembler {
-    fn offset(&self) -> AssemblyOffset {
-        todo!()
-    }
-
-    fn push(&mut self, byte: u8) {
-        todo!()
-    }
-
-    fn align(&mut self, alignment: usize, with: u8) {
-        todo!()
-    }
+    fn offset(&self) -> AssemblyOffset { todo!() }
+    fn push(&mut self, byte: u8) { todo!() }
+    fn align(&mut self, alignment: usize, with: u8) { todo!() }
 }
