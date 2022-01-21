@@ -152,67 +152,67 @@ impl Assembler {
     fn generate(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         match kind {
             NodeKind::Command { command, next } => {
-                self.generate_command(command);
-                self.generate_return(Output { code: 0, call_id: 0, node_id: next.0, next_id: 0 })
+                self.command(command);
+                self.ret(Output { code: 0, call_id: 0, node_id: next.0, next_id: 0 })
             }
             NodeKind::Branch { condition, if_true, if_false } => {
-                self.generate_condition(id, condition, if_true, if_false);
+                self.condition(id, condition, if_true, if_false);
             }
             NodeKind::Call { offset, call, next } => {
-                self.generate_call(id, offset, call, next);
+                self.call(id, offset, call, next);
             }
             NodeKind::Final => {
-                self.generate_final(id);
+                self.final_node(id);
             }
         }
     }
 
-    fn generate_final(&mut self, id: NodeId) {
-        self.generate_return(Output { code: 1, call_id: 0, node_id: id.0, next_id: 0 });
+    fn final_node(&mut self, id: NodeId) {
+        self.ret(Output { code: 1, call_id: 0, node_id: id.0, next_id: 0 });
     }
 
-    fn generate_command(&mut self, command: Command) {
+    fn command(&mut self, command: Command) {
         match command {
             Command::Noop => { panic!("can't happen") }
             Command::PoisonFrom { .. } => { panic!("can't happen") }
-            Command::Set { dst, bytes } => { self.generate_set(dst, bytes) }
-            Command::Copy { dst, size, op } => { self.generate_copy(size, dst, op) }
+            Command::Set { dst, bytes } => { self.set(dst, bytes) }
+            Command::Copy { dst, size, op } => { self.copy(size, dst, op) }
             Command::Add { .. } => { todo!() }
             Command::Sub { .. } => { todo!() }
         }
     }
 
-    fn generate_condition(&mut self, id: NodeId, condition: Condition, if_true: NodeId, if_false: NodeId) {
+    fn condition(&mut self, id: NodeId, condition: Condition, if_true: NodeId, if_false: NodeId) {
         todo!()
     }
 
-    fn generate_call(&mut self, id: NodeId, offset: u32, call: NodeId, next: NodeId) {
+    fn call(&mut self, id: NodeId, offset: u32, call: NodeId, next: NodeId) {
         todo!()
     }
 
-    fn generate_set(&mut self, dst: Ref, bytes: Vec<u8>) {
+    fn set(&mut self, dst: Ref, bytes: Vec<u8>) {
         match bytes.len() {
             4 => {
-                self.generate_mov_u32(9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
-                self.generate_store_u32(9, dst);
+                self.mov_u32(9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
+                self.store_u32(9, dst);
             }
             _ => { todo!() }
         }
     }
 
-    fn generate_copy(&mut self, len: u32, dst: Ref, op: Ref) {
+    fn copy(&mut self, len: u32, dst: Ref, op: Ref) {
         match len {
             4 => {
-                self.generate_load_u32(9, op);
-                self.generate_store_u32(9, dst);
+                self.load_u32(9, op);
+                self.store_u32(9, dst);
             }
             _ => { todo!() }
         }
     }
 
-    fn generate_return(&mut self, output: Output) {
-        self.generate_mov_u32(0, output.code);
-        self.generate_mov_u32(1, output.node_id);
+    fn ret(&mut self, output: Output) {
+        self.mov_u32(0, output.code);
+        self.mov_u32(1, output.node_id);
         if output.code >= 3 {
             todo!()
         }
@@ -222,7 +222,7 @@ impl Assembler {
         );
     }
 
-    fn generate_mov_u32(&mut self, register: u32, value: u32) {
+    fn mov_u32(&mut self, register: u32, value: u32) {
         let low = value as u16;
         let high = (value >> 16) as u16;
         dynasm!(
@@ -233,7 +233,7 @@ impl Assembler {
         );
     }
 
-    fn generate_store_u32(&mut self, register: u32, dst: Ref) {
+    fn store_u32(&mut self, register: u32, dst: Ref) {
         match dst {
             Ref::Stack(offset) => {
                 // todo: check for stack overflow
@@ -246,7 +246,7 @@ impl Assembler {
         }
     }
 
-    fn generate_load_u32(&mut self, register: u32, op: Ref) {
+    fn load_u32(&mut self, register: u32, op: Ref) {
         match op {
             Ref::Stack(offset) => {
                 // todo: check for stack overflow
