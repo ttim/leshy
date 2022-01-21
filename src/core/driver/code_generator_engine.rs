@@ -3,8 +3,10 @@ use std::{io, mem};
 use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer};
 use dynasmrt::mmap::MutableBuffer;
-use crate::core::api::{Command, Condition, NodeKind};
-use crate::core::driver::driver::{Engine, NodeId, RunState};
+use crate::core::api::{Command, Condition, NodeKind, Ref};
+use crate::core::driver::driver::{Engine, Frame, NodeId, RunState};
+use crate::core::driver::util::flush_code_cache;
+use crate::core::interpreter::get_u32;
 
 // engine <-> generated code interop/call conventions:
 //   X0 pointer to data stack start
@@ -13,7 +15,7 @@ use crate::core::driver::driver::{Engine, NodeId, RunState};
 // X1 & X2 can/should be moved to thread local variables since they never change during execution trace
 //
 // execution might abort/finish due to following reasons:
-//   next node isn't registered: W0 = 0, W1 = next node id
+//   next node isn't registered or execution is suspended: W0 = 0, W1 = next node id
 //   next node is final: W0 = 1, W1 = final node id
 //   out of space in data stack: W0 = 2, W1 = context node id
 //   next node is function call: W0 = 3 + offset, W1 = function node id, upper X1 is call node id, upper X2 is next node id
@@ -31,6 +33,7 @@ pub struct Input {
     pub stack_unwinding_dst: u64, // x2
 }
 
+// todo: use unions
 #[derive(Debug)]
 #[repr(C)]
 pub struct Output {
@@ -64,6 +67,8 @@ impl CodeGeneratorEngine {
     }
 
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
+        if self.offsets.contains_key(&id) { return; }
+
         let mut writable = match std::mem::replace(&mut self.code, Code::__Holder) {
             Code::Executable(buffer) => { buffer.make_mut().unwrap() }
             Code::Writable(buffer) => { buffer }
@@ -79,7 +84,7 @@ impl CodeGeneratorEngine {
         // todo: replace previous returns of this id to jump to new location
 
         self.offset = ops.offset;
-        // todo: need to flush m1 code caches?, see sys_icache_invalidate at https://developer.apple.com/documentation/apple-silicon/porting-just-in-time-compilers-to-apple-silicon
+        flush_code_cache(&ops.buffer);
         std::mem::replace(&mut self.code, Code::Executable(ops.buffer.make_exec().unwrap()));
     }
 
@@ -102,8 +107,9 @@ impl CodeGeneratorEngine {
                     let call: extern "C" fn(Input) -> Output = unsafe { mem::transmute(executable.ptr(*code_offset)) };
                     let output = call(input);
                     match output.code {
-                        0 => { // not registered
-                            todo!()
+                        0 => { // node not registered, or execution is suspended
+                            state.frames.push(Frame { id: NodeId(output.node_id), offset: frame.offset });
+                            return true;
                         }
                         1 => { // final node
                             return false;
@@ -135,10 +141,12 @@ struct Assembler {
 }
 
 impl Assembler {
+    // todo: kind should be more like NodeKind<NodeId | AssemblyOffset>
     fn generate(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         match kind {
             NodeKind::Command { command, next } => {
-                self.generate_command(id, command, next);
+                self.generate_command(command);
+                self.generate_return(Output { code: 0, call_id: 0, node_id: next.0, next_id: 0 })
             }
             NodeKind::Branch { condition, if_true, if_false } => {
                 self.generate_condition(id, condition, if_true, if_false);
@@ -153,17 +161,48 @@ impl Assembler {
     }
 
     fn generate_final(&mut self, id: NodeId) {
+        self.generate_return(Output { code: 1, call_id: 0, node_id: id.0, next_id: 0 });
+    }
+
+    fn generate_command(&mut self, command: Command) {
+        match command {
+            Command::Noop => { panic!("can't happen") }
+            Command::PoisonFrom { .. } => { panic!("can't happen") }
+            Command::Set { dst, bytes } => { self.generate_set(dst, bytes) }
+            Command::Copy { .. } => { todo!() }
+            Command::Add { .. } => { todo!() }
+            Command::Sub { .. } => { todo!() }
+        }
+    }
+
+    fn generate_set(&mut self, dst: Ref, bytes: Vec<u8>) {
+        match bytes.len() {
+            4 => {
+                let value = get_u32(Ref::Stack(0), bytes.as_slice()).0;
+
+                // todo: check for stack overflow
+                dynasm!(self
+                    ; .arch aarch64
+                );
+            }
+            _ => { todo!() }
+        }
+    }
+
+    fn generate_return(&mut self, output: Output) {
         // todo: move doesn't work and copies only 16 bits I think. need proper code here.
         dynasm!(self
             ; .arch aarch64
-            ; mov x0, 1
-            ; mov x1, id.0 as u64
+            ; mov x0, output.code as u64
+            ; mov x1, output.node_id as u64
+        );
+        if output.code >= 3 {
+            todo!()
+        }
+        dynasm!(self
+            ; .arch aarch64
             ; ret
         );
-    }
-
-    fn generate_command(&mut self, id: NodeId, command: Command, next: NodeId) {
-        todo!()
     }
 
     fn generate_condition(&mut self, id: NodeId, condition: Condition, if_true: NodeId, if_false: NodeId) {
