@@ -106,7 +106,7 @@ impl CodeGeneratorEngine {
                     true
                 }
                 Some(code_offset) => {
-                    let data_offset = state.offset();
+                    let data_offset = state.offset() + frame.offset;
                     let input = Input {
                         data_stack_start: stack[data_offset..].as_mut_ptr() as usize as u64,
                         data_stack_end: stack.as_ptr_range().end as usize as u64,
@@ -125,7 +125,9 @@ impl CodeGeneratorEngine {
                             todo!()
                         }
                         offset_plus_3 =>  { // function call
-                            todo!()
+                            state.frames.push(Frame { id: NodeId(output.next_id), offset: frame.offset });
+                            state.frames.push(Frame { id: NodeId(output.call_id), offset:  (offset_plus_3 - 3) as usize });
+                            return !self.offsets.contains_key(&NodeId(output.call_id));
                         }
                     }
                 }
@@ -187,7 +189,7 @@ impl Assembler {
     }
 
     fn call(&mut self, id: NodeId, offset: u32, call: NodeId, next: NodeId) {
-        todo!()
+        self.ret(Output { code: 3 + offset, call_id: call.0, node_id: id.0, next_id: next.0 })
     }
 
     fn set(&mut self, dst: Ref, bytes: Vec<u8>) {
@@ -244,7 +246,8 @@ impl Assembler {
         self.mov_u32(0, output.code);
         self.mov_u32(1, output.node_id);
         if output.code >= 3 {
-            todo!()
+            self.mov_u32_high(0, output.call_id);
+            self.mov_u32_high(1, output.next_id);
         }
         dynasm!(self
             ; .arch aarch64
@@ -260,6 +263,17 @@ impl Assembler {
             ; .arch aarch64
             ; mov X(register), low as u64
             ; movk X(register), high as u32, lsl 16
+        );
+    }
+
+    fn mov_u32_high(&mut self, register: u32, value: u32) {
+        let low = value as u16;
+        let high = (value >> 16) as u16;
+        dynasm!(
+            self
+            ; .arch aarch64
+            ; movk X(register), low as u32, lsl 32
+            ; movk X(register), high as u32, lsl 48
         );
     }
 
