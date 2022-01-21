@@ -177,8 +177,8 @@ impl Assembler {
             Command::PoisonFrom { .. } => { panic!("can't happen") }
             Command::Set { dst, bytes } => { self.set(dst, bytes) }
             Command::Copy { dst, size, op } => { self.copy(size, dst, op) }
-            Command::Add { .. } => { todo!() }
-            Command::Sub { .. } => { todo!() }
+            Command::Add { size, dst, op1, op2 } => { self.add(size, dst, op1, op2) }
+            Command::Sub { size, dst, op1, op2 } => { self.sub(size, dst, op1, op2) }
         }
     }
 
@@ -205,6 +205,36 @@ impl Assembler {
             4 => {
                 self.load_u32(9, op);
                 self.store_u32(9, dst);
+            }
+            _ => { todo!() }
+        }
+    }
+
+    fn add(&mut self, len: u32, dst: Ref, op1: Ref, op2: Ref) {
+        match len {
+            4 => {
+                self.load_u32(9, op1);
+                self.load_u32(10, op2);
+                dynasm!(self
+                    ; .arch aarch64
+                    ; add w11, w9, w10
+                );
+                self.store_u32(11, dst);
+            }
+            _ => { todo!() }
+        }
+    }
+
+    fn sub(&mut self, len: u32, dst: Ref, op1: Ref, op2: Ref) {
+        match len {
+            4 => {
+                self.load_u32(9, op1);
+                self.load_u32(10, op2);
+                dynasm!(self
+                    ; .arch aarch64
+                    ; sub w11, w9, w10
+                );
+                self.store_u32(11, dst);
             }
             _ => { todo!() }
         }
@@ -240,7 +270,7 @@ impl Assembler {
                 // todo: what if offset is big?
                 dynasm!(self
                     ; .arch aarch64
-                    ; str w9, [x0, offset]
+                    ; str W(register), [x0, offset]
                 );
             }
         }
@@ -253,7 +283,7 @@ impl Assembler {
                 // todo: what if offset is big?
                 dynasm!(self
                     ; .arch aarch64
-                    ; ldr w9, [x0, offset]
+                    ; ldr W(register), [x0, offset]
                 );
             }
         }
