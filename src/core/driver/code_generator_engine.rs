@@ -43,6 +43,14 @@ pub struct Output {
     pub next_id: u32, // x1_high, only for function calls
 }
 
+fn interop(fn_ptr: *const u8, input: Input) -> Output {
+    // Can't have input as input struct because such structs being passed in memory
+    // But output is fine, I guess because it's under two fields
+    // checked with godbolt
+    let call: extern "C" fn(u64, u64, u64) -> Output = unsafe { mem::transmute(fn_ptr) };
+    call(input.data_stack_start, input.data_stack_end, input.stack_unwinding_dst)
+}
+
 enum Code {
     Executable(ExecutableBuffer),
     Writable(MutableBuffer),
@@ -104,8 +112,7 @@ impl CodeGeneratorEngine {
                         data_stack_end: stack.as_ptr_range().end as usize as u64,
                         stack_unwinding_dst: 0
                     };
-                    let call: extern "C" fn(Input) -> Output = unsafe { mem::transmute(executable.ptr(*code_offset)) };
-                    let output = call(input);
+                    let output = interop(executable.ptr(*code_offset), input);
                     match output.code {
                         0 => { // node not registered, or execution is suspended
                             state.frames.push(Frame { id: NodeId(output.node_id), offset: frame.offset });
@@ -178,30 +185,41 @@ impl Assembler {
     fn generate_set(&mut self, dst: Ref, bytes: Vec<u8>) {
         match bytes.len() {
             4 => {
-                let value = get_u32(Ref::Stack(0), bytes.as_slice()).0;
-
-                // todo: check for stack overflow
-                dynasm!(self
-                    ; .arch aarch64
-                );
+                match dst {
+                    Ref::Stack(offset) => {
+                        // todo: check for stack overflow
+                        self.generate_mov_u32(9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
+                        dynasm!(self
+                            ; .arch aarch64
+                            ; str w9, [x0, offset]
+                        );
+                    }
+                }
             }
             _ => { todo!() }
         }
     }
 
     fn generate_return(&mut self, output: Output) {
-        // todo: move doesn't work and copies only 16 bits I think. need proper code here.
-        dynasm!(self
-            ; .arch aarch64
-            ; mov x0, output.code as u64
-            ; mov x1, output.node_id as u64
-        );
+        self.generate_mov_u32(0, output.code);
+        self.generate_mov_u32(1, output.node_id);
         if output.code >= 3 {
             todo!()
         }
         dynasm!(self
             ; .arch aarch64
             ; ret
+        );
+    }
+
+    fn generate_mov_u32(&mut self, register: u32, value: u32) {
+        let low = value as u16;
+        let high = (value >> 16) as u16;
+        dynasm!(
+            self
+            ; .arch aarch64
+            ; mov X(register), low as u64
+            ; movk X(register), high as u32, lsl 16
         );
     }
 

@@ -77,27 +77,28 @@ fn test_noop() {
 
 #[test]
 fn test_set() {
-    test_command(vec![7, 7, 7, 7],Command::Set { dst: Ref::Stack(0), bytes: vec![1, 2, 3, 4] })
+    test_command(vec![7, 7, 7, 7],Command::Set { dst: Ref::Stack(0), bytes: vec![1, 0, 0, 0] });
+    test_command(vec![7, 7, 7, 7],Command::Set { dst: Ref::Stack(0), bytes: vec![1, 2, 3, 4] });
 }
 
 #[test]
 fn test_copy() {
-    test_command(vec![1, 2, 3, 4],Command::Copy { size: 4, dst: Ref::Stack(4), op: Ref::Stack(0) })
+    test_command(vec![1, 2, 3, 4],Command::Copy { size: 4, dst: Ref::Stack(4), op: Ref::Stack(0) });
 }
 
 #[test]
 fn test_poison_from() {
-    test_command(vec![1, 2, 3, 4],Command::PoisonFrom { dst: Ref::Stack(0) })
+    test_command(vec![1, 2, 3, 4],Command::PoisonFrom { dst: Ref::Stack(0) });
 }
 
 #[test]
 fn test_add() {
-    test_command(vec![1, 2, 3, 4, 5, 6, 7, 8],Command::Add { size: 4, dst: Ref::Stack(8), op1: Ref::Stack(0), op2: Ref::Stack(4) })
+    test_command(vec![1, 2, 3, 4, 5, 6, 7, 8],Command::Add { size: 4, dst: Ref::Stack(8), op1: Ref::Stack(0), op2: Ref::Stack(4) });
 }
 
 #[test]
 fn test_sub() {
-    test_command(vec![1, 2, 3, 4, 5, 6, 7, 8],Command::Sub { size: 4, dst: Ref::Stack(8), op1: Ref::Stack(0), op2: Ref::Stack(4) })
+    test_command(vec![1, 2, 3, 4, 5, 6, 7, 8],Command::Sub { size: 4, dst: Ref::Stack(8), op1: Ref::Stack(0), op2: Ref::Stack(4) });
 }
 
 #[test]
