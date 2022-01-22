@@ -10,4 +10,4 @@ cargo test webasm::fib_tests::test_cached_node_eval --release
 finished in 10.63s
 
 cargo test webasm::fib_tests::test_code_generator_eval --release
-finished in 17.30s
+finished in 1.40s

@@ -60,6 +60,7 @@ impl Output {
     }
 }
 
+#[derive(Debug, Clone)]
 struct ReturnInfo {
     output: Output,
     from: usize,
@@ -128,14 +129,32 @@ impl CodeGeneratorEngine {
         // todo: replace previous returns of this id to jump to new location
 
         self.offset = ops.offset;
-        flush_code_cache(&ops.buffer);
-        std::mem::replace(&mut self.code, Code::Executable(ops.buffer.make_exec().unwrap()));
 
+        // replace returns
         for ret in returns {
             if ret.output.code == 0 {
-                self.returns.insert(NodeId(ret.output.node_id), ret)
+                let id = NodeId(ret.output.node_id);
+                if let Some(offset) = self.offsets.get(&id) {
+                    Self::replace_ret(&mut ops.buffer, ret, *offset)
+                } else {
+                    self.returns.insert(id, ret)
+                }
             }
         }
+        let replacements =
+            if let Some(returns) = self.returns.get_vec_mut(&id) {
+                let clone = returns.clone();
+                returns.clear();
+                clone
+            } else { vec![] };
+
+        let offset = *self.offsets.get(&id).unwrap();
+        for ret in replacements {
+            Self::replace_ret(&mut ops.buffer, ret, offset);
+        }
+
+        flush_code_cache(&ops.buffer);
+        std::mem::replace(&mut self.code, Code::Executable(ops.buffer.make_exec().unwrap()));
     }
 
     fn remove_last_return_if_needed(&mut self, id: NodeId) {
@@ -144,6 +163,44 @@ impl CodeGeneratorEngine {
                 self.offset = returns.get(pos).unwrap().from;
                 returns.remove(pos);
             }
+        }
+    }
+
+    fn replace_ret(buffer: &mut MutableBuffer, ret: ReturnInfo, dest: AssemblyOffset) {
+        // todo: what if more than 1mb size difference?
+        // todo: just generate instructions...
+        let diff = (dest.0 as i32) - (ret.from as i32);
+        let mut asm: VecAssembler<Aarch64Relocation> = VecAssembler::new(0);
+        if diff > 0 {
+            asm!(asm
+                ; b >label
+            );
+            (0..(diff.abs() / 4 - 1)).for_each(|_| {
+                asm!(asm
+                    ; nop
+                );
+            });
+            asm!(asm
+                ; label:
+            );
+            let bytes = asm.finalize().unwrap();
+            let res_idx = if (diff >= 0) { 0 } else { bytes.len() - 4 };
+            buffer.as_mut()[ret.from..ret.from + 4].copy_from_slice(&bytes.as_slice()[res_idx..res_idx + 4]);
+        } else {
+            asm!(asm
+                ; label:
+            );
+            (0..diff.abs() / 4).for_each(|_| {
+                asm!(asm
+                    ; nop
+                );
+            });
+            asm!(asm
+                ; b <label
+            );
+            let bytes = asm.finalize().unwrap();
+            let res_idx = if (diff >= 0) { 0 } else { bytes.len() - 4 };
+            buffer.as_mut()[ret.from..ret.from + 4].copy_from_slice(&bytes.as_slice()[res_idx..res_idx + 4]);
         }
     }
 
