@@ -43,13 +43,27 @@ pub struct Output {
     pub next_id: u32, // x1_high, only for function calls
 }
 
+impl Output {
+    fn next_node(id: NodeId) -> Output {
+        Output { code: 0, call_id: 0, node_id: id.0, next_id: 0 }
+    }
+
+    fn final_node(id: NodeId) -> Output {
+        Output { code: 1, call_id: 0, node_id: id.0, next_id: 0 }
+    }
+
+    fn call_node(offset: u32, call: NodeId, next: NodeId, id: NodeId) -> Output {
+        Output { code: 3 + offset, call_id: call.0, node_id: id.0, next_id: next.0 }
+    }
+}
+
 macro_rules! asm {
     ($ops:ident $($t:tt)*) => {
         dynasm!($ops
             ; .arch aarch64
             ; .alias data_stack, x0
             $($t)*
-        );
+        )
     }
 }
 
@@ -165,22 +179,20 @@ impl Assembler {
         match kind {
             NodeKind::Command { command, next } => {
                 self.command(command);
-                self.ret(Output { code: 0, call_id: 0, node_id: next.0, next_id: 0 })
+                self.ret(Output::next_node(next));
             }
             NodeKind::Branch { condition, if_true, if_false } => {
-                self.condition(id, condition, if_true, if_false);
+                self.condition(condition, 6); // return if true starts in 6 bytes after the end of condition
+                self.ret(Output::next_node(if_false));
+                self.ret(Output::next_node(if_true));
             }
             NodeKind::Call { offset, call, next } => {
-                self.call(id, offset, call, next);
+                self.ret(Output::call_node(offset, call, next, id));
             }
             NodeKind::Final => {
-                self.final_node(id);
+                self.ret(Output::final_node(id));
             }
         }
-    }
-
-    fn final_node(&mut self, id: NodeId) {
-        self.ret(Output { code: 1, call_id: 0, node_id: id.0, next_id: 0 });
     }
 
     fn command(&mut self, command: Command) {
@@ -194,12 +206,11 @@ impl Assembler {
         }
     }
 
-    fn condition(&mut self, id: NodeId, condition: Condition, if_true: NodeId, if_false: NodeId) {
-        todo!()
-    }
-
-    fn call(&mut self, id: NodeId, offset: u32, call: NodeId, next: NodeId) {
-        self.ret(Output { code: 3 + offset, call_id: call.0, node_id: id.0, next_id: next.0 })
+    fn condition(&mut self, condition: Condition, if_true_offset: u8) {
+        match condition {
+            Condition::Ne { size, op1, op2 } => { self.ne(size, op1, op2, if_true_offset) }
+            Condition::Ne0 { size, op } => { self.ne0(size, op, if_true_offset) }
+        }
     }
 
     fn set(&mut self, dst: Ref, bytes: Vec<u8>) {
@@ -260,6 +271,33 @@ impl Assembler {
         asm!(self
             ; ret
         );
+    }
+
+    fn ne(&mut self, len: u32, op1: Ref, op2: Ref, if_true_offset: u8) {
+        match len {
+            4 => {
+                self.load_u32(9, op1);
+                self.load_u32(10, op2);
+                asm!(self
+                    ; cmp w9, w10
+                    // ; b.ne -> if_true_offset
+                )
+            }
+            _ => { todo!() }
+        }
+    }
+
+    fn ne0(&mut self, len: u32, op: Ref, if_true_offset: u8) {
+        match len {
+            4 => {
+                self.load_u32(9, op);
+                asm!(self
+                    ; cmp w9, 0
+                    // ; b.ne -> if_true_offset
+                )
+            }
+            _ => { todo!() }
+        }
     }
 
     fn mov_u32(&mut self, register: u32, value: u32) {
