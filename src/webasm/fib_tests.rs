@@ -7,6 +7,7 @@ use crate::core::aux::cached_node::Cache;
 use crate::core::driver::driver::Driver;
 use crate::core::driver::interpreter_engine::InterpreterEngine;
 use crate::core::aux::specialized_interpreter_engine::SpecializedInterpreterEngine;
+use crate::core::driver::code_generator_engine::CodeGeneratorEngine;
 use crate::core::interpreter::{eval, get_u32, put_u32};
 use crate::core::utils::{pretty_print, traverse_node};
 use crate::webasm::ast::Module;
@@ -64,4 +65,9 @@ fn test_specialized_interpreter_eval() {
 #[test]
 fn test_caching_interpreter_eval() {
     run_fib(|stack| Driver::new(InterpreterEngine::new()).eval(fib_node(), stack), 35);
+}
+
+#[test]
+fn test_code_generator_eval() {
+    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node(), stack), 35);
 }
