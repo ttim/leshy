@@ -43,6 +43,16 @@ pub struct Output {
     pub next_id: u32, // x1_high, only for function calls
 }
 
+macro_rules! asm {
+    ($ops:ident $($t:tt)*) => {
+        dynasm!($ops
+            ; .arch aarch64
+            ; .alias data_stack, x0
+            $($t)*
+        );
+    }
+}
+
 fn interop(fn_ptr: *const u8, input: Input) -> Output {
     // Can't have input as input struct because such structs being passed in memory
     // But output is fine, I guess because it's under two fields
@@ -217,8 +227,7 @@ impl Assembler {
             4 => {
                 self.load_u32(9, op1);
                 self.load_u32(10, op2);
-                dynasm!(self
-                    ; .arch aarch64
+                asm!(self
                     ; add w11, w9, w10
                 );
                 self.store_u32(11, dst);
@@ -232,8 +241,7 @@ impl Assembler {
             4 => {
                 self.load_u32(9, op1);
                 self.load_u32(10, op2);
-                dynasm!(self
-                    ; .arch aarch64
+                asm!(self
                     ; sub w11, w9, w10
                 );
                 self.store_u32(11, dst);
@@ -249,8 +257,7 @@ impl Assembler {
             self.mov_u32_high(0, output.call_id);
             self.mov_u32_high(1, output.next_id);
         }
-        dynasm!(self
-            ; .arch aarch64
+        asm!(self
             ; ret
         );
     }
@@ -258,9 +265,7 @@ impl Assembler {
     fn mov_u32(&mut self, register: u32, value: u32) {
         let low = value as u16;
         let high = (value >> 16) as u16;
-        dynasm!(
-            self
-            ; .arch aarch64
+        asm!(self
             ; mov X(register), low as u64
             ; movk X(register), high as u32, lsl 16
         );
@@ -269,9 +274,7 @@ impl Assembler {
     fn mov_u32_high(&mut self, register: u32, value: u32) {
         let low = value as u16;
         let high = (value >> 16) as u16;
-        dynasm!(
-            self
-            ; .arch aarch64
+        asm!(self
             ; movk X(register), low as u32, lsl 32
             ; movk X(register), high as u32, lsl 48
         );
@@ -282,9 +285,8 @@ impl Assembler {
             Ref::Stack(offset) => {
                 // todo: check for stack overflow
                 // todo: what if offset is big?
-                dynasm!(self
-                    ; .arch aarch64
-                    ; str W(register), [x0, offset]
+                asm!(self
+                    ; str W(register), [data_stack, offset]
                 );
             }
         }
@@ -295,9 +297,8 @@ impl Assembler {
             Ref::Stack(offset) => {
                 // todo: check for stack overflow
                 // todo: what if offset is big?
-                dynasm!(self
-                    ; .arch aarch64
-                    ; ldr W(register), [x0, offset]
+                asm!(self
+                    ; ldr W(register), [data_stack, offset]
                 );
             }
         }
