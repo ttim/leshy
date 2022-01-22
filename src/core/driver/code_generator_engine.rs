@@ -9,6 +9,7 @@ use crate::core::driver::driver::{Engine, Frame, NodeId, RunState};
 use crate::core::driver::util::flush_code_cache;
 use crate::core::interpreter::get_u32;
 use dynasmrt::DynasmLabelApi;
+use multimap::MultiMap;
 
 // engine <-> generated code interop/call conventions:
 //   X0 pointer to data stack start
@@ -36,7 +37,7 @@ pub struct Input {
 }
 
 // todo: use unions
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct Output {
     pub code: u32, // w0
@@ -57,6 +58,12 @@ impl Output {
     fn call_node(offset: u32, call: NodeId, next: NodeId, id: NodeId) -> Output {
         Output { code: 3 + offset, call_id: call.0, node_id: id.0, next_id: next.0 }
     }
+}
+
+struct ReturnInfo {
+    output: Output,
+    from: usize,
+    to: usize,
 }
 
 macro_rules! asm {
@@ -88,7 +95,7 @@ pub struct CodeGeneratorEngine {
     code: Code,
     offset: usize,
     offsets: HashMap<NodeId, AssemblyOffset>,
-    last_generated: Option<NodeKind<NodeId>>
+    returns: MultiMap<NodeId, ReturnInfo>,
 }
 
 impl CodeGeneratorEngine {
@@ -98,7 +105,7 @@ impl CodeGeneratorEngine {
             code: Code::Executable(ExecutableBuffer::new(size)?),
             offset: 0,
             offsets: HashMap::new(),
-            last_generated: None,
+            returns: MultiMap::new(),
         })
     }
 
@@ -112,13 +119,10 @@ impl CodeGeneratorEngine {
         };
         // why do we need this?
         writable.set_len(self.size);
-        if self.remove_last_return(id) {
-            // last generated command returns current id, so we can remove last 5 instructions (each 4 bytes) of this return
-            self.offset -= 5 * 4;
-        }
+        self.remove_last_return_if_needed(id);
         // todo: if last return is current id - erase it and write on top of it instead
         let mut ops = Assembler { buffer: writable, offset: self.offset };
-        ops.generate(id, kind.clone());
+        let returns = ops.generate(id, kind.clone());
 
         self.offsets.insert(id, AssemblyOffset(self.offset));
         // todo: replace previous returns of this id to jump to new location
@@ -126,16 +130,20 @@ impl CodeGeneratorEngine {
         self.offset = ops.offset;
         flush_code_cache(&ops.buffer);
         std::mem::replace(&mut self.code, Code::Executable(ops.buffer.make_exec().unwrap()));
-        self.last_generated = Some(kind);
+
+        for ret in returns {
+            if ret.output.code == 0 {
+                self.returns.insert(NodeId(ret.output.node_id), ret)
+            }
+        }
     }
 
-    fn remove_last_return(&self, id: NodeId) -> bool {
-        if let Some(NodeKind::Command { next, .. }) = &self.last_generated {
-            *next == id
-        } else if let Some(NodeKind::Branch { if_true, .. }) = &self.last_generated {
-            *if_true == id
-        } else {
-            false
+    fn remove_last_return_if_needed(&mut self, id: NodeId) {
+        if let Some(returns) = self.returns.get_vec_mut(&id) {
+            if let Some(pos) = returns.iter().position(|e| e.to == self.offset) {
+                self.offset = returns.get(pos).unwrap().from;
+                returns.remove(pos);
+            }
         }
     }
 
@@ -194,23 +202,25 @@ struct Assembler {
 
 impl Assembler {
     // todo: kind should be more like NodeKind<NodeId | AssemblyOffset>
-    fn generate(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
+    fn generate(&mut self, id: NodeId, kind: NodeKind<NodeId>) -> Vec<ReturnInfo> {
         match kind {
             NodeKind::Command { command, next } => {
                 self.command(command);
-                self.ret(Output::next_node(next));
+                vec![self.ret(Output::next_node(next))]
             }
             NodeKind::Branch { condition, if_true, if_false } => {
                 // todo: record into self current if_true_label offset so we can resolve it
                 self.condition(condition, 5);
-                self.ret(Output::next_node(if_false));
-                self.ret(Output::next_node(if_true));
+                vec![
+                    self.ret(Output::next_node(if_false)),
+                    self.ret(Output::next_node(if_true)),
+                ]
             }
             NodeKind::Call { offset, call, next } => {
-                self.ret(Output::call_node(offset, call, next, id));
+                vec![self.ret(Output::call_node(offset, call, next, id))]
             }
             NodeKind::Final => {
-                self.ret(Output::final_node(id));
+                vec![self.ret(Output::final_node(id))]
             }
         }
     }
@@ -281,7 +291,8 @@ impl Assembler {
         }
     }
 
-    fn ret(&mut self, output: Output) {
+    fn ret(&mut self, output: Output) -> ReturnInfo {
+        let mut return_info = ReturnInfo { output: output.clone(), from: self.offset, to: 0 };
         self.mov_u32(0, output.code);
         self.mov_u32(1, output.node_id);
         if output.code >= 3 {
@@ -291,6 +302,8 @@ impl Assembler {
         asm!(self
             ; ret
         );
+        return_info.to = self.offset;
+        return_info
     }
 
     fn ne(&mut self, len: u32, op1: Ref, op2: Ref, ret_true_bytes: u8) {
