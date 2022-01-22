@@ -88,6 +88,7 @@ pub struct CodeGeneratorEngine {
     code: Code,
     offset: usize,
     offsets: HashMap<NodeId, AssemblyOffset>,
+    last_generated: Option<NodeKind<NodeId>>
 }
 
 impl CodeGeneratorEngine {
@@ -97,6 +98,7 @@ impl CodeGeneratorEngine {
             code: Code::Executable(ExecutableBuffer::new(size)?),
             offset: 0,
             offsets: HashMap::new(),
+            last_generated: None,
         })
     }
 
@@ -110,9 +112,13 @@ impl CodeGeneratorEngine {
         };
         // why do we need this?
         writable.set_len(self.size);
+        if self.remove_last_return(id) {
+            // last generated command returns current id, so we can remove last 5 instructions (each 4 bytes) of this return
+            self.offset -= 5 * 4;
+        }
         // todo: if last return is current id - erase it and write on top of it instead
         let mut ops = Assembler { buffer: writable, offset: self.offset };
-        ops.generate(id, kind);
+        ops.generate(id, kind.clone());
 
         self.offsets.insert(id, AssemblyOffset(self.offset));
         // todo: replace previous returns of this id to jump to new location
@@ -120,6 +126,17 @@ impl CodeGeneratorEngine {
         self.offset = ops.offset;
         flush_code_cache(&ops.buffer);
         std::mem::replace(&mut self.code, Code::Executable(ops.buffer.make_exec().unwrap()));
+        self.last_generated = Some(kind);
+    }
+
+    fn remove_last_return(&self, id: NodeId) -> bool {
+        if let Some(NodeKind::Command { next, .. }) = &self.last_generated {
+            *next == id
+        } else if let Some(NodeKind::Branch { if_true, .. }) = &self.last_generated {
+            *if_true == id
+        } else {
+            false
+        }
     }
 
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
