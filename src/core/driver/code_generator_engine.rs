@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 use std::{io, mem};
 use dynasm::dynasm;
-use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer};
+use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer, VecAssembler};
+use dynasmrt::aarch64::Aarch64Relocation;
 use dynasmrt::mmap::MutableBuffer;
 use crate::core::api::{Command, Condition, NodeKind, Ref};
 use crate::core::driver::driver::{Engine, Frame, NodeId, RunState};
 use crate::core::driver::util::flush_code_cache;
 use crate::core::interpreter::get_u32;
+use dynasmrt::DynasmLabelApi;
 
 // engine <-> generated code interop/call conventions:
 //   X0 pointer to data stack start
@@ -182,7 +184,8 @@ impl Assembler {
                 self.ret(Output::next_node(next));
             }
             NodeKind::Branch { condition, if_true, if_false } => {
-                self.condition(condition, 6); // return if true starts in 6 bytes after the end of condition
+                // todo: record into self current if_true_label offset so we can resolve it
+                self.condition(condition, 5);
                 self.ret(Output::next_node(if_false));
                 self.ret(Output::next_node(if_true));
             }
@@ -206,10 +209,10 @@ impl Assembler {
         }
     }
 
-    fn condition(&mut self, condition: Condition, if_true_offset: u8) {
+    fn condition(&mut self, condition: Condition, ret_true_bytes: u8) {
         match condition {
-            Condition::Ne { size, op1, op2 } => { self.ne(size, op1, op2, if_true_offset) }
-            Condition::Ne0 { size, op } => { self.ne0(size, op, if_true_offset) }
+            Condition::Ne { size, op1, op2 } => { self.ne(size, op1, op2, ret_true_bytes) }
+            Condition::Ne0 { size, op } => { self.ne0(size, op, ret_true_bytes) }
         }
     }
 
@@ -273,31 +276,56 @@ impl Assembler {
         );
     }
 
-    fn ne(&mut self, len: u32, op1: Ref, op2: Ref, if_true_offset: u8) {
+    fn ne(&mut self, len: u32, op1: Ref, op2: Ref, ret_true_bytes: u8) {
         match len {
             4 => {
                 self.load_u32(9, op1);
                 self.load_u32(10, op2);
                 asm!(self
                     ; cmp w9, w10
-                    // ; b.ne -> if_true_offset
-                )
+                );
+                // todo: can we pass &mut asm instead?
+                self.bcond(|mut asm| {
+                    asm!(asm
+                        ; b.ne >if_true_label
+                    );
+                    asm
+                }, ret_true_bytes);
             }
             _ => { todo!() }
         }
     }
 
-    fn ne0(&mut self, len: u32, op: Ref, if_true_offset: u8) {
+    fn ne0(&mut self, len: u32, op: Ref, ret_true_bytes: u8) {
         match len {
             4 => {
                 self.load_u32(9, op);
                 asm!(self
                     ; cmp w9, 0
-                    // ; b.ne -> if_true_offset
-                )
+                );
+                self.bcond(|mut asm| {
+                    asm!(asm
+                        ; b.ne >if_true_label
+                    );
+                    asm
+                }, ret_true_bytes);
             }
             _ => { todo!() }
         }
+    }
+
+    fn bcond(&mut self, cond_fn: fn(VecAssembler<Aarch64Relocation>) -> VecAssembler<Aarch64Relocation>, ret_true_bytes: u8) {
+        let mut asm = cond_fn(VecAssembler::new(0));
+        (0..ret_true_bytes).for_each(|_| {
+            asm!(asm
+                ; nop
+            );
+        });
+        asm!(asm
+            ; if_true_label:
+        );
+        let bytes = asm.finalize().unwrap();
+        self.extend(&bytes.as_slice()[0..4]);
     }
 
     fn mov_u32(&mut self, register: u32, value: u32) {
