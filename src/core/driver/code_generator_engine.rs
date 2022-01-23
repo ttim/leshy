@@ -9,6 +9,8 @@ use crate::core::driver::driver::{Engine, Frame, NodeId, RunState};
 use crate::core::driver::util::flush_code_cache;
 use crate::core::interpreter::get_u32;
 use dynasmrt::DynasmLabelApi;
+use dynasmrt::relocations::Relocation;
+use lazy_static::lazy_static;
 use multimap::MultiMap;
 
 // engine <-> generated code interop/call conventions:
@@ -168,40 +170,7 @@ impl CodeGeneratorEngine {
 
     fn replace_ret(buffer: &mut MutableBuffer, ret: ReturnInfo, dest: AssemblyOffset) {
         // todo: what if more than 1mb size difference?
-        // todo: just generate instructions...
-        let diff = (dest.0 as i32) - (ret.from as i32);
-        let mut asm: VecAssembler<Aarch64Relocation> = VecAssembler::new(0);
-        if diff > 0 {
-            asm!(asm
-                ; b >label
-            );
-            (0..(diff.abs() / 4 - 1)).for_each(|_| {
-                asm!(asm
-                    ; nop
-                );
-            });
-            asm!(asm
-                ; label:
-            );
-            let bytes = asm.finalize().unwrap();
-            let res_idx = if (diff >= 0) { 0 } else { bytes.len() - 4 };
-            buffer.as_mut()[ret.from..ret.from + 4].copy_from_slice(&bytes.as_slice()[res_idx..res_idx + 4]);
-        } else {
-            asm!(asm
-                ; label:
-            );
-            (0..diff.abs() / 4).for_each(|_| {
-                asm!(asm
-                    ; nop
-                );
-            });
-            asm!(asm
-                ; b <label
-            );
-            let bytes = asm.finalize().unwrap();
-            let res_idx = if (diff >= 0) { 0 } else { bytes.len() - 4 };
-            buffer.as_mut()[ret.from..ret.from + 4].copy_from_slice(&bytes.as_slice()[res_idx..res_idx + 4]);
-        }
+        Assembler::write_b(buffer, ret.from, dest.0 as isize - ret.from as isize)
     }
 
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
@@ -252,6 +221,15 @@ impl Engine for CodeGeneratorEngine {
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }
 }
 
+lazy_static! {
+    static ref BRANCH: HashMap<&'static str, Vec<u8>> = {
+        let mut m = HashMap::new();
+        // todo: got this from debuging internals of generated dynasm code. figure out where it comes from in macro!
+        m.insert("ne", vec![1, 0, 0, 84]);
+        m
+    };
+}
+
 struct Assembler {
     buffer: MutableBuffer,
     offset: usize,
@@ -266,8 +244,7 @@ impl Assembler {
                 vec![self.ret(Output::next_node(next))]
             }
             NodeKind::Branch { condition, if_true, if_false } => {
-                // todo: record into self current if_true_label offset so we can resolve it
-                self.condition(condition, 5);
+                self.condition(condition, 6 * 4);
                 vec![
                     self.ret(Output::next_node(if_false)),
                     self.ret(Output::next_node(if_true)),
@@ -293,10 +270,10 @@ impl Assembler {
         }
     }
 
-    fn condition(&mut self, condition: Condition, ret_true_bytes: u8) {
+    fn condition(&mut self, condition: Condition, ret_true_offset: isize) {
         match condition {
-            Condition::Ne { size, op1, op2 } => { self.ne(size, op1, op2, ret_true_bytes) }
-            Condition::Ne0 { size, op } => { self.ne0(size, op, ret_true_bytes) }
+            Condition::Ne { size, op1, op2 } => { self.ne(size, op1, op2, ret_true_offset) }
+            Condition::Ne0 { size, op } => { self.ne0(size, op, ret_true_offset) }
         }
     }
 
@@ -363,7 +340,7 @@ impl Assembler {
         return_info
     }
 
-    fn ne(&mut self, len: u32, op1: Ref, op2: Ref, ret_true_bytes: u8) {
+    fn ne(&mut self, len: u32, op1: Ref, op2: Ref, ret_true_offset: isize) {
         match len {
             4 => {
                 self.load_u32(9, op1);
@@ -371,48 +348,29 @@ impl Assembler {
                 asm!(self
                     ; cmp w9, w10
                 );
-                // todo: can we pass &mut asm instead?
-                self.bcond(|mut asm| {
-                    asm!(asm
-                        ; b.ne >if_true_label
-                    );
-                    asm
-                }, ret_true_bytes);
+                self.bcond("ne", ret_true_offset);
             }
             _ => { todo!() }
         }
     }
 
-    fn ne0(&mut self, len: u32, op: Ref, ret_true_bytes: u8) {
+    fn ne0(&mut self, len: u32, op: Ref, ret_true_offset: isize) {
         match len {
             4 => {
                 self.load_u32(9, op);
                 asm!(self
                     ; cmp w9, 0
                 );
-                self.bcond(|mut asm| {
-                    asm!(asm
-                        ; b.ne >if_true_label
-                    );
-                    asm
-                }, ret_true_bytes);
+                self.bcond("ne", ret_true_offset);
             }
             _ => { todo!() }
         }
     }
 
-    fn bcond(&mut self, cond_fn: fn(VecAssembler<Aarch64Relocation>) -> VecAssembler<Aarch64Relocation>, ret_true_bytes: u8) {
-        let mut asm = cond_fn(VecAssembler::new(0));
-        (0..ret_true_bytes).for_each(|_| {
-            asm!(asm
-                ; nop
-            );
-        });
-        asm!(asm
-            ; if_true_label:
-        );
-        let bytes = asm.finalize().unwrap();
-        self.extend(&bytes.as_slice()[0..4]);
+    fn bcond(&mut self, modifier: &'static str, offset: isize) {
+        let mut bytes = BRANCH.get(modifier).unwrap().clone();
+        Aarch64Relocation::BCOND.write_value(&mut bytes, offset);
+        self.extend(bytes.as_slice());
     }
 
     fn mov_u32(&mut self, register: u32, value: u32) {
@@ -455,6 +413,13 @@ impl Assembler {
                 );
             }
         }
+    }
+
+    fn write_b(buffer: &mut MutableBuffer, offset: usize, rel_dst: isize) {
+        // todo: got this from debuging internals of generated dynasm code. figure out where it comes from in macro!
+        let mut template = vec!(0, 0, 0, 20);
+        Aarch64Relocation::B.write_value(&mut template, rel_dst);
+        buffer.as_mut()[offset..offset + 4].copy_from_slice(template.as_slice());
     }
 }
 

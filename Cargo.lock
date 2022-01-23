@@ -64,6 +64,7 @@ version = "0.1.0"
 dependencies = [
  "dynasm",
  "dynasmrt",
+ "lazy_static",
  "lazycell",
  "leb128",
  "libc",
