@@ -56,6 +56,8 @@ macro_rules! asm {
             ; .arch aarch64
             ; .alias data_stack, x0
             ; .alias unwind_stack, x2
+            ; .alias unwind_stack_end, x0
+            ; .alias lr, x30
             $($t)*
         )
     }
@@ -287,32 +289,31 @@ impl Assembler {
     }
 
     fn ret_call(&mut self, offset: u32, call: NodeId, next: NodeId) -> Vec<ReturnInfo> {
-        // store x0 and lc to stack
-        // increase x0 by offset
+        // store `data_stack` and lc to stack
+        // increase `data_stack` by offset
         // bl to ret_suspend_call
         //   ret_suspend call
         // if ret != 0 branch to unwind
         //   restore lc from stack
-        //   x3 + 8 * x0 is destination address to write (0, node id)
+        //   `unwind_stack_end` is destination address to write (0, node id)
         //   modify elements of unwind struct
-        //   increase X0 by 1 & ret
-        // restore lc and x0
+        //   increase `unwind_stack_end` by 8 & ret
+        // restore lc and `data_stack`
         // ret_suspend next
 
         let mut intermediate: VecAssembler<Aarch64Relocation> = VecAssembler::new(0); // todo: not sure why we need baseaddr
         let mut infos: Vec<ReturnInfo> = Vec::new();
 
-        // x30 is link register
         asm!(intermediate
-            ; stp x0, x30, [sp, #-16]!
+            ; stp data_stack, lr, [sp, #-16]!
         );
         mov_u32(&mut intermediate, 13, offset);
         asm!(intermediate
-            ; add x0, x0, x13
+            ; add data_stack, data_stack, x13
             ; bl >call
-            ; cmp x0, x2
+            ; cmp unwind_stack_end, unwind_stack
             ; b.ne >unwind
-            ; ldp x0, x30, [sp], #16
+            ; ldp data_stack, lr, [sp], #16
         );
         infos.push(ret_suspend(&mut intermediate, next));
 
@@ -328,12 +329,12 @@ impl Assembler {
         mov_u32(&mut intermediate, 9, next.0);
         // todo: remove unnesessary instructions
         asm!(intermediate
-            ; ldp xzr, x30, [sp], #16
-            ; sub x0, x0, 8
-            ; str w13, [x0]
-            ; add x0, x0, 8
-            ; stp wzr, w9, [x0]
-            ; add x0, x0, 8
+            ; ldp xzr, lr, [sp], #16
+            ; sub unwind_stack_end, unwind_stack_end, 8
+            ; str w13, [unwind_stack_end]
+            ; add unwind_stack_end, unwind_stack_end, 8
+            ; stp wzr, w9, [unwind_stack_end]
+            ; add unwind_stack_end, unwind_stack_end, 8
             ; ret
         );
 
@@ -348,7 +349,7 @@ impl Assembler {
     fn ret_final(&mut self) {
         mov_u32(self, 0, 0);
         asm!(self
-            ; add x0, xzr, x2
+            ; add unwind_stack_end, xzr, unwind_stack
             ; ret
         );
     }
@@ -443,7 +444,7 @@ fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
     mov_u32(api, 9, id.0);
     asm!(api
         ; stp wzr, w9, [unwind_stack, 0]
-        ; add x0, x2, 8
+        ; add unwind_stack_end, unwind_stack, 8
         ; ret
     );
 
