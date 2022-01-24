@@ -61,15 +61,9 @@ macro_rules! asm {
     }
 }
 
-enum Code {
-    Executable(ExecutableBuffer),
-    Writable(MutableBuffer),
-    __Holder,
-}
-
 pub struct CodeGeneratorEngine {
     size: usize,
-    code: Code,
+    code: Option<ExecutableBuffer>,
     offset: usize,
     offsets: HashMap<NodeId, AssemblyOffset>,
     returns: MultiMap<NodeId, ReturnInfo>,
@@ -79,7 +73,7 @@ impl CodeGeneratorEngine {
     pub fn new(size: usize) -> io::Result<CodeGeneratorEngine> {
         Ok(CodeGeneratorEngine {
             size,
-            code: Code::Executable(ExecutableBuffer::new(size)?),
+            code: Some(ExecutableBuffer::new(size)?),
             offset: 0,
             offsets: HashMap::new(),
             returns: MultiMap::new(),
@@ -89,20 +83,17 @@ impl CodeGeneratorEngine {
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         if self.offsets.contains_key(&id) { return; }
 
-        let mut writable = match std::mem::replace(&mut self.code, Code::__Holder) {
-            Code::Executable(buffer) => { buffer.make_mut().unwrap() }
-            Code::Writable(buffer) => { buffer }
-            Code::__Holder => { panic!() }
+        let mut writable = match std::mem::replace(&mut self.code, None) {
+            Some(buffer) => { buffer.make_mut().unwrap() }
+            None => { panic!() }
         };
         // why do we need this?
         writable.set_len(self.size);
         self.remove_last_return_if_needed(id);
-        // todo: if last return is current id - erase it and write on top of it instead
         let mut ops = Assembler { buffer: writable, offset: self.offset };
-        let returns = ops.generate(id, kind.clone());
+        let returns = ops.generate(kind.clone());
 
         self.offsets.insert(id, AssemblyOffset(self.offset));
-        // todo: replace previous returns of this id to jump to new location
 
         self.offset = ops.offset;
 
@@ -130,7 +121,7 @@ impl CodeGeneratorEngine {
         }
 
         flush_code_cache(&ops.buffer);
-        std::mem::replace(&mut self.code, Code::Executable(ops.buffer.make_exec().unwrap()));
+        std::mem::replace(&mut self.code, Some(ops.buffer.make_exec().unwrap()));
     }
 
     fn remove_last_return_if_needed(&mut self, id: NodeId) {
@@ -143,7 +134,7 @@ impl CodeGeneratorEngine {
     }
 
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
-        if let Code::Executable(executable) = &self.code {
+        if let Some(executable) = &self.code {
             let frame = state.frames.pop().unwrap();
 
             match self.offsets.get(&frame.id) {
@@ -180,7 +171,7 @@ struct Assembler {
 
 impl Assembler {
     // todo: kind should be more like NodeKind<NodeId | AssemblyOffset>
-    fn generate(&mut self, id: NodeId, kind: NodeKind<NodeId>) -> Vec<ReturnInfo> {
+    fn generate(&mut self, kind: NodeKind<NodeId>) -> Vec<ReturnInfo> {
         match kind {
             NodeKind::Command { command, next } => {
                 self.command(command);
