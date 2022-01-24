@@ -29,36 +29,41 @@ use multimap::MultiMap;
 // and only if there is no guarantee on particular point we can check stack size and increase size if needed!
 // this way we don't need to keep data stack end in a register and compare to it all the time
 
-#[derive(Debug)]
-#[repr(C)]
-pub struct Input {
-    pub data_stack_start: u64, // x0
-    pub data_stack_end: u64, // x1
-    pub stack_unwinding_dst: u64, // x2
-}
-
-// todo: use unions
 #[derive(Debug, Clone)]
-#[repr(C)]
-pub struct Output {
-    pub code: u32, // w0
-    pub call_id: u32, // x0_high, only for function calls
-    pub node_id: u32, // w1
-    pub next_id: u32, // x1_high, only for function calls
+pub enum Output {
+    Finish(NodeId),
+    // rename to suspend
+    Suspend(NodeId),
+    Call { offset: u32, call: NodeId, next: NodeId, id: NodeId },
+    // add OutOfStack?
 }
 
 impl Output {
-    fn final_node(id: NodeId) -> Output {
-        Output { code: 0, call_id: 0, node_id: id.0, next_id: 0 }
+    fn from_registers(w0: u32, w0_high: u32, w1: u32, w1_high: u32) -> Output {
+        match w0 {
+            0 => { Output::Finish(NodeId(w1)) }
+            1 => { Output::Suspend(NodeId(w1)) }
+            2 => { todo!() }
+            offset_plus_3 => { Output::Call { offset: offset_plus_3 - 3, call: NodeId(w0_high), next: NodeId(w1_high), id: NodeId(w1) } }
+        }
     }
 
-    fn next_node(id: NodeId) -> Output {
-        Output { code: 1, call_id: 0, node_id: id.0, next_id: 0 }
+    fn to_registers(&self) -> (u32, u32, Option<(u32, u32)>) { // w0, w1, high (x0, x1)
+        match self {
+            Output::Finish(id) => { (0, id.0, None) }
+            Output::Suspend(id) => { (1, id.0, None) }
+            Output::Call { offset, call, next, id } => { (offset + 3, id.0, Some((call.0, next.0))) }
+        }
     }
+}
 
-    fn call_node(offset: u32, call: NodeId, next: NodeId, id: NodeId) -> Output {
-        Output { code: 3 + offset, call_id: call.0, node_id: id.0, next_id: next.0 }
-    }
+fn interop(fn_ptr: *const u8, stack_start: *mut u8, stack_end: *const u8, unwind_dst: *mut u8) -> Output {
+    // Can't have input as input struct because such structs being passed in memory
+    // But output is fine, I guess because it's under two fields
+    // checked with godbolt
+    let call: extern "C" fn(*mut u8, *const u8, *mut u8) -> (u32, u32, u32, u32) = unsafe { mem::transmute(fn_ptr) };
+    let (w0, w0_high, w1, w1_high) = call(stack_start, stack_end, unwind_dst);
+    Output::from_registers(w0, w0_high, w1, w1_high)
 }
 
 #[derive(Debug, Clone)]
@@ -76,14 +81,6 @@ macro_rules! asm {
             $($t)*
         )
     }
-}
-
-fn interop(fn_ptr: *const u8, input: Input) -> Output {
-    // Can't have input as input struct because such structs being passed in memory
-    // But output is fine, I guess because it's under two fields
-    // checked with godbolt
-    let call: extern "C" fn(u64, u64, u64) -> Output = unsafe { mem::transmute(fn_ptr) };
-    call(input.data_stack_start, input.data_stack_end, input.stack_unwinding_dst)
 }
 
 enum Code {
@@ -133,8 +130,7 @@ impl CodeGeneratorEngine {
 
         // replace returns
         for ret in returns {
-            if ret.output.code == 1 {
-                let id = NodeId(ret.output.node_id);
+            if let Output::Suspend(id) = ret.output {
                 if let Some(offset) = self.offsets.get(&id) {
                     Self::replace_ret(&mut ops.buffer, ret, *offset)
                 } else {
@@ -183,27 +179,20 @@ impl CodeGeneratorEngine {
                 }
                 Some(code_offset) => {
                     let data_offset = state.offset() + frame.offset;
-                    let input = Input {
-                        data_stack_start: stack[data_offset..].as_mut_ptr() as usize as u64,
-                        data_stack_end: stack.as_ptr_range().end as usize as u64,
-                        stack_unwinding_dst: 0
-                    };
-                    let output = interop(executable.ptr(*code_offset), input);
-                    match output.code {
-                        0 => { // final node
+                    let mut unwind_dst = [0u8; 100];
+                    let output = interop(executable.ptr(*code_offset), stack[data_offset..].as_mut_ptr(), stack.as_ptr_range().end, unwind_dst.as_mut_ptr());
+                    match output {
+                        Output::Finish(_) => {
                             return false;
                         }
-                        1 => { // node not registered, or execution is suspended
-                            state.frames.push(Frame { id: NodeId(output.node_id), offset: frame.offset });
+                        Output::Suspend(id) => { // node not registered, or execution is suspended
+                            state.frames.push(Frame { id, offset: frame.offset });
                             return true;
                         }
-                        2 => { // out of data stack
-                            todo!()
-                        }
-                        offset_plus_3 =>  { // function call
-                            state.frames.push(Frame { id: NodeId(output.next_id), offset: frame.offset });
-                            state.frames.push(Frame { id: NodeId(output.call_id), offset:  (offset_plus_3 - 3) as usize });
-                            return !self.offsets.contains_key(&NodeId(output.call_id));
+                        Output::Call { offset, call, next, id } => { // function call
+                            state.frames.push(Frame { id: next, offset: frame.offset });
+                            state.frames.push(Frame { id: call, offset: offset as usize });
+                            return !self.offsets.contains_key(&call);
                         }
                     }
                 }
@@ -240,20 +229,20 @@ impl Assembler {
         match kind {
             NodeKind::Command { command, next } => {
                 self.command(command);
-                vec![self.ret(Output::next_node(next))]
+                vec![self.ret(Output::Suspend(next))]
             }
             NodeKind::Branch { condition, if_true, if_false } => {
                 self.condition(condition, 6 * 4);
                 vec![
-                    self.ret(Output::next_node(if_false)),
-                    self.ret(Output::next_node(if_true)),
+                    self.ret(Output::Suspend(if_false)),
+                    self.ret(Output::Suspend(if_true)),
                 ]
             }
             NodeKind::Call { offset, call, next } => {
-                vec![self.ret(Output::call_node(offset, call, next, id))]
+                vec![self.ret(Output::Call { offset, call, next, id })]
             }
             NodeKind::Final => {
-                vec![self.ret(Output::final_node(id))]
+                vec![self.ret(Output::Finish(id))]
             }
         }
     }
@@ -326,11 +315,12 @@ impl Assembler {
 
     fn ret(&mut self, output: Output) -> ReturnInfo {
         let mut return_info = ReturnInfo { output: output.clone(), from: self.offset, to: 0 };
-        self.mov_u32(0, output.code);
-        self.mov_u32(1, output.node_id);
-        if output.code >= 3 {
-            self.mov_u32_high(0, output.call_id);
-            self.mov_u32_high(1, output.next_id);
+        let (w0, w1, high) = output.to_registers();
+        self.mov_u32(0, w0);
+        self.mov_u32(1, w1);
+        if let Some((high0, high1)) = high {
+            self.mov_u32_high(0, high0);
+            self.mov_u32_high(1, high1);
         }
         asm!(self
             ; ret
