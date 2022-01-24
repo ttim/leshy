@@ -155,14 +155,17 @@ impl CodeGeneratorEngine {
                 }
                 Some(code_offset) => {
                     let data_offset = state.offset() + frame.offset;
-                    let mut unwind_dst = [SuspendTrace { offset: 0, id: NodeId(0) }; 100];
+                    let mut unwind_dst = [SuspendTrace { offset: 0, id: NodeId(0) }; 1024];
                     let output = interop(executable.ptr(*code_offset), stack[data_offset..].as_mut_ptr(), stack.as_ptr_range().end, unwind_dst.as_mut_ptr());
                     let suspended_entries = (output - (unwind_dst.as_ptr() as usize)) / 8;
                     let mut entries = unwind_dst[0..suspended_entries].to_vec();
                     entries.reverse();
-                    entries.iter().for_each(|entry| {
-                        state.frames.push(Frame { id: entry.id, offset: entry.offset as usize })
-                    });
+                    if !entries.is_empty() {
+                        entries.first_mut().unwrap().offset += frame.offset as u32;
+                        entries.iter().for_each(|entry| {
+                            state.frames.push(Frame { id: entry.id, offset: entry.offset as usize })
+                        });
+                    }
                     true // todo: not necessary!
                 }
             }
@@ -296,8 +299,6 @@ impl Assembler {
         // restore lc and x0
         // ret_suspend next
 
-        todo!();
-
         let mut intermediate: VecAssembler<Aarch64Relocation> = VecAssembler::new(0); // todo: not sure why we need baseaddr
         let mut infos: Vec<ReturnInfo> = Vec::new();
 
@@ -309,7 +310,7 @@ impl Assembler {
         asm!(intermediate
             ; add x0, x0, x13
             ; bl >call
-            ; cmp x0, 0
+            ; cmp x0, x2
             ; b.ne >unwind
             ; ldp x0, x30, [sp], #16
         );
@@ -322,6 +323,18 @@ impl Assembler {
 
         asm!(intermediate
             ; unwind:
+        );
+        mov_u32(&mut intermediate, 13, offset);
+        mov_u32(&mut intermediate, 9, next.0);
+        // todo: remove unnesessary instructions
+        asm!(intermediate
+            ; ldp xzr, x30, [sp], #16
+            ; sub x0, x0, 8
+            ; str w13, [x0]
+            ; add x0, x0, 8
+            ; stp wzr, w9, [x0]
+            ; add x0, x0, 8
+            ; ret
         );
 
         for info in &mut infos {
