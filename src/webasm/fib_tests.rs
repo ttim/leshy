@@ -21,7 +21,7 @@ fn fib_node() -> WebAsmNode {
     let module = Module::read(&mut file).unwrap();
     hydrate_module(&module, &mut file);
     let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
-    WebAsmNode::exported_func(source.clone(), "fib")
+    WebAsmNode::exported_func(source.clone(), "fib32")
 }
 
 #[test]
