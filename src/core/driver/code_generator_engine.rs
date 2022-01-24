@@ -19,8 +19,8 @@ use multimap::MultiMap;
 // X1 & X2 can/should be moved to thread local variables since they never change during execution trace
 //
 // execution might abort/finish due to following reasons:
-//   next node isn't registered or execution is suspended: W0 = 0, W1 = next node id
-//   next node is final: W0 = 1, W1 = final node id
+//   next node is final: W0 = 0, W1 = final node id
+//   next node isn't registered or execution is suspended: W0 = 1, W1 = next node id
 //   out of space in data stack: W0 = 2, W1 = context node id
 //   next node is function call: W0 = 3 + offset, W1 = function node id, upper X1 is call node id, upper X2 is next node id
 //     should be changed with proper function call support in native
@@ -48,11 +48,11 @@ pub struct Output {
 }
 
 impl Output {
-    fn next_node(id: NodeId) -> Output {
+    fn final_node(id: NodeId) -> Output {
         Output { code: 0, call_id: 0, node_id: id.0, next_id: 0 }
     }
 
-    fn final_node(id: NodeId) -> Output {
+    fn next_node(id: NodeId) -> Output {
         Output { code: 1, call_id: 0, node_id: id.0, next_id: 0 }
     }
 
@@ -133,7 +133,7 @@ impl CodeGeneratorEngine {
 
         // replace returns
         for ret in returns {
-            if ret.output.code == 0 {
+            if ret.output.code == 1 {
                 let id = NodeId(ret.output.node_id);
                 if let Some(offset) = self.offsets.get(&id) {
                     Self::replace_ret(&mut ops.buffer, ret, *offset)
@@ -190,12 +190,12 @@ impl CodeGeneratorEngine {
                     };
                     let output = interop(executable.ptr(*code_offset), input);
                     match output.code {
-                        0 => { // node not registered, or execution is suspended
+                        0 => { // final node
+                            return false;
+                        }
+                        1 => { // node not registered, or execution is suspended
                             state.frames.push(Frame { id: NodeId(output.node_id), offset: frame.offset });
                             return true;
-                        }
-                        1 => { // final node
-                            return false;
                         }
                         2 => { // out of data stack
                             todo!()
