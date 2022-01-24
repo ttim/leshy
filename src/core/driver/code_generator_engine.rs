@@ -44,8 +44,8 @@ fn interop(fn_ptr: *const u8, stack_start: *mut u8, stack_end: *const u8, unwind
 #[derive(Debug, Clone)]
 struct ReturnInfo {
     id: NodeId,
-    from: usize,
-    to: usize,
+    from: AssemblyOffset,
+    to: AssemblyOffset,
 }
 
 macro_rules! asm {
@@ -64,7 +64,7 @@ macro_rules! asm {
 pub struct CodeGeneratorEngine {
     size: usize,
     code: Option<ExecutableBuffer>,
-    offset: usize,
+    offset: AssemblyOffset,
     offsets: HashMap<NodeId, AssemblyOffset>,
     returns: MultiMap<NodeId, ReturnInfo>,
 }
@@ -74,7 +74,7 @@ impl CodeGeneratorEngine {
         Ok(CodeGeneratorEngine {
             size,
             code: Some(ExecutableBuffer::new(size)?),
-            offset: 0,
+            offset: AssemblyOffset(0),
             offsets: HashMap::new(),
             returns: MultiMap::new(),
         })
@@ -93,7 +93,7 @@ impl CodeGeneratorEngine {
         let mut ops = Assembler { buffer: writable, offset: self.offset };
         let returns = generate(&mut ops, kind.clone());
 
-        self.offsets.insert(id, AssemblyOffset(self.offset));
+        self.offsets.insert(id, self.offset);
 
         self.offset = ops.offset;
 
@@ -102,7 +102,7 @@ impl CodeGeneratorEngine {
             if let Some(offset) = self.offsets.get(&ret.id) {
                 // todo: what if more than 1mb size difference?
                 ops.offset = ret.from;
-                b(&mut ops, offset.0 as isize - ret.from as isize);
+                b(&mut ops, offset.0 as isize - ret.from.0 as isize);
             } else {
                 self.returns.insert(ret.id, ret)
             }
@@ -117,7 +117,7 @@ impl CodeGeneratorEngine {
         let offset = *self.offsets.get(&id).unwrap();
         for ret in replacements {
             ops.offset = ret.from;
-            b(&mut ops, offset.0 as isize - ret.from as isize);
+            b(&mut ops, offset.0 as isize - ret.from.0 as isize);
         }
 
         flush_code_cache(&ops.buffer);
@@ -166,7 +166,7 @@ impl CodeGeneratorEngine {
 
 struct Assembler {
     buffer: MutableBuffer,
-    offset: usize,
+    offset: AssemblyOffset,
 }
 
 // todo: kind should be more like NodeKind<NodeId | AssemblyOffset>
@@ -245,8 +245,8 @@ fn ret_call<T: DynasmApi>(api: &mut T, offset: u32, call: NodeId, next: NodeId) 
         );
 
     for info in &mut infos {
-        info.from += api.offset().0;
-        info.to += api.offset().0;
+        info.from.0 += api.offset().0;
+        info.to.0 += api.offset().0;
     }
     api.extend(&(intermediate.finalize().unwrap()));
     infos
@@ -261,7 +261,7 @@ fn ret_final<T: DynasmApi>(api: &mut T) {
 }
 
 fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
-    let mut return_info = ReturnInfo { id, from: api.offset().0, to: 0 };
+    let mut return_info = ReturnInfo { id, from: api.offset(), to: AssemblyOffset(0) };
 
     mov_u32(api, 0, 1); // 1 element written
     mov_u32(api, 9, id.0);
@@ -271,7 +271,7 @@ fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
         ; ret
     );
 
-    return_info.to = api.offset().0;
+    return_info.to = api.offset();
     return_info
 }
 
@@ -401,14 +401,14 @@ impl Extend<u8> for Assembler {
 impl<'a> Extend<&'a u8> for Assembler {
     fn extend<T: IntoIterator<Item=&'a u8>>(&mut self, iter: T) {
         for byte in iter {
-            *self.buffer.get_mut(self.offset).unwrap() = *byte;
-            self.offset += 1;
+            *self.buffer.get_mut(self.offset.0).unwrap() = *byte;
+            self.offset.0 += 1;
         }
     }
 }
 
 impl DynasmApi for Assembler {
-    fn offset(&self) -> AssemblyOffset { AssemblyOffset(self.offset) }
+    fn offset(&self) -> AssemblyOffset { self.offset }
     fn push(&mut self, byte: u8) { todo!() }
     fn align(&mut self, alignment: usize, with: u8) { todo!() }
 }
