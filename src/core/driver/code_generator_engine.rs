@@ -6,10 +6,8 @@ use dynasmrt::aarch64::Aarch64Relocation;
 use dynasmrt::mmap::MutableBuffer;
 use crate::core::api::{Command, Condition, NodeKind, Ref};
 use crate::core::driver::driver::{Engine, Frame, NodeId, RunState};
-use crate::core::driver::util::flush_code_cache;
+use crate::core::driver::aarch64_utils::{b, bcond, flush_code_cache, mov_u32};
 use crate::core::interpreter::get_u32;
-use dynasmrt::relocations::Relocation;
-use lazy_static::lazy_static;
 use multimap::MultiMap;
 use dynasmrt::DynasmLabelApi;
 
@@ -111,7 +109,9 @@ impl CodeGeneratorEngine {
         // replace returns
         for ret in returns {
             if let Some(offset) = self.offsets.get(&ret.id) {
-                Self::replace_ret(&mut ops.buffer, ret, *offset)
+                // todo: what if more than 1mb size difference?
+                ops.offset = ret.from;
+                b(&mut ops, offset.0 as isize - ret.from as isize);
             } else {
                 self.returns.insert(ret.id, ret)
             }
@@ -125,7 +125,8 @@ impl CodeGeneratorEngine {
 
         let offset = *self.offsets.get(&id).unwrap();
         for ret in replacements {
-            Self::replace_ret(&mut ops.buffer, ret, offset);
+            ops.offset = ret.from;
+            b(&mut ops, offset.0 as isize - ret.from as isize);
         }
 
         flush_code_cache(&ops.buffer);
@@ -139,11 +140,6 @@ impl CodeGeneratorEngine {
                 returns.remove(pos);
             }
         }
-    }
-
-    fn replace_ret(buffer: &mut MutableBuffer, ret: ReturnInfo, dest: AssemblyOffset) {
-        // todo: what if more than 1mb size difference?
-        Assembler::write_b(buffer, ret.from, dest.0 as isize - ret.from as isize)
     }
 
     fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool {
@@ -175,21 +171,6 @@ impl CodeGeneratorEngine {
             panic!()
         }
     }
-}
-
-impl Engine for CodeGeneratorEngine {
-    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) { self.register(id, kind) }
-
-    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }
-}
-
-lazy_static! {
-    static ref BRANCH: HashMap<&'static str, Vec<u8>> = {
-        let mut m = HashMap::new();
-        // todo: got this from debuging internals of generated dynasm code. figure out where it comes from in macro!
-        m.insert("ne", vec![1, 0, 0, 84]);
-        m
-    };
 }
 
 struct Assembler {
@@ -362,7 +343,7 @@ impl Assembler {
                 asm!(self
                     ; cmp w9, w10
                 );
-                self.bcond("ne", ret_true_offset);
+                bcond(self, "ne", ret_true_offset);
             }
             _ => { todo!() }
         }
@@ -375,25 +356,10 @@ impl Assembler {
                 asm!(self
                     ; cmp w9, 0
                 );
-                self.bcond("ne", ret_true_offset);
+                bcond(self, "ne", ret_true_offset);
             }
             _ => { todo!() }
         }
-    }
-
-    fn bcond(&mut self, modifier: &'static str, offset: isize) {
-        let mut bytes = BRANCH.get(modifier).unwrap().clone();
-        Aarch64Relocation::BCOND.write_value(&mut bytes, offset);
-        self.extend(bytes.as_slice());
-    }
-
-    fn mov_u32_high(&mut self, register: u32, value: u32) {
-        let low = value as u16;
-        let high = (value >> 16) as u16;
-        asm!(self
-            ; movk X(register), low as u32, lsl 32
-            ; movk X(register), high as u32, lsl 48
-        );
     }
 
     fn store_u32(&mut self, register: u32, dst: Ref) {
@@ -419,22 +385,6 @@ impl Assembler {
             }
         }
     }
-
-    fn write_b(buffer: &mut MutableBuffer, offset: usize, rel_dst: isize) {
-        // todo: got this from debuging internals of generated dynasm code. figure out where it comes from in macro!
-        let mut template = vec!(0, 0, 0, 20);
-        Aarch64Relocation::B.write_value(&mut template, rel_dst);
-        buffer.as_mut()[offset..offset + 4].copy_from_slice(template.as_slice());
-    }
-}
-
-fn mov_u32<T: DynasmApi>(api: &mut T, register: u32, value: u32) {
-    let low = value as u16;
-    let high = (value >> 16) as u16;
-    asm!(api
-        ; mov X(register), low as u64
-        ; movk X(register), high as u32, lsl 16
-    );
 }
 
 fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
@@ -451,6 +401,8 @@ fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
     return_info.to = api.offset().0;
     return_info
 }
+
+// boilerplate impls
 
 impl Extend<u8> for Assembler {
     fn extend<T: IntoIterator<Item=u8>>(&mut self, iter: T) { todo!() }
@@ -469,4 +421,9 @@ impl DynasmApi for Assembler {
     fn offset(&self) -> AssemblyOffset { AssemblyOffset(self.offset) }
     fn push(&mut self, byte: u8) { todo!() }
     fn align(&mut self, alignment: usize, with: u8) { todo!() }
+}
+
+impl Engine for CodeGeneratorEngine {
+    fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) { self.register(id, kind) }
+    fn run(&self, state: &mut RunState, stack: &mut [u8]) -> bool { self.run(state, stack) }
 }
