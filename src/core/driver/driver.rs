@@ -56,9 +56,11 @@ impl<N: Node, E: Engine> Driver<N, E> {
     fn eval_inner(&mut self, ctx: &mut RunState, stack: &mut[u8]) {
         while !ctx.frames.is_empty() {
             if self.engine.run(ctx, stack) {
-                let id_to_register = ctx.frames.last().unwrap().id;
-                let kind = self.get_kind(id_to_register);
-                self.engine.register(id_to_register, kind);
+                if !ctx.frames.is_empty() {
+                    let id_to_register = ctx.frames.last().unwrap().id;
+                    let kind = self.get_kind(id_to_register);
+                    self.engine.register(id_to_register, kind);
+                }
             }
         }
     }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::{io, mem};
 use dynasm::dynasm;
-use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer};
+use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer, VecAssembler};
 use dynasmrt::aarch64::Aarch64Relocation;
 use dynasmrt::mmap::MutableBuffer;
 use crate::core::api::{Command, Condition, NodeKind, Ref};
@@ -11,6 +11,7 @@ use crate::core::interpreter::get_u32;
 use dynasmrt::relocations::Relocation;
 use lazy_static::lazy_static;
 use multimap::MultiMap;
+use dynasmrt::DynasmLabelApi;
 
 // engine <-> generated code interop/call conventions:
 //   X0 pointer to data stack start
@@ -19,56 +20,32 @@ use multimap::MultiMap;
 // X1 & X2 can/should be moved to thread local variables since they never change during execution trace
 //
 // execution might abort/finish due to following reasons:
-//   next node is final: W0 = 0, W1 = final node id
-//   next node isn't registered or execution is suspended: W0 = 1, W1 = next node id
-//   out of space in data stack: W0 = 2, W1 = context node id
-//   next node is function call: W0 = 3 + offset, W1 = function node id, upper X1 is call node id, upper X2 is next node id
-//     should be changed with proper function call support in native
+//   x0 = end of written entries into suspend struct, i.e. if it's final node it's same as x2
+//   todo: out of space in data stack
 
 // to guarantee that stack doesn't spill we can have per node id guaranteed stack depth (meaning at least this number of bytes is definitely available from this point)
 // and only if there is no guarantee on particular point we can check stack size and increase size if needed!
 // this way we don't need to keep data stack end in a register and compare to it all the time
 
-#[derive(Debug, Clone)]
-pub enum Output {
-    Finish(NodeId),
-    // rename to suspend
-    Suspend(NodeId),
-    Call { offset: u32, call: NodeId, next: NodeId, id: NodeId },
-    // add OutOfStack?
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct SuspendTrace {
+    offset: u32,
+    id: NodeId
 }
 
-impl Output {
-    fn from_registers(w0: u32, w0_high: u32, w1: u32, w1_high: u32) -> Output {
-        match w0 {
-            0 => { Output::Finish(NodeId(w1)) }
-            1 => { Output::Suspend(NodeId(w1)) }
-            2 => { todo!() }
-            offset_plus_3 => { Output::Call { offset: offset_plus_3 - 3, call: NodeId(w0_high), next: NodeId(w1_high), id: NodeId(w1) } }
-        }
-    }
-
-    fn to_registers(&self) -> (u32, u32, Option<(u32, u32)>) { // w0, w1, high (x0, x1)
-        match self {
-            Output::Finish(id) => { (0, id.0, None) }
-            Output::Suspend(id) => { (1, id.0, None) }
-            Output::Call { offset, call, next, id } => { (offset + 3, id.0, Some((call.0, next.0))) }
-        }
-    }
-}
-
-fn interop(fn_ptr: *const u8, stack_start: *mut u8, stack_end: *const u8, unwind_dst: *mut u8) -> Output {
+fn interop(fn_ptr: *const u8, stack_start: *mut u8, stack_end: *const u8, unwind_dst: *mut SuspendTrace) -> usize {
     // Can't have input as input struct because such structs being passed in memory
     // But output is fine, I guess because it's under two fields
     // checked with godbolt
-    let call: extern "C" fn(*mut u8, *const u8, *mut u8) -> (u32, u32, u32, u32) = unsafe { mem::transmute(fn_ptr) };
-    let (w0, w0_high, w1, w1_high) = call(stack_start, stack_end, unwind_dst);
-    Output::from_registers(w0, w0_high, w1, w1_high)
+    let call: extern "C" fn(*mut u8, *const u8, *mut SuspendTrace) -> u64 = unsafe { mem::transmute(fn_ptr) };
+    call(stack_start, stack_end, unwind_dst) as usize
 }
 
+// place corresponds to: put (id, 0) into unwind_dst, ret 1. i.e the one which triggers suspend on unknown node
 #[derive(Debug, Clone)]
 struct ReturnInfo {
-    output: Output,
+    id: NodeId,
     from: usize,
     to: usize,
 }
@@ -78,6 +55,7 @@ macro_rules! asm {
         dynasm!($ops
             ; .arch aarch64
             ; .alias data_stack, x0
+            ; .alias unwind_stack, x2
             $($t)*
         )
     }
@@ -130,12 +108,10 @@ impl CodeGeneratorEngine {
 
         // replace returns
         for ret in returns {
-            if let Output::Suspend(id) = ret.output {
-                if let Some(offset) = self.offsets.get(&id) {
-                    Self::replace_ret(&mut ops.buffer, ret, *offset)
-                } else {
-                    self.returns.insert(id, ret)
-                }
+            if let Some(offset) = self.offsets.get(&ret.id) {
+                Self::replace_ret(&mut ops.buffer, ret, *offset)
+            } else {
+                self.returns.insert(ret.id, ret)
             }
         }
         let replacements =
@@ -179,22 +155,15 @@ impl CodeGeneratorEngine {
                 }
                 Some(code_offset) => {
                     let data_offset = state.offset() + frame.offset;
-                    let mut unwind_dst = [0u8; 100];
+                    let mut unwind_dst = [SuspendTrace { offset: 0, id: NodeId(0) }; 100];
                     let output = interop(executable.ptr(*code_offset), stack[data_offset..].as_mut_ptr(), stack.as_ptr_range().end, unwind_dst.as_mut_ptr());
-                    match output {
-                        Output::Finish(_) => {
-                            return false;
-                        }
-                        Output::Suspend(id) => { // node not registered, or execution is suspended
-                            state.frames.push(Frame { id, offset: frame.offset });
-                            return true;
-                        }
-                        Output::Call { offset, call, next, id } => { // function call
-                            state.frames.push(Frame { id: next, offset: frame.offset });
-                            state.frames.push(Frame { id: call, offset: offset as usize });
-                            return !self.offsets.contains_key(&call);
-                        }
-                    }
+                    let suspended_entries = (output - (unwind_dst.as_ptr() as usize)) / 8;
+                    let mut entries = unwind_dst[0..suspended_entries].to_vec();
+                    entries.reverse();
+                    entries.iter().for_each(|entry| {
+                        state.frames.push(Frame { id: entry.id, offset: entry.offset as usize })
+                    });
+                    true // todo: not necessary!
                 }
             }
         } else {
@@ -229,20 +198,21 @@ impl Assembler {
         match kind {
             NodeKind::Command { command, next } => {
                 self.command(command);
-                vec![self.ret(Output::Suspend(next))]
+                vec![ret_suspend(self, next)]
             }
             NodeKind::Branch { condition, if_true, if_false } => {
-                self.condition(condition, 6 * 4);
+                self.condition(condition, 8 * 4);
                 vec![
-                    self.ret(Output::Suspend(if_false)),
-                    self.ret(Output::Suspend(if_true)),
+                    ret_suspend(self, if_false),
+                    ret_suspend(self, if_true),
                 ]
             }
             NodeKind::Call { offset, call, next } => {
-                vec![self.ret(Output::Call { offset, call, next, id })]
+                self.ret_call(offset, call, next)
             }
             NodeKind::Final => {
-                vec![self.ret(Output::Finish(id))]
+                self.ret_final();
+                vec![]
             }
         }
     }
@@ -268,7 +238,7 @@ impl Assembler {
     fn set(&mut self, dst: Ref, bytes: Vec<u8>) {
         match bytes.len() {
             4 => {
-                self.mov_u32(9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
+                mov_u32(self, 9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
                 self.store_u32(9, dst);
             }
             _ => { todo!() }
@@ -313,20 +283,61 @@ impl Assembler {
         }
     }
 
-    fn ret(&mut self, output: Output) -> ReturnInfo {
-        let mut return_info = ReturnInfo { output: output.clone(), from: self.offset, to: 0 };
-        let (w0, w1, high) = output.to_registers();
-        self.mov_u32(0, w0);
-        self.mov_u32(1, w1);
-        if let Some((high0, high1)) = high {
-            self.mov_u32_high(0, high0);
-            self.mov_u32_high(1, high1);
+    fn ret_call(&mut self, offset: u32, call: NodeId, next: NodeId) -> Vec<ReturnInfo> {
+        // store x0 and lc to stack
+        // increase x0 by offset
+        // bl to ret_suspend_call
+        //   ret_suspend call
+        // if ret != 0 branch to unwind
+        //   restore lc from stack
+        //   x3 + 8 * x0 is destination address to write (0, node id)
+        //   modify elements of unwind struct
+        //   increase X0 by 1 & ret
+        // restore lc and x0
+        // ret_suspend next
+
+        todo!();
+
+        let mut intermediate: VecAssembler<Aarch64Relocation> = VecAssembler::new(0); // todo: not sure why we need baseaddr
+        let mut infos: Vec<ReturnInfo> = Vec::new();
+
+        // x30 is link register
+        asm!(intermediate
+            ; stp x0, x30, [sp, #-16]!
+        );
+        mov_u32(&mut intermediate, 13, offset);
+        asm!(intermediate
+            ; add x0, x0, x13
+            ; bl >call
+            ; cmp x0, 0
+            ; b.ne >unwind
+            ; ldp x0, x30, [sp], #16
+        );
+        infos.push(ret_suspend(&mut intermediate, next));
+
+        asm!(intermediate
+            ; call:
+        );
+        infos.push(ret_suspend(&mut intermediate, call));
+
+        asm!(intermediate
+            ; unwind:
+        );
+
+        for info in &mut infos {
+            info.from += self.offset;
+            info.to += self.offset;
         }
+        self.extend(&(intermediate.finalize().unwrap()));
+        infos
+    }
+
+    fn ret_final(&mut self) {
+        mov_u32(self, 0, 0);
         asm!(self
+            ; add x0, xzr, x2
             ; ret
         );
-        return_info.to = self.offset;
-        return_info
     }
 
     fn ne(&mut self, len: u32, op1: Ref, op2: Ref, ret_true_offset: isize) {
@@ -360,15 +371,6 @@ impl Assembler {
         let mut bytes = BRANCH.get(modifier).unwrap().clone();
         Aarch64Relocation::BCOND.write_value(&mut bytes, offset);
         self.extend(bytes.as_slice());
-    }
-
-    fn mov_u32(&mut self, register: u32, value: u32) {
-        let low = value as u16;
-        let high = (value >> 16) as u16;
-        asm!(self
-            ; mov X(register), low as u64
-            ; movk X(register), high as u32, lsl 16
-        );
     }
 
     fn mov_u32_high(&mut self, register: u32, value: u32) {
@@ -412,6 +414,30 @@ impl Assembler {
     }
 }
 
+fn mov_u32<T: DynasmApi>(api: &mut T, register: u32, value: u32) {
+    let low = value as u16;
+    let high = (value >> 16) as u16;
+    asm!(api
+        ; mov X(register), low as u64
+        ; movk X(register), high as u32, lsl 16
+    );
+}
+
+fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
+    let mut return_info = ReturnInfo { id, from: api.offset().0, to: 0 };
+
+    mov_u32(api, 0, 1); // 1 element written
+    mov_u32(api, 9, id.0);
+    asm!(api
+        ; stp wzr, w9, [unwind_stack, 0]
+        ; add x0, x2, 8
+        ; ret
+    );
+
+    return_info.to = api.offset().0;
+    return_info
+}
+
 impl Extend<u8> for Assembler {
     fn extend<T: IntoIterator<Item=u8>>(&mut self, iter: T) { todo!() }
 }
@@ -426,7 +452,7 @@ impl<'a> Extend<&'a u8> for Assembler {
 }
 
 impl DynasmApi for Assembler {
-    fn offset(&self) -> AssemblyOffset { todo!() }
+    fn offset(&self) -> AssemblyOffset { AssemblyOffset(self.offset) }
     fn push(&mut self, byte: u8) { todo!() }
     fn align(&mut self, alignment: usize, with: u8) { todo!() }
 }
