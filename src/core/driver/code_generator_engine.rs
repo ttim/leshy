@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 use std::{io, mem};
 use dynasm::dynasm;
-use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer, VecAssembler};
+use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer};
 use dynasmrt::aarch64::Aarch64Relocation;
 use dynasmrt::mmap::MutableBuffer;
 use crate::core::api::{Command, Condition, NodeKind, Ref};
 use crate::core::driver::driver::{Engine, Frame, NodeId, RunState};
 use crate::core::driver::util::flush_code_cache;
 use crate::core::interpreter::get_u32;
-use dynasmrt::DynasmLabelApi;
 use dynasmrt::relocations::Relocation;
 use lazy_static::lazy_static;
 use multimap::MultiMap;
