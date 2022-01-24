@@ -70,10 +70,10 @@ fn test_caching_interpreter_eval() {
 
 #[test]
 fn test_code_generator_eval() {
-    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node(), stack), 35);
+    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node(), stack), 39);
 }
 
 #[test]
 fn test_native() {
-    println!("fib({}) = {}", 35, fib4(35));
+    println!("fib({}) = {}", 39, fib4(39));
 }
