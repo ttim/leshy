@@ -91,7 +91,7 @@ impl CodeGeneratorEngine {
         writable.set_len(self.size);
         self.remove_last_return_if_needed(id);
         let mut ops = Assembler { buffer: writable, offset: self.offset };
-        let returns = ops.generate(kind.clone());
+        let returns = generate(&mut ops, kind.clone());
 
         self.offsets.insert(id, AssemblyOffset(self.offset));
 
@@ -169,138 +169,72 @@ struct Assembler {
     offset: usize,
 }
 
-impl Assembler {
-    // todo: kind should be more like NodeKind<NodeId | AssemblyOffset>
-    fn generate(&mut self, kind: NodeKind<NodeId>) -> Vec<ReturnInfo> {
-        match kind {
-            NodeKind::Command { command, next } => {
-                self.command(command);
-                vec![ret_suspend(self, next)]
-            }
-            NodeKind::Branch { condition, if_true, if_false } => {
-                self.condition(condition, 8 * 4);
-                vec![
-                    ret_suspend(self, if_false),
-                    ret_suspend(self, if_true),
-                ]
-            }
-            NodeKind::Call { offset, call, next } => {
-                self.ret_call(offset, call, next)
-            }
-            NodeKind::Final => {
-                self.ret_final();
-                vec![]
-            }
+// todo: kind should be more like NodeKind<NodeId | AssemblyOffset>
+fn generate<T: DynasmApi>(api: &mut T, kind: NodeKind<NodeId>) -> Vec<ReturnInfo> {
+    match kind {
+        NodeKind::Command { command: command_value, next } => {
+            command(api, command_value);
+            vec![ret_suspend(api, next)]
+        }
+        NodeKind::Branch { condition: condition_value, if_true, if_false } => {
+            // todo: remove this const by calculation
+            condition(api, condition_value, 8 * 4);
+            vec![
+                ret_suspend(api, if_false),
+                ret_suspend(api, if_true),
+            ]
+        }
+        NodeKind::Call { offset, call, next } => {
+            ret_call(api, offset, call, next)
+        }
+        NodeKind::Final => {
+            ret_final(api);
+            vec![]
         }
     }
+}
 
-    fn command(&mut self, command: Command) {
-        match command {
-            Command::Noop => { panic!("can't happen") }
-            Command::PoisonFrom { .. } => { panic!("can't happen") }
-            Command::Set { dst, bytes } => { self.set(dst, bytes) }
-            Command::Copy { dst, size, op } => { self.copy(size, dst, op) }
-            Command::Add { size, dst, op1, op2 } => { self.add(size, dst, op1, op2) }
-            Command::Sub { size, dst, op1, op2 } => { self.sub(size, dst, op1, op2) }
-        }
-    }
+fn ret_call<T: DynasmApi>(api: &mut T, offset: u32, call: NodeId, next: NodeId) -> Vec<ReturnInfo> {
+    // store `data_stack` and lc to stack
+    // increase `data_stack` by offset
+    // bl to ret_suspend_call
+    //   ret_suspend call
+    // if ret != 0 branch to unwind
+    //   restore lc from stack
+    //   `unwind_stack_end` is destination address to write (0, node id)
+    //   modify elements of unwind struct
+    //   increase `unwind_stack_end` by 8 & ret
+    // restore lc and `data_stack`
+    // ret_suspend next
 
-    fn condition(&mut self, condition: Condition, ret_true_offset: isize) {
-        match condition {
-            Condition::Ne { size, op1, op2 } => { self.ne(size, op1, op2, ret_true_offset) }
-            Condition::Ne0 { size, op } => { self.ne0(size, op, ret_true_offset) }
-        }
-    }
+    let mut intermediate: VecAssembler<Aarch64Relocation> = VecAssembler::new(0); // todo: not sure why we need baseaddr
+    let mut infos: Vec<ReturnInfo> = Vec::new();
 
-    fn set(&mut self, dst: Ref, bytes: Vec<u8>) {
-        match bytes.len() {
-            4 => {
-                mov_u32(self, 9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
-                self.store_u32(9, dst);
-            }
-            _ => { todo!() }
-        }
-    }
-
-    fn copy(&mut self, len: u32, dst: Ref, op: Ref) {
-        match len {
-            4 => {
-                self.load_u32(9, op);
-                self.store_u32(9, dst);
-            }
-            _ => { todo!() }
-        }
-    }
-
-    fn add(&mut self, len: u32, dst: Ref, op1: Ref, op2: Ref) {
-        match len {
-            4 => {
-                self.load_u32(9, op1);
-                self.load_u32(10, op2);
-                asm!(self
-                    ; add w11, w9, w10
-                );
-                self.store_u32(11, dst);
-            }
-            _ => { todo!() }
-        }
-    }
-
-    fn sub(&mut self, len: u32, dst: Ref, op1: Ref, op2: Ref) {
-        match len {
-            4 => {
-                self.load_u32(9, op1);
-                self.load_u32(10, op2);
-                asm!(self
-                    ; sub w11, w9, w10
-                );
-                self.store_u32(11, dst);
-            }
-            _ => { todo!() }
-        }
-    }
-
-    fn ret_call(&mut self, offset: u32, call: NodeId, next: NodeId) -> Vec<ReturnInfo> {
-        // store `data_stack` and lc to stack
-        // increase `data_stack` by offset
-        // bl to ret_suspend_call
-        //   ret_suspend call
-        // if ret != 0 branch to unwind
-        //   restore lc from stack
-        //   `unwind_stack_end` is destination address to write (0, node id)
-        //   modify elements of unwind struct
-        //   increase `unwind_stack_end` by 8 & ret
-        // restore lc and `data_stack`
-        // ret_suspend next
-
-        let mut intermediate: VecAssembler<Aarch64Relocation> = VecAssembler::new(0); // todo: not sure why we need baseaddr
-        let mut infos: Vec<ReturnInfo> = Vec::new();
-
-        asm!(intermediate
+    asm!(intermediate
             ; stp data_stack, lr, [sp, #-16]!
         );
-        mov_u32(&mut intermediate, 13, offset);
-        asm!(intermediate
+    mov_u32(&mut intermediate, 13, offset);
+    asm!(intermediate
             ; add data_stack, data_stack, x13
             ; bl >call
             ; cmp unwind_stack_end, unwind_stack
             ; b.ne >unwind
             ; ldp data_stack, lr, [sp], #16
         );
-        infos.push(ret_suspend(&mut intermediate, next));
+    infos.push(ret_suspend(&mut intermediate, next));
 
-        asm!(intermediate
+    asm!(intermediate
             ; call:
         );
-        infos.push(ret_suspend(&mut intermediate, call));
+    infos.push(ret_suspend(&mut intermediate, call));
 
-        asm!(intermediate
+    asm!(intermediate
             ; unwind:
         );
-        mov_u32(&mut intermediate, 13, offset);
-        mov_u32(&mut intermediate, 9, next.0);
-        // todo: remove unnesessary instructions
-        asm!(intermediate
+    mov_u32(&mut intermediate, 13, offset);
+    mov_u32(&mut intermediate, 9, next.0);
+    // todo: remove unnesessary instructions
+    asm!(intermediate
             ; ldp xzr, lr, [sp], #16
             ; sub unwind_stack_end, unwind_stack_end, 8
             ; str w13, [unwind_stack_end]
@@ -310,72 +244,20 @@ impl Assembler {
             ; ret
         );
 
-        for info in &mut infos {
-            info.from += self.offset;
-            info.to += self.offset;
-        }
-        self.extend(&(intermediate.finalize().unwrap()));
-        infos
+    for info in &mut infos {
+        info.from += api.offset().0;
+        info.to += api.offset().0;
     }
+    api.extend(&(intermediate.finalize().unwrap()));
+    infos
+}
 
-    fn ret_final(&mut self) {
-        mov_u32(self, 0, 0);
-        asm!(self
-            ; add unwind_stack_end, xzr, unwind_stack
-            ; ret
-        );
-    }
-
-    fn ne(&mut self, len: u32, op1: Ref, op2: Ref, ret_true_offset: isize) {
-        match len {
-            4 => {
-                self.load_u32(9, op1);
-                self.load_u32(10, op2);
-                asm!(self
-                    ; cmp w9, w10
-                );
-                bcond(self, "ne", ret_true_offset);
-            }
-            _ => { todo!() }
-        }
-    }
-
-    fn ne0(&mut self, len: u32, op: Ref, ret_true_offset: isize) {
-        match len {
-            4 => {
-                self.load_u32(9, op);
-                asm!(self
-                    ; cmp w9, 0
-                );
-                bcond(self, "ne", ret_true_offset);
-            }
-            _ => { todo!() }
-        }
-    }
-
-    fn store_u32(&mut self, register: u32, dst: Ref) {
-        match dst {
-            Ref::Stack(offset) => {
-                // todo: check for stack overflow
-                // todo: what if offset is big?
-                asm!(self
-                    ; str W(register), [data_stack, offset]
-                );
-            }
-        }
-    }
-
-    fn load_u32(&mut self, register: u32, op: Ref) {
-        match op {
-            Ref::Stack(offset) => {
-                // todo: check for stack overflow
-                // todo: what if offset is big?
-                asm!(self
-                    ; ldr W(register), [data_stack, offset]
-                );
-            }
-        }
-    }
+fn ret_final<T: DynasmApi>(api: &mut T) {
+    mov_u32(api, 0, 0);
+    asm!(api
+        ; add unwind_stack_end, xzr, unwind_stack
+        ; ret
+    );
 }
 
 fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
@@ -391,6 +273,123 @@ fn ret_suspend<T: DynasmApi>(api: &mut T, id: NodeId) -> ReturnInfo {
 
     return_info.to = api.offset().0;
     return_info
+}
+
+fn command<T: DynasmApi>(api: &mut T, command: Command) {
+    match command {
+        Command::Noop => { panic!("can't happen") }
+        Command::PoisonFrom { .. } => { panic!("can't happen") }
+        Command::Set { dst, bytes } => { set(api, dst, bytes) }
+        Command::Copy { dst, size, op } => { copy(api, size, dst, op) }
+        Command::Add { size, dst, op1, op2 } => { add(api, size, dst, op1, op2) }
+        Command::Sub { size, dst, op1, op2 } => { sub(api, size, dst, op1, op2) }
+    }
+}
+
+fn set<T: DynasmApi>(api: &mut T, dst: Ref, bytes: Vec<u8>) {
+    match bytes.len() {
+        4 => {
+            mov_u32(api, 9, get_u32(Ref::Stack(0), bytes.as_slice()).0);
+            store_u32(api, 9, dst);
+        }
+        _ => { todo!() }
+    }
+}
+
+fn copy<T: DynasmApi>(api: &mut T, len: u32, dst: Ref, op: Ref) {
+    match len {
+        4 => {
+            load_u32(api, 9, op);
+            store_u32(api, 9, dst);
+        }
+        _ => { todo!() }
+    }
+}
+
+fn add<T: DynasmApi>(api: &mut T, len: u32, dst: Ref, op1: Ref, op2: Ref) {
+    match len {
+        4 => {
+            load_u32(api, 9, op1);
+            load_u32(api, 10, op2);
+            asm!(api
+                ; add w11, w9, w10
+            );
+            store_u32(api, 11, dst);
+        }
+        _ => { todo!() }
+    }
+}
+
+fn sub<T: DynasmApi>(api: &mut T, len: u32, dst: Ref, op1: Ref, op2: Ref) {
+    match len {
+        4 => {
+            load_u32(api, 9, op1);
+            load_u32(api, 10, op2);
+            asm!(api
+                ; sub w11, w9, w10
+            );
+            store_u32(api, 11, dst);
+        }
+        _ => { todo!() }
+    }
+}
+
+fn condition<T: DynasmApi>(api: &mut T, condition: Condition, ret_true_offset: isize) {
+    match condition {
+        Condition::Ne { size, op1, op2 } => { ne(api,size, op1, op2, ret_true_offset) }
+        Condition::Ne0 { size, op } => { ne0(api, size, op, ret_true_offset) }
+    }
+}
+
+fn ne<T: DynasmApi>(api: &mut T, len: u32, op1: Ref, op2: Ref, ret_true_offset: isize) {
+    match len {
+        4 => {
+            load_u32(api, 9, op1);
+            load_u32(api, 10, op2);
+            asm!(api
+                ; cmp w9, w10
+            );
+            bcond(api, "ne", ret_true_offset);
+        }
+        _ => { todo!() }
+    }
+}
+
+fn ne0<T: DynasmApi>(api: &mut T, len: u32, op: Ref, ret_true_offset: isize) {
+    match len {
+        4 => {
+            load_u32(api, 9, op);
+            asm!(api
+                ; cmp w9, 0
+            );
+            bcond(api, "ne", ret_true_offset);
+        }
+        _ => { todo!() }
+    }
+}
+
+fn store_u32<T: DynasmApi>(api: &mut T, register: u32, dst: Ref) {
+    match dst {
+        Ref::Stack(offset) => {
+            // todo: check for stack overflow
+            // todo: what if offset is big?
+            asm!(api
+                ; str W(register), [data_stack, offset]
+            );
+        }
+    }
+}
+
+fn load_u32<T: DynasmApi>(api: &mut T, register: u32, op: Ref) {
+    match op {
+        Ref::Stack(offset) => {
+            // todo: check for stack overflow
+            // todo: what if offset is big?
+            asm!(api
+                ; ldr W(register), [data_stack, offset]
+            );
+        }
+    }
 }
 
 // boilerplate impls
