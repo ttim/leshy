@@ -73,13 +73,13 @@ fn test_caching_interpreter_eval() {
 
 #[test]
 fn test_code_generator_eval() {
-    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node_32(), stack), 39);
+    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(2048).unwrap()).eval(fib_node_32(), stack), 39);
 }
 
 #[test]
 fn test_code_generator_eval_64() {
     // todo: not correct run_fib
-    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node_64(), stack), 10);
+    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(2048).unwrap()).eval(fib_node_64(), stack), 6);
 }
 
 #[test]

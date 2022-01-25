@@ -50,6 +50,7 @@ pub struct CodeGeneratorEngine {
     offset: AssemblyOffset,
     offsets: HashMap<NodeId, AssemblyOffset>,
     returns: MultiMap<NodeId, ReturnInfo>,
+    do_jumps: bool,
 }
 
 impl CodeGeneratorEngine {
@@ -60,6 +61,7 @@ impl CodeGeneratorEngine {
             offset: AssemblyOffset(0),
             offsets: HashMap::new(),
             returns: MultiMap::new(),
+            do_jumps: true,
         })
     }
 
@@ -72,7 +74,9 @@ impl CodeGeneratorEngine {
         };
         // why do we need this?
         writable.set_len(self.size);
-        self.remove_last_return_if_needed(id);
+        if self.do_jumps {
+            self.remove_last_return_if_needed(id);
+        }
         let mut ops = Assembler { buffer: writable, offset: self.offset };
         let returns = generate(&mut ops, kind.clone());
 
@@ -80,27 +84,29 @@ impl CodeGeneratorEngine {
 
         self.offset = ops.offset;
 
-        // replace returns
-        for ret in returns {
-            if let Some(offset) = self.offsets.get(&ret.id) {
-                // todo: what if more than 1mb size difference?
+        if self.do_jumps {
+            // replace returns
+            for ret in returns {
+                if let Some(offset) = self.offsets.get(&ret.id) {
+                    // todo: what if more than 1mb size difference?
+                    ops.offset = ret.from;
+                    b(&mut ops, offset.0 as isize - ret.from.0 as isize);
+                } else {
+                    self.returns.insert(ret.id, ret)
+                }
+            }
+            let replacements =
+                if let Some(returns) = self.returns.get_vec_mut(&id) {
+                    let clone = returns.clone();
+                    returns.clear();
+                    clone
+                } else { vec![] };
+
+            let offset = *self.offsets.get(&id).unwrap();
+            for ret in replacements {
                 ops.offset = ret.from;
                 b(&mut ops, offset.0 as isize - ret.from.0 as isize);
-            } else {
-                self.returns.insert(ret.id, ret)
             }
-        }
-        let replacements =
-            if let Some(returns) = self.returns.get_vec_mut(&id) {
-                let clone = returns.clone();
-                returns.clear();
-                clone
-            } else { vec![] };
-
-        let offset = *self.offsets.get(&id).unwrap();
-        for ret in replacements {
-            ops.offset = ret.from;
-            b(&mut ops, offset.0 as isize - ret.from.0 as isize);
         }
 
         flush_code_cache(&ops.buffer);

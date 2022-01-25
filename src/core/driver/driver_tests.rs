@@ -31,7 +31,7 @@ fn engines() -> Vec<(&'static str, EngineBox)> {
     ]
 }
 
-const TEST_STACK_SIZE: usize = 20;
+const TEST_STACK_SIZE: usize = 24;
 
 fn test_node(input: Vec<u8>, node: TestNode) {
     let mut expected = [0u8; TEST_STACK_SIZE];
@@ -79,11 +79,13 @@ fn test_noop() {
 fn test_set() {
     test_command(vec![7, 7, 7, 7],Command::Set { dst: Ref::Stack(0), bytes: vec![1, 0, 0, 0] });
     test_command(vec![7, 7, 7, 7],Command::Set { dst: Ref::Stack(0), bytes: vec![1, 2, 3, 4] });
+    test_command(vec![7, 7, 7, 7, 7, 7, 7, 7], Command::Set { dst: Ref::Stack(0), bytes: vec![1, 2, 3, 4, 5, 6, 7, 8] });
 }
 
 #[test]
 fn test_copy() {
     test_command(vec![1, 2, 3, 4],Command::Copy { size: 4, dst: Ref::Stack(4), op: Ref::Stack(0) });
+    test_command(vec![1, 2, 3, 4, 5, 6, 7, 8],Command::Copy { size: 8, dst: Ref::Stack(8), op: Ref::Stack(0) });
 }
 
 #[test]
@@ -94,6 +96,7 @@ fn test_poison_from() {
 #[test]
 fn test_add() {
     test_command(vec![1, 2, 3, 4, 5, 6, 7, 8],Command::Add { size: 4, dst: Ref::Stack(8), op1: Ref::Stack(0), op2: Ref::Stack(4) });
+    test_command(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],Command::Add { size: 8, dst: Ref::Stack(16), op1: Ref::Stack(0), op2: Ref::Stack(8) });
 }
 
 #[test]

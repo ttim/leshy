@@ -157,8 +157,8 @@ fn set<T: DynasmApi>(api: &mut T, dst: Ref, bytes: Vec<u8>) {
             store_u32(api, 9, dst);
         }
         8 => {
-            mov_u64(api, 9, u64::from_le_bytes(bytes.as_slice().try_into().unwrap()));
-            store_u64(api, 9, dst);
+            mov_u64(api, 14, u64::from_le_bytes(bytes.as_slice().try_into().unwrap()));
+            store_u64(api, 14, dst);
         }
         _ => { todo!() }
     }
@@ -171,8 +171,8 @@ fn copy<T: DynasmApi>(api: &mut T, len: u32, dst: Ref, op: Ref) {
             store_u32(api, 9, dst);
         }
         8 => {
-            load_u64(api, 9, op);
-            store_u64(api, 9, dst);
+            load_u64(api, 14, op);
+            store_u64(api, 14, dst);
         }
         _ => { todo!() }
     }
@@ -189,12 +189,12 @@ fn add<T: DynasmApi>(api: &mut T, len: u32, dst: Ref, op1: Ref, op2: Ref) {
             store_u32(api, 11, dst);
         }
         8 => {
-            load_u64(api, 9, op1);
-            load_u64(api, 10, op2);
+            load_u64(api, 14, op1);
+            load_u64(api, 15, op2);
             asm!(api
-                ; add x11, x9, x10
+                ; add x16, x14, x15
             );
-            store_u64(api, 11, dst);
+            store_u64(api, 16, dst);
         }
         _ => { todo!() }
     }
