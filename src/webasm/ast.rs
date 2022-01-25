@@ -108,6 +108,7 @@ pub enum Instruction {
 
     LocalGet(LocalIdx),
     I32Const(i32),
+    I64Const(i64),
     Eq(NumType),
     Add(NumType),
     Sub(NumType),

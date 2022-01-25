@@ -15,23 +15,26 @@ use crate::webasm::ast::Module;
 use crate::webasm::node::{Source, WebAsmNode};
 use crate::webasm::parser::hydrate::hydrate_module;
 
-fn fib_node() -> WebAsmNode {
+fn fib_node(func_name: &str) -> WebAsmNode {
     let name = String::from("data/fib.wasm");
     let mut file = File::open(&name).unwrap();
     let module = Module::read(&mut file).unwrap();
     hydrate_module(&module, &mut file);
     let source = Rc::new(Source { uuid: 0, name: name.clone(), file: RefCell::new(file), module });
-    WebAsmNode::exported_func(source.clone(), "fib32")
+    WebAsmNode::exported_func(source.clone(), func_name)
 }
 
-#[test]
-fn test_node_creation() { traverse_node(fib_node()); }
+fn fib_node_32() -> WebAsmNode { fib_node("fib32") }
+fn fib_node_64() -> WebAsmNode { fib_node("fib64") }
 
 #[test]
-fn test_node_pretty_print() { pretty_print(fib_node()); }
+fn test_node_creation() { traverse_node(fib_node_32()); }
 
 #[test]
-fn test_cached_node_pretty_print() { pretty_print(Cache::new().cache(fib_node())); }
+fn test_node_pretty_print() { pretty_print(fib_node_32()); }
+
+#[test]
+fn test_cached_node_pretty_print() { pretty_print(Cache::new().cache(fib_node_32())); }
 
 fn run_fib<F: FnOnce(&mut [u8])>(eval: F, n: u32) {
     let mut stack = [0u8; 1000];
@@ -48,29 +51,35 @@ fn run_fib_node<N: Node>(node: N, n: u32) {
 // run in release mode with `cargo test webasm::fib_tests::test_node_eval --release`
 #[test]
 fn test_node_eval() {
-    run_fib_node(fib_node(), 25);
+    run_fib_node(fib_node_32(), 25);
 }
 
 #[test]
 fn test_cached_node_eval() {
-    run_fib_node(Cache::new().cache(fib_node()), 35);
+    run_fib_node(Cache::new().cache(fib_node_32()), 35);
 }
 
 #[test]
 fn test_specialized_interpreter_eval() {
     let mut interpreter = Driver::new(SpecializedInterpreterEngine::new());
-    run_fib(|stack| interpreter.eval(fib_node(), stack), 35);
+    run_fib(|stack| interpreter.eval(fib_node_32(), stack), 35);
     // interpreter.print_stats()
 }
 
 #[test]
 fn test_caching_interpreter_eval() {
-    run_fib(|stack| Driver::new(InterpreterEngine::new()).eval(fib_node(), stack), 35);
+    run_fib(|stack| Driver::new(InterpreterEngine::new()).eval(fib_node_32(), stack), 35);
 }
 
 #[test]
 fn test_code_generator_eval() {
-    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node(), stack), 39);
+    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node_32(), stack), 39);
+}
+
+#[test]
+fn test_code_generator_eval_64() {
+    // todo: not correct run_fib
+    run_fib(|stack| Driver::new(CodeGeneratorEngine::new(1024).unwrap()).eval(fib_node_64(), stack), 10);
 }
 
 #[test]

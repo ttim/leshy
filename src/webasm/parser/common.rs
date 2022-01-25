@@ -19,6 +19,10 @@ pub fn read_i32(src: &mut (impl Read + Seek)) -> Result<i32> {
     Ok(i32::try_from(leb128::read::signed(src)?)?)
 }
 
+pub fn read_i64(src: &mut (impl Read + Seek)) -> Result<i64> {
+    Ok(i64::try_from(leb128::read::signed(src)?)?)
+}
+
 pub fn read_u8(src: &mut (impl Read + Seek)) -> Result<u8> {
     let mut buf: [u8; 1] = [0; 1];
     src.read_exact(&mut buf)?;

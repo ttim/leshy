@@ -216,6 +216,9 @@ impl InstructionNode {
             Instruction::I32Const(value) => {
                 self.push_const(value.to_le_bytes().to_vec())
             }
+            Instruction::I64Const(value) => {
+                self.push_const(value.to_le_bytes().to_vec())
+            }
             Instruction::Eq(num_type) => {
                 let size = InstructionNode::num_type_size(*num_type) as u32;
 

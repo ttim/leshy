@@ -53,11 +53,20 @@ pub fn eval_command(command: &Command, stack: &mut [u8]) {
         Command::Copy { size: 4, dst, op } => {
             put_u32(*dst, stack, get_u32(*op, stack));
         }
+        Command::Copy { size: 8, dst, op } => {
+            put_u64(*dst, stack, get_u64(*op, stack));
+        }
         Command::Add { size: 4, dst, op1, op2 } => {
             put_u32(*dst, stack, get_u32(*op1, stack) + get_u32(*op2, stack))
         }
+        Command::Add { size: 8, dst, op1, op2 } => {
+            put_u64(*dst, stack, get_u64(*op1, stack) + get_u64(*op2, stack))
+        }
         Command::Sub { size: 4, dst, op1, op2 } => {
             put_u32(*dst, stack, get_u32(*op1, stack) - get_u32(*op2, stack))
+        }
+        Command::Sub { size: 8, dst, op1, op2 } => {
+            put_u64(*dst, stack, get_u64(*op1, stack) - get_u64(*op2, stack))
         }
         _ => {
             todo!("unsupported command: {:?}", command)
@@ -90,10 +99,26 @@ pub fn get_u32(src: Ref, stack: &[u8]) -> Wrapping<u32> {
     }
 }
 
+pub fn get_u64(src: Ref, stack: &[u8]) -> Wrapping<u64> {
+    match src {
+        Ref::Stack(offset) => {
+            Wrapping(u64::from_le_bytes(stack[offset as usize..(offset + 8) as usize].try_into().unwrap()))
+        }
+    }
+}
+
 pub fn put_u32(dst: Ref, stack: &mut [u8], value: Wrapping<u32>) {
     match dst {
         Ref::Stack(offset) => {
             stack[offset as usize..(offset + 4) as usize].copy_from_slice(value.0.to_le_bytes().as_slice());
+        }
+    }
+}
+
+pub fn put_u64(dst: Ref, stack: &mut [u8], value: Wrapping<u64>) {
+    match dst {
+        Ref::Stack(offset) => {
+            stack[offset as usize..(offset + 8) as usize].copy_from_slice(value.0.to_le_bytes().as_slice());
         }
     }
 }
