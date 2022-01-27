@@ -4,7 +4,7 @@ use dynasmrt::{AssemblyOffset, DynasmApi, ExecutableBuffer};
 use dynasmrt::mmap::MutableBuffer;
 use crate::core::api::NodeKind;
 use crate::core::driver::driver::{Engine, Frame, NodeId, RunState};
-use crate::core::driver::aarch64::{b, flush_code_cache, generate};
+use crate::core::driver::aarch64::{b, insert_debug, flush_code_cache, generate};
 use multimap::MultiMap;
 
 // engine <-> generated code interop/call conventions:
@@ -26,6 +26,10 @@ use multimap::MultiMap;
 struct SuspendTrace {
     offset: u32,
     id: NodeId
+}
+
+extern "C" fn on_debug(stack_start: *const u8, stack_end: *const u8, unwind_start: *const u8, node_id: u64) {
+    println!("{:?} {:?} {:?} {:?}", stack_start, stack_end, unwind_start, node_id)
 }
 
 fn interop(fn_ptr: *const u8, stack_start: *mut u8, stack_end: *const u8, unwind_dst: *mut SuspendTrace) -> usize {
@@ -51,6 +55,7 @@ pub struct CodeGeneratorEngine {
     offsets: HashMap<NodeId, AssemblyOffset>,
     returns: MultiMap<NodeId, ReturnInfo>,
     do_jumps: bool,
+    do_debug: bool,
 }
 
 impl CodeGeneratorEngine {
@@ -62,11 +67,14 @@ impl CodeGeneratorEngine {
             offsets: HashMap::new(),
             returns: MultiMap::new(),
             do_jumps: true,
+            do_debug: false,
         })
     }
 
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         if self.offsets.contains_key(&id) { return; }
+
+        if self.do_debug { println!("{:?} <- {:?}", id, kind) }
 
         let mut writable = match std::mem::replace(&mut self.code, None) {
             Some(buffer) => { buffer.make_mut().unwrap() }
@@ -78,6 +86,7 @@ impl CodeGeneratorEngine {
             self.remove_last_return_if_needed(id);
         }
         let mut ops = Assembler { buffer: writable, offset: self.offset };
+        if self.do_debug { insert_debug(&mut ops, id, on_debug) }
         let returns = generate(&mut ops, kind.clone());
 
         self.offsets.insert(id, self.offset);

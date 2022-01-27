@@ -33,6 +33,23 @@ lazy_static! {
     };
 }
 
+pub fn insert_debug<T: DynasmApi>(api: &mut T, id: NodeId, debug_fn: extern "C" fn (*const u8, *const u8, *const u8, u64)) {
+    // save x0, x1, x2, x3, x4, lr; put id to x3; put debug_fn to x4; call x4; restore
+    asm!(api
+        ; stp x0, x1, [sp, #-16]!
+        ; stp x2, x3, [sp, #-16]!
+        ; stp x4, lr, [sp, #-16]!
+    );
+    mov_u64(api, 3, id.0 as u64);
+    mov_u64(api, 4, debug_fn as u64);
+    asm!(api
+        ; blr x4
+        ; ldp x4, lr, [sp], #16
+        ; ldp x2, x3, [sp], #16
+        ; ldp x0, x1, [sp], #16
+    );
+}
+
 // todo: kind should be more like NodeKind<NodeId | AssemblyOffset>
 pub fn generate<T: DynasmApi>(api: &mut T, kind: NodeKind<NodeId>) -> Vec<ReturnInfo> {
     match kind {
