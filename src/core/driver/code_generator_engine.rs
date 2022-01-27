@@ -29,7 +29,18 @@ struct SuspendTrace {
 }
 
 extern "C" fn on_debug(stack_start: *const u8, stack_end: *const u8, unwind_start: *const u8, node_id: u64) {
-    println!("{:?} {:?} {:?} {:?}", stack_start, stack_end, unwind_start, node_id)
+    // println!("{:?} {:?} {:?} {:?}", stack_start, stack_end, unwind_start, node_id);
+    println!("run {:?}", node_id);
+
+    // todo: lens shouldn't be hardcoded
+    let print_from = stack_end as usize - 1000; // because it's stack size
+    let print_until = stack_start as usize + 24;
+    let print_count = (print_until - print_from) / 4;
+    (0..print_count).for_each(|num| unsafe {
+        let pos = (print_from + num * 4) as *const u32;
+        print!("{} ", pos.read());
+    });
+    println!()
 }
 
 fn interop(fn_ptr: *const u8, stack_start: *mut u8, stack_end: *const u8, unwind_dst: *mut SuspendTrace) -> usize {
@@ -59,7 +70,7 @@ pub struct CodeGeneratorEngine {
 }
 
 impl CodeGeneratorEngine {
-    pub fn new(size: usize) -> io::Result<CodeGeneratorEngine> {
+    pub fn new(size: usize, do_debug: bool) -> io::Result<CodeGeneratorEngine> {
         Ok(CodeGeneratorEngine {
             size,
             code: Some(ExecutableBuffer::new(size)?),
@@ -67,7 +78,7 @@ impl CodeGeneratorEngine {
             offsets: HashMap::new(),
             returns: MultiMap::new(),
             do_jumps: true,
-            do_debug: false,
+            do_debug,
         })
     }
 

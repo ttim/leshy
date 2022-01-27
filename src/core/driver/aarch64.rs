@@ -19,6 +19,7 @@ macro_rules! asm {
             ; .alias unwind_stack, x2
             ; .alias unwind_stack_end, x0
             ; .alias lr, x30
+            ; .alias store_tmp, w15
             $($t)*
         )
     }
@@ -206,12 +207,12 @@ fn add<T: DynasmApi>(api: &mut T, len: u32, dst: Ref, op1: Ref, op2: Ref) {
             store_u32(api, 11, dst);
         }
         8 => {
-            load_u64(api, 14, op1);
-            load_u64(api, 15, op2);
+            load_u64(api, 9, op1);
+            load_u64(api, 10, op2);
             asm!(api
-                ; add x16, x14, x15
+                ; add x11, x9, x10
             );
-            store_u64(api, 16, dst);
+            store_u64(api, 11, dst);
         }
         _ => { todo!() }
     }
@@ -269,10 +270,11 @@ fn store_u32<T: DynasmApi>(api: &mut T, register: u32, dst: Ref) {
     match dst {
         Ref::Stack(offset) => {
             // todo: check for stack overflow
-            // todo: what if offset is big?
-            asm!(api
-                ; str W(register), [data_stack, offset]
-            );
+            if (offset <= 255) && (offset % 4 == 0) {
+                asm!(api
+                    ; str W(register), [data_stack, offset]
+                );
+            } else { todo!() }
         }
     }
 }
@@ -281,10 +283,16 @@ fn store_u64<T: DynasmApi>(api: &mut T, register: u32, dst: Ref) {
     match dst {
         Ref::Stack(offset) => {
             // todo: check for stack overflow
-            // todo: what if offset is big?
-            asm!(api
-                ; str X(register), [data_stack, offset]
-            );
+            if (offset <= 255) && (offset%8 == 0) {
+                asm!(api
+                    ; str X(register), [data_stack, offset]
+                );
+            } else {
+                mov_u32(api, 15, offset);
+                asm!(api
+                    ; str X(register), [data_stack, store_tmp]
+                );
+            }
         }
     }
 }
@@ -293,10 +301,11 @@ fn load_u32<T: DynasmApi>(api: &mut T, register: u32, op: Ref) {
     match op {
         Ref::Stack(offset) => {
             // todo: check for stack overflow
-            // todo: what if offset is big?
-            asm!(api
-                ; ldr W(register), [data_stack, offset]
-            );
+            if (offset <= 255) && (offset % 4 == 0) {
+                asm!(api
+                    ; ldr W(register), [data_stack, offset]
+                );
+            } else { todo!() }
         }
     }
 }
@@ -305,10 +314,16 @@ fn load_u64<T: DynasmApi>(api: &mut T, register: u32, op: Ref) {
     match op {
         Ref::Stack(offset) => {
             // todo: check for stack overflow
-            // todo: what if offset is big?
-            asm!(api
-                ; ldr X(register), [data_stack, offset]
-            );
+            if (offset <= 255) && (offset % 8 == 0) {
+                asm!(api
+                    ; ldr X(register), [data_stack, offset]
+                );
+            } else {
+                mov_u32(api, 15, offset);
+                asm!(api
+                    ; ldr X(register), [data_stack, store_tmp]
+                );
+            }
         }
     }
 }

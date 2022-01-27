@@ -4,10 +4,11 @@ use crate::core::interpreter::{eval_command, eval_condition};
 
 pub struct InterpreterEngine {
     computed: Vec<Option<NodeKind<NodeId>>>,
+    debug: bool,
 }
 
 impl InterpreterEngine {
-    pub fn new() -> InterpreterEngine { InterpreterEngine { computed: Vec::new() } }
+    pub fn new(debug: bool) -> InterpreterEngine { InterpreterEngine { computed: Vec::new(), debug } }
 
     fn register(&mut self, id: NodeId, kind: NodeKind<NodeId>) {
         while self.computed.len() <= id.0 as usize {
@@ -27,6 +28,15 @@ impl InterpreterEngine {
                     return true;
                 }
                 Some(kind) => {
+                    if self.debug {
+                        println!("run {}", current.id.0);
+                        let count = (offset + 24) / 4;
+                        (0..count).for_each(|num| unsafe {
+                            let val = u32::from_le_bytes(stack[num * 4 .. num * 4 + 4].try_into().unwrap());
+                            print!("{} ", val);
+                        });
+                        println!()
+                    }
                     match kind {
                         NodeKind::Command { command, next } => {
                             eval_command(command, &mut stack[offset..]);

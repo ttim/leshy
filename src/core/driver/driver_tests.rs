@@ -25,9 +25,9 @@ impl Engine for EngineBox {
 
 fn engines() -> Vec<(&'static str, EngineBox)> {
     vec![
-        ("interpreter", EngineBox(Box::new(InterpreterEngine::new()))),
+        ("interpreter", EngineBox(Box::new(InterpreterEngine::new(false)))),
         ("specialized", EngineBox(Box::new(SpecializedInterpreterEngine::new()))),
-        ("code generator", EngineBox(Box::new(CodeGeneratorEngine::new(1024).unwrap()))),
+        ("code generator", EngineBox(Box::new(CodeGeneratorEngine::new(1024, false).unwrap()))),
     ]
 }
 

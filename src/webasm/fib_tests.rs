@@ -15,8 +15,6 @@ use crate::webasm::ast::Module;
 use crate::webasm::node::{Source, WebAsmNode};
 use crate::webasm::parser::hydrate::hydrate_module;
 
-const CODE_SIZE: usize = 8 * 1024;
-
 fn fib_node(func_name: &str) -> WebAsmNode {
     let name = String::from("data/fib.wasm");
     let mut file = File::open(&name).unwrap();
@@ -67,19 +65,24 @@ fn test_specialized_interpreter_eval() {
 
 #[test]
 fn test_caching_interpreter_eval() {
-    run_fib(|stack| Driver::new(InterpreterEngine::new()).eval(fib_node_32(), stack), 35);
+    run_fib(|stack| Driver::new(InterpreterEngine::new(false)).eval(fib_node_32(), stack), 35);
+}
+
+fn code_engine_driver<N: Node>() -> Driver<N, CodeGeneratorEngine> {
+    Driver::new(CodeGeneratorEngine::new(8 * 1024, false).unwrap())
 }
 
 #[test]
-fn test_code_generator_eval() {
-    let res = run_fib(|stack| Driver::new(CodeGeneratorEngine::new(CODE_SIZE).unwrap()).eval(fib_node_32(), stack), 39);
+fn test_code_generator_eval_32() {
+    let res = run_fib(|stack| code_engine_driver().eval(fib_node_32(), stack), 39);
     assert_eq!(63245986, res);
 }
 
 #[test]
 fn test_code_generator_eval_64() {
-    let res = run_fib(|stack| Driver::new(CodeGeneratorEngine::new(CODE_SIZE).unwrap()).eval(fib_node_64(), stack), 6);
-    assert_eq!(13, res);
+    // let res = run_fib(|stack| Driver::new(InterpreterEngine::new(true)).eval(fib_node_64(), stack), 39);
+    let res = run_fib(|stack| code_engine_driver().eval(fib_node_64(), stack), 39);
+    assert_eq!(63245986, res);
 }
 
 #[test]
